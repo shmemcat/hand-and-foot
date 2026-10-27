@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import type { Card } from "../types";
-import { detectMeldKind, isValidMeld } from "./melds";
+import type { Card, Meld } from "../types";
+import { detectMeldKind, isValidMeld, pickupPlayableCards } from "./melds";
 
 function cards(...ranks: string[]): Card[] {
   return ranks.map((rank, index) => ({
@@ -82,4 +82,84 @@ it("rejects mixed suits in a run and duplicate physical cards", () => {
 it("preserves the type when adding cards to an existing pile", () => {
   expect(isValidMeld(cards("5", "6", "7", "8"), "set")).toBe(false);
   expect(isValidMeld(cards("8", "8", "8", "8"), "run")).toBe(false);
+});
+
+function pickupPile(ranks: string[]): Meld {
+  return {
+    id: "target",
+    creator: "you",
+    kind: "set",
+    rank: ranks[0],
+    cards: cards(...ranks),
+    complete: ranks.length >= 7,
+    dirty: ranks.includes("Joker"),
+    bonus: 0,
+  };
+}
+const discard: Card = {
+  id: "discard",
+  rank: "8",
+  suit: "hearts",
+  value: 5,
+  wild: false,
+  redThree: false,
+};
+
+it("allows matching naturals and usable wilds while excluding unrelated cards and threes", () => {
+  const hand = cards("8", "8", "Joker", "2", "K", "3");
+  expect([...pickupPlayableCards(hand, discard, [])]).toEqual(
+    hand.slice(0, 4).map((card) => card.id),
+  );
+});
+
+it("does not substitute a wild for either of the two matching hand cards required for a new pile", () => {
+  expect([
+    ...pickupPlayableCards(cards("8", "Joker", "2"), discard, []),
+  ]).toEqual([]);
+});
+
+it("finds straight-flush completions, excludes gaps, wrong suits and duplicate ranks, and follows the selection", () => {
+  const hand = cards("6", "7", "9", "10", "Q", "8", "7");
+  hand[6].suit = "clubs";
+  const options = pickupPlayableCards(hand, discard, [], [hand[1].id]);
+  expect([...options]).toEqual(hand.slice(0, 4).map((card) => card.id));
+  expect([...pickupPlayableCards(cards("6", "9", "J"), discard, [])]).toEqual(
+    [],
+  );
+});
+
+it("lets hand cards join a legal existing pickup but excludes six-card targets", () => {
+  const hand = cards("8", "Joker", "Q").map((card) => ({
+    ...card,
+    id: `hand-${card.id}`,
+  }));
+  expect([
+    ...pickupPlayableCards(hand, discard, [pickupPile(["8", "8", "8"])]),
+  ]).toEqual(hand.slice(0, 2).map((card) => card.id));
+  expect([
+    ...pickupPlayableCards(hand, discard, [pickupPile(Array(6).fill("8"))]),
+  ]).toEqual([]);
+});
+
+it("keeps a natural majority when suggesting additional wild cards", () => {
+  const hand = cards("Joker", "Joker").map((card) => ({
+    ...card,
+    id: `hand-${card.id}`,
+  }));
+  const target = pickupPile(["8", "8", "Joker"]);
+  expect([...pickupPlayableCards(hand, discard, [target])]).toEqual(
+    hand.map((card) => card.id),
+  );
+  expect([
+    ...pickupPlayableCards(hand, discard, [target], [hand[0].id]),
+  ]).toEqual([hand[0].id]);
+});
+
+it("rejects pickup guidance for a three or a wild discard", () => {
+  expect(
+    pickupPlayableCards(cards("8", "8"), { ...discard, rank: "3" }, []).size,
+  ).toBe(0);
+  expect(
+    pickupPlayableCards(cards("8", "8"), { ...discard, wild: true }, []).size,
+  ).toBe(0);
 });

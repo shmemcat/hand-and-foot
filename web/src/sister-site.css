@@ -3,9 +3,13 @@
   --primary-shadow: color-mix(in srgb, var(--primary) 77%, #000);
   --secondary-shadow: color-mix(in srgb, var(--secondary) 77%, #000);
   --link: #89525e;
+  --volume-panel: var(--panel);
+  --volume-track: var(--surface);
 }
 :root[data-theme="dark"] {
   --link: #e5b1b6;
+  --volume-panel: var(--soft);
+  --volume-track: var(--panel);
 }
 body {
   font-size: 17px;
@@ -22,7 +26,7 @@ a {
 }
 .site-frame {
   display: block;
-  width: 1030px;
+  width: min(1330px, 95vw);
   min-height: 650px;
   margin: 20px auto;
   padding: 35px 35px 60px;
@@ -264,39 +268,201 @@ a {
 .nav-user:hover {
   color: var(--link);
 }
+.sound-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 .sound-settings {
-  top: 40px;
-  width: 225px;
-  padding: 16px;
-  gap: 14px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel);
-  box-shadow: 0 5px 16px var(--shadow);
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  transform-origin: top center;
+  padding-top: 6px;
+  z-index: 50;
+  animation: sound-settings-in 0.18s ease;
+}
+.sound-settings-inner {
+  font-size: 9px;
+  background: var(--volume-panel);
+  border-radius: 1.4em;
+  box-shadow:
+    0 0 1em #0002,
+    0 0.25em 0.5em #0002;
+  padding: 0.8em 1em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
 }
 .volume-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 0.8em;
 }
 .volume-toggle {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   padding: 0;
   background: transparent;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.volume-toggle:hover {
   color: var(--link);
-  flex: none;
 }
 .volume-toggle svg {
-  width: 21px;
-  height: 21px;
+  width: 14px;
+  height: 14px;
 }
-.sound-settings .volume-row input {
-  min-width: 0;
+.sound-settings input[type="range"] {
+  --vs-base: var(--primary);
+  --vs-light: color-mix(in srgb, var(--vs-base) 60%, #fff);
+  --vs-lighter: color-mix(in srgb, var(--vs-base) 30%, #fff);
+  --vs-dark: color-mix(in srgb, var(--vs-base) 95%, #000);
+  --vs-tp: color-mix(in srgb, var(--vs-base) 0%, #0000);
+  appearance: none;
+  -webkit-appearance: none;
+  font-size: inherit;
+  width: 130px;
+  height: 2em;
+  border: none;
+  border-radius: 2em;
+  overflow: hidden;
   margin: 0;
-  accent-color: var(--link);
+  padding: 0;
+  cursor: pointer;
+  display: block;
+  background: transparent;
+}
+.sound-settings input[type="range"]::-webkit-slider-runnable-track {
+  background:
+    radial-gradient(
+      circle at 0.75em 0.6em,
+      var(--vs-light) calc(0.2em - 1px),
+      #0000 0.2em
+    ),
+    radial-gradient(
+      circle at 1.25em 0.6em,
+      var(--vs-light) calc(0.2em - 1px),
+      #0000 0.2em
+    ),
+    radial-gradient(
+      circle at 5em 0.6em,
+      var(--vs-light) calc(0.2em - 1px),
+      #0000 0.2em
+    ),
+    linear-gradient(var(--vs-light) 0 0) 1.25em 0.4em / 3.75em
+      calc(0.4em - 0.5px) no-repeat,
+    linear-gradient(90deg, var(--vs-base), var(--vs-tp) 1em),
+    linear-gradient(#0000 70%, var(--vs-dark) 80%),
+    var(--vs-base);
+  height: 100%;
+}
+.sound-settings input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2em;
+  width: 2em;
+  color: var(--volume-track);
+  background:
+    radial-gradient(
+      circle at 0.75em 0.6em,
+      var(--vs-light) calc(0.2em - 1px),
+      #0000 0.2em
+    ),
+    linear-gradient(90deg, #0000 0.75em, var(--vs-base) 0) 0 0 / 100% 50%
+      no-repeat;
+  border-radius: 50%;
+  box-shadow:
+    inset -0.5em 0 0.5em -0.25em var(--vs-base),
+    1em 0 0 0.25em,
+    2em 0 0 0.25em,
+    3em 0 0 0.25em,
+    4em 0 0 0.25em,
+    5em 0 0 0.25em,
+    6em 0 0 0.25em,
+    7em 0 0 0.25em,
+    8em 0 0 0.25em,
+    9em 0 0 0.25em,
+    10em 0 0 0.25em,
+    11em 0 0 0.25em,
+    12em 0 0 0.25em,
+    13em 0 0 0.25em,
+    14em 0 0 0.25em,
+    15em 0 0 0.25em,
+    16em 0 0 0.25em;
+}
+.sound-settings input[type="range"]::-moz-range-track {
+  background:
+    radial-gradient(
+      circle at 0.75em 30%,
+      var(--vs-light) calc(0.2em - 1px),
+      #0000 0.2em
+    ),
+    radial-gradient(
+      circle at 1.5em 30%,
+      var(--vs-light) calc(0.2em - 1px),
+      #0000 0.2em
+    ),
+    radial-gradient(
+      circle at 5.5em 30%,
+      var(--vs-light) calc(0.2em - 1px),
+      #0000 0.2em
+    ),
+    linear-gradient(var(--vs-light) 0 0) 1.5em calc(15% + 0.18em) / 4em
+      calc(0.4em - 0.5px) no-repeat,
+    linear-gradient(90deg, var(--vs-base), var(--vs-tp) 1em),
+    linear-gradient(var(--vs-tp) 70%, var(--vs-dark) 80%),
+    var(--vs-base);
+  height: 100%;
+}
+.sound-settings input[type="range"]::-moz-range-thumb {
+  appearance: none;
+  height: 2em;
+  width: 2em;
+  border: 0;
+  color: var(--vs-lighter);
+  background:
+    radial-gradient(
+      circle at 0.75em 0.6em,
+      var(--vs-light) calc(0.2em - 1px),
+      #0000 0.2em
+    ),
+    linear-gradient(90deg, var(--vs-tp) 0.75em, var(--vs-base) 0) 0 0 / 100% 50%
+      no-repeat;
+  border-radius: 50%;
+  box-shadow:
+    inset -0.5em 0 0.5em -0.25em var(--vs-base),
+    1em 0 0 0.25em,
+    2em 0 0 0.25em,
+    3em 0 0 0.25em,
+    4em 0 0 0.25em,
+    5em 0 0 0.25em,
+    6em 0 0 0.25em,
+    7em 0 0 0.25em,
+    8em 0 0 0.25em,
+    9em 0 0 0.25em,
+    10em 0 0 0.25em,
+    11em 0 0 0.25em,
+    12em 0 0 0.25em,
+    13em 0 0 0.25em,
+    14em 0 0 0.25em,
+    15em 0 0 0.25em,
+    16em 0 0 0.25em;
+}
+@keyframes sound-settings-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 .cards-hub-link {
   position: absolute;
@@ -708,14 +874,14 @@ a {
   font-weight: 600;
 }
 .card-art text.joker-rank {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.6px;
 }
 .site-frame.table-frame:has(.game-page) {
   display: flex;
   flex-direction: column;
-  width: min(1030px, 95vw);
+  width: min(1330px, 95vw);
   margin: 20px auto;
   padding: 24px 28px 0;
   min-height: calc(100dvh - 40px);
@@ -905,11 +1071,6 @@ a {
   width: auto;
   min-width: 140px;
 }
-@media (min-width: 769px) and (max-width: 1085px) {
-  .site-frame {
-    width: 95vw;
-  }
-}
 @media (max-width: 768px) {
   .leaderboard-columns {
     flex-direction: column;
@@ -942,9 +1103,6 @@ a {
   }
   .site-nav .nav-actions {
     gap: 20px;
-  }
-  .sound-wrap {
-    position: static;
   }
   .nav-user {
     font-size: 16px;
@@ -1122,6 +1280,9 @@ a {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .sound-settings {
+    animation: none;
+  }
   .play-choice:hover {
     transform: none;
   }

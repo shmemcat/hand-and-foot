@@ -3,9 +3,15 @@ import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { useHorizontalWheel } from "./useHorizontalWheel";
 
-function Hand({ enabled = true }: { enabled?: boolean }) {
-  const ref = useHorizontalWheel(enabled);
-  return <div ref={ref} data-testid="hand" />;
+function Hand({
+  enabled = true,
+  revision,
+}: {
+  enabled?: boolean;
+  revision?: number;
+}) {
+  const ref = useHorizontalWheel(enabled, revision);
+  return <div key={revision} ref={ref} data-testid="hand" />;
 }
 function dimensions(strip: HTMLElement, width = 300, content = 1000) {
   Object.defineProperties(strip, {
@@ -31,6 +37,18 @@ it("moves an overflowing hand sideways with the vertical mouse wheel", () => {
   expect(strip.scrollLeft).toBe(120);
   wheel(strip, { deltaY: -40 });
   expect(strip.scrollLeft).toBe(80);
+});
+
+it("reattaches when a rehearsal beat replaces the hand without changing its card count", () => {
+  const view = render(<Hand revision={1} />);
+  const previous = screen.getByTestId("hand");
+  dimensions(previous);
+  view.rerender(<Hand revision={2} />);
+  const current = screen.getByTestId("hand");
+  dimensions(current);
+  expect(wheel(previous, { deltaY: 120 }).defaultPrevented).toBe(false);
+  expect(wheel(current, { deltaY: 120 }).defaultPrevented).toBe(true);
+  expect(current.scrollLeft).toBe(120);
 });
 
 it("keeps the page from jumping when the hand reaches either end", () => {

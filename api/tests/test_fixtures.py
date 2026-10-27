@@ -1,7 +1,7 @@
 import pytest
 from collections import Counter
 from handandfoot_server import engine
-from handandfoot_server.fixtures import BOARD_FIXTURES, HAND_FIXTURES, populate
+from handandfoot_server.fixtures import BOARD_FIXTURES, HAND_FIXTURES, OPENING_FIXTURES, populate
 from handandfoot_server.rules import RANKS, SUITS, meld_details, opening_for
 from test_engine import fresh
 from test_service import client, ROOT
@@ -20,12 +20,32 @@ def test_development_fixtures_conserve_cards(kind):
         assert view["drawCount"] == 3
 
 
-@pytest.mark.parametrize("kind", ["scoring", *BOARD_FIXTURES, *HAND_FIXTURES])
+@pytest.mark.parametrize("kind", ["scoring", *BOARD_FIXTURES, *HAND_FIXTURES, *OPENING_FIXTURES])
 def test_fixtures_are_disabled_by_default(tmp_path, kind):
     from handandfoot_server.application import create_app
     app = create_app({"TESTING": True, "START_WORKER": False, "DEVELOPMENT_FIXTURES": False, "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'game.sqlite'}"})
     http, headers = client(app)
     assert http.post(ROOT + "/fixtures", headers=headers, json={"fixture": kind}).status_code == 404
+
+
+@pytest.mark.parametrize("kind,round_number", [("opening", 1), ("next-round-opening", 2)])
+def test_live_opening_previews_use_real_private_piles_and_rotate_the_dealer(tmp_path, kind, round_number):
+    game = fresh(4, "individual")
+    dealer = game["dealer"]
+    populate(game, kind)
+    assert game["round"] == round_number
+    assert game["dealer"] == (dealer + round_number - 1) % 4
+    engine.assert_conservation(game)
+    from handandfoot_server.application import create_app
+    app = create_app({"TESTING": True, "START_WORKER": False, "DEVELOPMENT_FIXTURES": True, "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'opening.sqlite'}"})
+    http, headers = client(app)
+    response = http.post(ROOT + "/fixtures", headers=headers, json={"fixture": kind})
+    assert response.status_code == 200
+    view = response.json
+    assert view["round"] == round_number and view["phase"] == "choose"
+    assert not view["opening"]["complete"]
+    assert view["hand"] == [] and list(map(len, view["footPreview"])) == [2, 2]
+    assert view["scoringMode"] == "individual" and view["capacity"] == 4
 
 
 @pytest.mark.parametrize("kind,count", HAND_FIXTURES.items())

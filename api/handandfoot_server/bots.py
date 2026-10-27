@@ -75,7 +75,7 @@ def plan_melds(view):
                 pass
     if not side["opened"]:
         total = sum(card["value"] for group in groups for card in hand if card["id"] in group["cardIds"])
-        if total <= side["opening"]:
+        if total < side["opening"]:
             return []
     return groups
 

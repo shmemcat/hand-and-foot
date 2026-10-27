@@ -69,6 +69,8 @@ def test_unique_action_receipts_stale_turns_and_invalid_atomic_move(app):
         db.session.commit()
     room = http.get(f'{ROOT}/rooms/{room["code"]}').json
     draw_id = str(uuid.uuid4())
+    assert move(http, headers, room, "draw").status_code == 400
+    room = move(http, headers, room, "opening_ready").json
     drawn = move(http, headers, room, "draw", action_id=draw_id)
     assert drawn.status_code == 200
     assert len(drawn.json["hand"]) == 13
@@ -95,6 +97,51 @@ def test_independent_pile_choices_and_presence_do_not_stale_other_player(app):
     response = move(friend, friend_headers, other_view, "choose", pile=1)
     assert response.status_code == 200
     assert response.json["phase"] == "draw"
+    host_view = host.get(f'{ROOT}/rooms/{room["code"]}').json
+    friend_view = response.json
+    assert not friend_view["opening"]["complete"]
+    assert move(host, headers, host_view, "opening_ready").status_code == 200
+    # Independent acknowledgements share a stable token, like independent choices.
+    ready = move(friend, friend_headers, friend_view, "opening_ready")
+    assert ready.status_code == 200
+    assert ready.json["opening"]["complete"]
+    assert len(ready.json["opening"]["ready"]) == 2
+
+
+def test_bots_wait_for_the_live_opening_then_resume_and_next_round_has_a_new_deal(app):
+    http, headers = client(app)
+    room = create(http, headers, playMode="practice", capacity=2, scoringMode="individual")
+    assert move(http, headers, room, "opening_ready").status_code == 400
+    room = move(http, headers, room, "choose", pile=1).json
+    app.extensions["tick"]()
+    with app.app_context():
+        row = db.session.get(Room, room["code"])
+        data = copy.deepcopy(row.payload)
+        data["game"]["actor"] = 1
+        row.payload = data
+        db.session.commit()
+    before = http.get(f'{ROOT}/rooms/{room["code"]}').json
+    for _ in range(4):
+        app.extensions["tick"]()
+    waiting = http.get(f'{ROOT}/rooms/{room["code"]}').json
+    assert waiting["phase"] == "draw" and waiting["stockCount"] == before["stockCount"]
+    ready = move(http, headers, waiting, "opening_ready").json
+    assert ready["opening"]["complete"]
+    app.extensions["tick"]()
+    begun = http.get(f'{ROOT}/rooms/{room["code"]}').json
+    assert begun["phase"] == "play" and begun["stockCount"] == before["stockCount"] - 2
+    with app.app_context():
+        row = db.session.get(Room, room["code"])
+        data = copy.deepcopy(row.payload)
+        data["game"]["phase"] = "round_over"
+        row.payload = data
+        db.session.commit()
+    finished = http.get(f'{ROOT}/rooms/{room["code"]}').json
+    next_round = move(http, headers, finished, "next_round").json
+    assert next_round["round"] == 2
+    assert next_round["opening"]["id"] != ready["opening"]["id"]
+    assert not next_round["opening"]["complete"] and next_round["opening"]["ready"] == []
+    assert next_round["dealerId"] != ready["dealerId"]
 
 
 def test_restart_preserves_private_state_and_scoring_review(app):

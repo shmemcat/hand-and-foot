@@ -7,11 +7,13 @@ export function MeldPile({
   canTarget,
   onTarget,
   staged,
+  flyingIds,
 }: {
   meld: Meld;
   canTarget: boolean;
   onTarget: () => void;
   staged: number;
+  flyingIds?: Set<string>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const inspectionId = useId();
@@ -60,6 +62,7 @@ export function MeldPile({
       className={`meld-pile ${meld.complete ? "completed-book" : ""} ${straight ? "straight-book" : meld.dirty ? "dirty-book" : "clean-book"} ${canTarget ? "legal-target" : ""} ${needsHandCard ? "six-card-meld" : ""}`}
       role="group"
       aria-label={`${kind} ${title}`}
+      data-meld-id={meld.id}
     >
       <span className="meld-kind">{label}</span>
       {meld.complete ? (
@@ -69,6 +72,7 @@ export function MeldPile({
           aria-label={actionLabel}
           aria-expanded={canTarget ? undefined : expanded}
           aria-controls={canTarget ? undefined : inspectionId}
+          data-meld-hidden={Boolean(cover && flyingIds?.has(cover.id))}
         >
           <Card card={cover} small />
         </button>
@@ -97,6 +101,8 @@ export function MeldPile({
                 className="meld-card-layer"
                 style={{ top: index * 25 }}
                 key={card.id}
+                data-card-id={card.id}
+                data-meld-hidden={flyingIds?.has(card.id)}
               >
                 <Card
                   card={card}

@@ -56,6 +56,7 @@ def test_setup_and_physical_cards(mode, count):
         assert len(view["footPreview"]) == 2
         assert [len(pile) for pile in view["footPreview"]] == [2, 2]
         assert view["hand"] == []
+        assert view["dealerId"] == game["players"][game["dealer"]]["id"]
         assert "cards" not in view and "stock" not in view
     game = chosen(game)
     engine.assert_conservation(game)
@@ -69,19 +70,57 @@ def test_invalid_rosters(mode, count):
         validate_setup(mode, count, "online")
 
 
-def test_family_values_and_strict_thresholds():
+def test_public_dealer_marker_rotates_with_the_round():
+    game = fresh(4, "individual")
+    dealer = game["dealer"]
+    assert engine.project(game, "0")["dealerId"] == game["players"][dealer]["id"]
+    game["phase"] = "round_over"
+    next_round = engine.apply(game, 0, {"type": "next_round"})
+    assert next_round["round"] == 2
+    assert engine.project(next_round, "0")["dealerId"] == game["players"][(dealer + 1) % 4]["id"]
+
+
+def test_family_values_and_opening_thresholds():
     assert card_value("8", "clubs") == 5
     assert card_value("9", "clubs") == 10
     assert card_value("3", "clubs") == -100
     assert card_value("3", "hearts") == -300
     assert card_value("Joker", "joker") == 50
     assert [opening_for(score) for score in (0, 3000, 3001, 5999, 6000)] == [50, 50, 90, 90, 120]
+    assert not FAMILY.opening_is_strict
     game = rig()
-    game["players"][0]["hand"] = take(game, "9", 5) + take(game, "4")
+    game["players"][0]["hand"] = take(game, "9", 4) + take(game, "4")
     before = copy.deepcopy(game)
-    with pytest.raises(ValueError, match="more than 50"):
-        engine.apply(game, 0, {"type": "meld", "groups": [{"cardIds": game["players"][0]["hand"][:5]}]})
+    with pytest.raises(ValueError, match="at least 50"):
+        engine.apply(game, 0, {"type": "meld", "groups": [{"cardIds": game["players"][0]["hand"][:4]}]})
     assert game == before
+
+
+@pytest.mark.parametrize("mode", ["individual", "partnership"])
+@pytest.mark.parametrize("score,minimum,first_rank,first_count,second_rank,second_count", [
+    (0, 50, "9", 3, "4", 4),
+    (3001, 90, "A", 3, "10", 3),
+    (6000, 120, "A", 3, "10", 6),
+])
+def test_humans_and_bots_can_open_at_the_exact_minimum(mode, score, minimum, first_rank, first_count, second_rank, second_count):
+    game = rig(mode=mode)
+    game["sides"][0]["score"] = score
+    first = take(game, first_rank, first_count)
+    second = take(game, second_rank, second_count)
+    tail = take(game, "K")
+    game["players"][0]["hand"] = [*first, *second, *tail]
+    before = copy.deepcopy(game)
+    with pytest.raises(ValueError, match=f"at least {minimum}"):
+        engine.apply(game, 0, {"type": "meld", "groups": [{"cardIds": first}]})
+    assert game == before
+    groups = [{"cardIds": first}, {"cardIds": second}]
+    planned = bots.plan_melds({**engine.project(game, "0"), "viewerId": "0"})
+    assert sum(game["cards"][card_id]["value"] for group in planned for card_id in group["cardIds"]) == minimum
+    for opening_groups in (groups, planned):
+        moved = engine.apply(game, 0, {"type": "meld", "groups": opening_groups})
+        assert moved["sides"][0]["opened"]
+        assert moved["players"][0]["hand"] == tail
+        engine.assert_conservation(moved)
 
 
 @pytest.mark.parametrize("scores,expected", [([0,5000,9000],2),([0,5001,9000],3),([0,100,9000],2),([5000,0,9000],2),([-6000,0,1000],3),([0,0,9000],2)])
@@ -341,6 +380,9 @@ def test_top_discard_only_and_no_seventh_card():
     result = engine.apply(game, 0, {"type": "pickup", "groups": [{"cardIds": [top, *hand[:5]]}]})
     assert result["discard"] == lower
     assert result["players"][0]["hand"] == hand[-1:]
+    assert result["phase"] == "draw"
+    assert result["pickupDrawPending"]
+    result = engine.apply(result, 0, {"type": "draw"})
     assert result["phase"] == "play"
     result["phase"] = "draw"
     newtop = take(result, "K")[0]
@@ -496,7 +538,10 @@ def test_hidden_information_does_not_change_bot_decision():
     for player in swapped["players"]:
         if player["id"] != str(seat):
             player["hand"].reverse()
-        player["foot"].reverse()
+            player["foot"].reverse()
+        else:
+            # The top foot card is visible to its owner; the rest stay hidden.
+            player["foot"][1:] = reversed(player["foot"][1:])
     other_view = engine.project(swapped, str(seat)) | {"viewerId": str(seat)}
     assert view == other_view
     assert bots.decide(view) == bots.decide(other_view)

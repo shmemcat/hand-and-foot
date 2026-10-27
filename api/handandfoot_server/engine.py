@@ -28,7 +28,7 @@ def deal_round(game, *, rng=None):
     game["cards"] = make_deck(len(game["players"]))
     stock = list(game["cards"])
     rng.shuffle(stock)
-    game.update(stock=stock, discard=[], replaced=[], phase="choose", token=uid(), dealId=uid(), ready=[],
+    game.update(stock=stock, discard=[], replaced=[], phase="choose", token=uid(), dealId=uid(), ready=[], openingReady=[], openingComplete=False, pickupDrawPending=False,
                 actor=(game["dealer"] + 1) % len(game["players"]), message="Choose the pile you’d like to play first.")
     for side in game["sides"]:
         side.update(opened=False, melds=[])
@@ -108,13 +108,14 @@ def apply_melds(game, player, groups, *, pickup_id=None):
         total += sum(game["cards"][i]["value"] for i in ids)
     if pickup_id and not pickup_played:
         raise ValueError("Play the top discard immediately in the same move.")
-    if not side["opened"] and total <= opening_for(side["score"]):
-        raise ValueError(f'Your opening must total more than {opening_for(side["score"])} points. This draft has {total}.')
+    if not side["opened"] and total < opening_for(side["score"]):
+        raise ValueError(f'Your opening must total at least {opening_for(side["score"])} points. This draft has {total}.')
     side["opened"] = True
     player["hand"] = [i for i in player["hand"] if i not in used]
-    if not player["hand"] and player["inFoot"]:
+    remaining = len(player["hand"]) + (FAMILY.discard_followup_draw if pickup_id else 0)
+    if not remaining and player["inFoot"]:
         raise ValueError("Keep a final card to discard, even when going out.")
-    if player["inFoot"] and len(player["hand"]) == 1 and not can_go_out(game, player):
+    if player["inFoot"] and remaining == 1 and not can_go_out(game, player):
         raise ValueError("Keep two cards until you have both a clean and a dirty book; your turn still needs a discard.")
     enter_foot(game, player)
     game["message"] = f'{player["name"]} played {len(used)} cards.'
@@ -168,11 +169,26 @@ def arrange_book_covers(game):
             book["cardIds"].append(cover)
 
 
+def opening_pending(game):
+    """A round cannot draw until present humans finish its opening presentation."""
+    return "openingReady" in game and not game.get("openingComplete", False) and any(
+        not p["bot"] and p["id"] not in game["openingReady"] for p in game["players"]
+    )
+
+
 def _apply(game, seat, command):
     if type(seat) is not int or not 0 <= seat < len(game["players"]):
         raise ValueError("This seat does not exist.")
     player = game["players"][seat]
     action = command.get("type")
+    if action == "opening_ready":
+        if game["phase"] != "draw" or not all(p["chosen"] for p in game["players"]):
+            raise ValueError("Choose your hand and wait for the table first.")
+        if player["id"] not in game.setdefault("openingReady", []):
+            game["openingReady"].append(player["id"])
+        if not opening_pending(game):
+            game["openingComplete"] = True
+        return
     if game["phase"] == "scoring":
         from . import scoring
         team = player["team"]
@@ -206,15 +222,21 @@ def _apply(game, seat, command):
         return
     if game["phase"] not in ("draw", "play") or game["actor"] != seat:
         raise ValueError("Wait for your turn.")
+    if game["phase"] == "draw" and opening_pending(game):
+        raise ValueError("Wait for the table to finish the opening.")
+    if game.get("pickupDrawPending") and action != "draw":
+        raise ValueError("Draw your second card from the deck before playing or discarding.")
     if action == "draw":
         if game["phase"] != "draw":
             raise ValueError("You already drew this turn.")
-        count = draw_count(game["sides"], player["team"])
+        game["openingComplete"] = True
+        followup = game.get("pickupDrawPending", False)
+        count = FAMILY.discard_followup_draw if followup else draw_count(game["sides"], player["team"])
         if len(game["stock"]) < count:
             finish_round(game, None, "The stack ran out.")
             return
         player["hand"].extend(game["stock"].pop() for _ in range(count))
-        game.update(phase="play", message=f'{player["name"]} drew {count} cards.' + (' Catch-up card included!' if count == 3 else ''))
+        game.update(phase="play", pickupDrawPending=False, message=(f'{player["name"]} drew their second card.' if followup else f'{player["name"]} drew {count} cards.' + (' Catch-up card included!' if count == 3 else '')))
         return
     if action == "pickup":
         if game["phase"] != "draw" or not game["discard"]:
@@ -225,7 +247,8 @@ def _apply(game, seat, command):
             raise ValueError("A three or a wild card cannot be picked up from the discard.")
         apply_melds(game, player, command.get("groups"), pickup_id=top_id)
         game["discard"].pop()
-        game["phase"] = "play"
+        game.update(phase="draw", pickupDrawPending=True, openingComplete=True,
+                    message=f'{player["name"]} played the top discard. Draw one card from the deck before discarding.')
         return
     if action == "red_three":
         # Replacement is allowed before opening; exposure requires an opened side.
@@ -279,13 +302,14 @@ def _apply(game, seat, command):
         # Discarding out of the hand ends the turn, then reveals the foot.
         enter_foot(game, player)
         game["actor"] = (game["actor"] + 1) % len(game["players"])
-        game.update(phase="draw", message=f'{game["players"][game["actor"]]["name"]}’s turn. Draw from the stack or play the top discard.')
+        game.update(phase="draw", pickupDrawPending=False, message=f'{game["players"][game["actor"]]["name"]}’s turn. Draw from the stack or play the top discard.')
         return
     raise ValueError("Unknown game action.")
 
 
 def finish_round(game, went_out, reason):
     from .scoring import prepare
+    game["pickupDrawPending"] = False
     prepare(game, went_out, reason)
 
 
@@ -305,7 +329,7 @@ def assert_conservation(game):
 
 
 def project(game, viewer_id):
-    """Explicit allowlist: hidden cards never enter a browser or bot payload."""
+    """Explicit allowlist: only the viewer's hand and visible foot cards are private previews."""
     # Older saved tables receive the same cover arrangement as their next move.
     if game["phase"] in ("play", "draw"):
         game = copy.deepcopy(game)
@@ -336,11 +360,15 @@ def project(game, viewer_id):
                       "dirty": sum(m["kind"] == "set" and m["complete"] and m["dirty"] for m in melds)})
     return {
         "players": players, "sides": sides, "decks": len(players) + 1, "ruleset": FAMILY.id,
-        "drawCount": draw_count(game["sides"], viewer["team"]),
-        "round": game["round"], "targetScore": game["targetScore"], "phase": game["phase"], "token": (f'{game["dealId"]}:choose:{viewer_id}' if game["phase"] == "choose" else f'{game["dealId"]}:ready' if game["phase"] in ("round_over", "finished") else f'{game["dealId"]}:scoring:{viewer["team"]}:{game["scoring"]["sides"][viewer["team"]]["revision"]}' if game["phase"] == "scoring" else game["token"]),
-        "actorId": game["players"][game["actor"]]["id"], "message": game["message"],
+        "drawCount": FAMILY.discard_followup_draw if game.get("pickupDrawPending") else draw_count(game["sides"], viewer["team"]),
+        "pickupDrawPending": bool(game.get("pickupDrawPending")),
+        "round": game["round"], "targetScore": game["targetScore"], "phase": game["phase"], "token": (f'{game["dealId"]}:choose:{viewer_id}' if game["phase"] == "choose" else f'{game["dealId"]}:opening' if game["phase"] == "draw" and opening_pending(game) else f'{game["dealId"]}:ready' if game["phase"] in ("round_over", "finished") else f'{game["dealId"]}:scoring:{viewer["team"]}:{game["scoring"]["sides"][viewer["team"]]["revision"]}' if game["phase"] == "scoring" else game["token"]),
+        "opening": {"id": game["dealId"], "ready": game.get("openingReady", []), "complete": not opening_pending(game)} if "openingReady" in game else None,
+        "actorId": game["players"][game["actor"]]["id"],
+        "dealerId": game["players"][game["dealer"]]["id"], "message": game["message"],
         "hand": [cards[i] for i in viewer["hand"]],
         "footPreview": [[cards[pile[0]], cards[pile[-1]]] for pile in viewer["piles"]] if not viewer["chosen"] else None,
+        "footTop": cards[viewer["foot"][0]] if viewer["foot"] else None,
         "discard": cards[game["discard"][-1]] if game["discard"] else None,
         "discardCount": len(game["discard"]), "stockCount": len(game["stock"]),
         "history": copy.deepcopy(game["history"]), "winners": game["winners"][:],

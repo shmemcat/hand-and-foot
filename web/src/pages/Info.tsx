@@ -38,8 +38,9 @@ export function Rules() {
               Each player receives two piles of 11 cards. Inspect the top and
               bottom card of each, then choose which pile to play first. That is
               your <strong>hand</strong>; the other pile is your{" "}
-              <strong>foot</strong>. Your foot stays face-down until you finish
-              your hand. Everyone else’s cards remain private.
+              <strong>foot</strong>. You can see its top card and hover over the
+              foot to preview it. The remaining cards stay face-down until you
+              finish your hand. Everyone else’s cards remain private.
             </p>
             <p>
               A random dealer is chosen for the first round. The player to the
@@ -54,8 +55,9 @@ export function Rules() {
             <ol>
               <li>
                 <strong>Draw two</strong> from the stack, or take just the top
-                discard and play it immediately in a legal pile. You do not draw
-                two as well.
+                discard and play it immediately in a legal meld. After playing
+                the discard, draw one card from the deck before playing more
+                cards or discarding.
               </li>
               <li>
                 <strong>Play your cards.</strong> Start matching piles, build
@@ -78,12 +80,11 @@ export function Rules() {
             </div>
             <p>
               When your side opens, stage all qualifying piles and play them
-              together. The total must be{" "}
-              <strong>strictly more than 50 points</strong>, more than{" "}
-              <strong>90</strong> once your cumulative score exceeds 3,000, and
-              more than <strong>120</strong> at 6,000 or above. Red threes do
-              not count toward opening and can only be laid down after your side
-              has opened.
+              together. The total must be <strong>at least 50 points</strong>,
+              at least <strong>90</strong> once your cumulative score exceeds
+              3,000, and at least <strong>120</strong> at 6,000 or above. Red
+              threes do not count toward opening and can only be laid down after
+              your side has opened.
             </p>
             <div className="rule-callout">
               <strong>The sixth-card rule:</strong> when a pile already has six

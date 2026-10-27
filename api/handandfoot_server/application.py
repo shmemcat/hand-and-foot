@@ -184,7 +184,7 @@ def create_app(config=None):
             side_count = data["capacity"] // 2 if data["scoringMode"] == "partnership" else data["capacity"]
             base.update(players=[{"id": p["id"], "name": p["name"], "bot": p["bot"], "team": i % side_count, "handCount": 0, "footCount": 0, "inFoot": False, "chosen": False, "redThrees": [], "ready": False, "away": False} for i, p in enumerate(data["players"])],
                         sides=[], phase="lobby", token=data["token"], decks=data["capacity"] + 1,
-                        round=0, actorId=None, hand=[], footPreview=None, discard=None, discardCount=0,
+                        round=0, actorId=None, dealerId=None, hand=[], footPreview=None, footTop=None, discard=None, discardCount=0,
                         stockCount=0, history=[], winners=[], scoring=None, message="Invite your friends to the table.", ruleset=FAMILY.id)
         return base
 
@@ -294,15 +294,15 @@ def create_app(config=None):
             raise LookupError("This preview is available only in development.")
         guard()
         fixture = body().get("fixture")
-        from .fixtures import BOARD_FIXTURES, HAND_FIXTURES, populate
-        if fixture not in ("scoring", "dense", "catchup", *BOARD_FIXTURES, *HAND_FIXTURES):
+        from .fixtures import BOARD_FIXTURES, HAND_FIXTURES, OPENING_FIXTURES, populate
+        if fixture not in ("scoring", "dense", "catchup", *BOARD_FIXTURES, *HAND_FIXTURES, *OPENING_FIXTURES):
             raise ValueError("Choose one of the available development previews.")
         with lock:
             code = ''.join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
             while db.session.get(Room, code):
                 code = ''.join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
             player = new_player("You", actor())
-            individual_fixture = fixture in HAND_FIXTURES or fixture in BOARD_FIXTURES
+            individual_fixture = fixture in HAND_FIXTURES or fixture in BOARD_FIXTURES or fixture in OPENING_FIXTURES
             data = {"code": code, "capacity": 4 if individual_fixture else 8, "scoringMode": "individual" if individual_fixture else "partnership", "playMode": "practice", "players": [player], "hostId": player["id"], "revision": 0, "token": engine.uid(), "status": "lobby", "game": None, "targetScore": 10000}
             start(data)
             populate(data["game"], fixture)
@@ -477,7 +477,8 @@ def create_app(config=None):
                 if game["phase"] == "choose":
                     bot_seat = next((i for i, p in enumerate(game["players"]) if p["bot"] and not p["chosen"]), None)
                 elif game["phase"] in ("draw", "play") and game["players"][game["actor"]]["bot"]:
-                    bot_seat = game["actor"]
+                    if game["phase"] != "draw" or not engine.opening_pending(game):
+                        bot_seat = game["actor"]
                 elif game["phase"] == "scoring":
                     team = next((side["team"] for side in game["scoring"]["sides"] if not side["confirmed"] and all(p["bot"] for p in game["players"] if p["team"] == side["team"])), None)
                     if team is not None:

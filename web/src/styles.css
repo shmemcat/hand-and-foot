@@ -218,31 +218,6 @@ small {
 .icon-button.enabled {
   background: var(--surface);
 }
-.sound-wrap {
-  position: relative;
-}
-.sound-settings {
-  position: absolute;
-  right: 0;
-  top: 48px;
-  width: 235px;
-  padding: 18px 20px;
-  background: var(--soft);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 6px 24px var(--shadow);
-  display: grid;
-  gap: 12px;
-}
-.sound-settings label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-}
-.sound-settings input[type="range"] {
-  margin: 0 0 8px;
-}
 .site-frame > main {
   flex: 1;
   min-width: 0;
@@ -714,7 +689,8 @@ legend {
   gap: 9px;
   font-size: 11px;
 }
-.draw-pile > span > small {
+.draw-pile > span > small,
+.discard-count > small {
   color: var(--muted);
   font-size: 10px;
   margin-left: 3px;
@@ -758,6 +734,27 @@ legend {
   flex-direction: column;
   gap: 9px;
   align-items: center;
+}
+.waiting-ellipsis {
+  display: inline-block;
+  width: 1em;
+  text-align: left;
+  animation: waiting-ellipsis 1.2s step-end infinite;
+}
+@keyframes waiting-ellipsis {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  25% {
+    clip-path: inset(0 66.666% 0 0);
+  }
+  50% {
+    clip-path: inset(0 33.333% 0 0);
+  }
+  75%,
+  100% {
+    clip-path: inset(0);
+  }
 }
 .turn-message > .eyebrow {
   font-size: 9px;
@@ -852,23 +849,6 @@ legend {
   height: 77px;
   border: 1px dashed var(--line);
   border-radius: 5px;
-}
-.pickup-active {
-  outline: 3px solid var(--secondary) !important;
-  transform: translateY(-5px);
-}
-.pickup-notice {
-  font-size: 12px;
-  padding: 9px 13px;
-  background: var(--surface);
-  border: 1px solid var(--secondary);
-  border-radius: 6px;
-  line-height: 1.6;
-  margin-bottom: 12px;
-}
-.pickup-notice .text-button {
-  font-size: 11px;
-  margin-left: 8px;
 }
 .choose-piles {
   text-align: center;
@@ -1188,18 +1168,22 @@ legend {
   box-shadow: 0 -8px 20px color-mix(in srgb, var(--panel) 80%, transparent);
 }
 .hand-heading {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "info draft foot";
   align-items: center;
-  justify-content: space-between;
   gap: 20px;
+  min-height: 32px;
   margin-bottom: 5px;
 }
-.hand-heading > div {
+.hand-info {
+  grid-area: info;
   display: flex;
   align-items: center;
   gap: 13px;
   font-size: 11px;
   color: var(--muted);
+  white-space: nowrap;
 }
 .hand-heading .eyebrow {
   font-size: 9px;
@@ -1207,18 +1191,79 @@ legend {
   letter-spacing: 1.7px;
 }
 .foot-status {
+  grid-area: foot;
+  justify-self: end;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 7px;
   font-size: 10px;
   color: var(--muted);
   white-space: nowrap;
+  outline-offset: 5px;
+  border-radius: 3px;
 }
-.foot-status .card {
-  width: 18px;
-  height: 25px;
+.foot-stack {
+  position: relative;
+  display: block;
+  width: 22px;
+  height: 31px;
+  margin-right: 4px;
+}
+.foot-stack > .card {
+  position: absolute;
+  inset: 0;
+  width: 22px;
+  height: 31px;
   border-radius: 2px;
-  box-shadow: 1px 1px var(--line);
+  box-shadow: 0 1px 2px var(--shadow);
+}
+.foot-stack > .card:first-child {
+  transform: translateX(4px) rotate(-9deg);
+}
+.foot-stack > .card:nth-child(2) {
+  transform: translateX(2px) rotate(7deg);
+}
+.foot-stack > .foot-rank {
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+.foot-rank svg {
+  width: 12px;
+  height: 12px;
+}
+.foot-preview {
+  position: absolute;
+  z-index: 20;
+  left: 11px;
+  bottom: calc(100% + 12px);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 9px);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    visibility 0s linear 0.25s;
+}
+.foot-preview .card {
+  width: 78px;
+  height: 110px;
+  box-shadow: 0 5px 14px var(--shadow);
+}
+.foot-status[data-preview-open="true"] .foot-preview {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition-delay: 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .foot-preview {
+    transition: none;
+  }
 }
 .hand-scroll {
   display: flex;
@@ -1268,21 +1313,69 @@ legend {
   color: var(--muted);
   margin-right: auto;
 }
+.draft-summary-slot {
+  grid-area: draft;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  min-width: 0;
+}
 .draft-summary {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
   font-size: 11px;
-  background: var(--surface);
-  padding: 6px 12px;
-  border-radius: 6px;
-  margin-top: 10px;
+  color: var(--muted);
+  background: var(--soft);
+  padding: 5px 12px;
+  border-radius: 999px;
   line-height: 1.5;
-}
-.draft-summary .text-button {
-  font-size: 11px;
   white-space: nowrap;
+}
+.draft-summary strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.draft-opening {
+  color: var(--muted);
+  font-weight: 400;
+}
+.draft-summary-dot {
+  width: 3px;
+  height: 3px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--link);
+}
+.draft-clear {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 25px;
+  height: 20px;
+  padding: 0 0 0 9px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--link);
+}
+.draft-clear:hover {
+  color: var(--text);
+}
+.draft-clear svg {
+  width: 11px;
+  height: 13px;
+}
+@media (max-width: 640px) {
+  .hand-heading {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "info foot"
+      "draft draft";
+    row-gap: 4px;
+  }
 }
 .hand-hint,
 .empty-hand {
@@ -2374,13 +2467,13 @@ body {
   .hand-dock {
     padding-top: 12px;
   }
-  .hand-heading > div {
+  .hand-info {
     gap: 8px;
   }
   .hand-heading .eyebrow {
     font-size: 8px;
   }
-  .hand-heading > div > span {
+  .hand-info > span {
     font-size: 9px;
   }
   .foot-status {
@@ -2402,9 +2495,6 @@ body {
     padding: 5px 9px;
     font-size: 10px;
     gap: 10px;
-  }
-  .draft-summary .text-button {
-    font-size: 10px;
   }
   .red-three-actions {
     font-size: 10px;

@@ -3,10 +3,16 @@ from . import engine
 from .rules import RANKS, meld_details
 
 HAND_FIXTURES = {"hand-20": 20, "hand-32": 32, "hand-45": 45}
-BOARD_FIXTURES = {"full-board": 8, "open-9": 9, "open-10": 10, "six-card": 3}
+BOARD_FIXTURES = {"full-board": 8, "open-9": 9, "open-10": 10, "open-13": 13, "open-14": 14, "six-card": 3}
+OPENING_FIXTURES = ("opening", "next-round-opening")
 
 
 def populate(game, fixture):
+    if fixture in OPENING_FIXTURES:
+        if fixture == "next-round-opening":
+            game["dealer"] = (game["dealer"] + 1) % len(game["players"])
+            engine.deal_round(game)
+        return
     if fixture == "six-card":
         populate(game, "full-board")
         side = game["sides"][0]
@@ -18,7 +24,7 @@ def populate(game, fixture):
         side["melds"] = [meld for meld in side["melds"] if meld["complete"] or meld["id"] in keep]
         engine.assert_conservation(game)
         return
-    game.update(stock=list(game["cards"]), discard=[], replaced=[], phase="play", actor=0)
+    game.update(stock=list(game["cards"]), discard=[], replaced=[], phase="play", actor=0, openingComplete=True)
     for player in game["players"]:
         player.update(hand=[], foot=[], piles=[], chosen=True, inFoot=False, redThrees=[])
 
@@ -50,19 +56,19 @@ def populate(game, fixture):
             ("clubs", RANKS[:5]), ("hearts", RANKS[3:8]),
         ]:
             meld(0, creator, [take(rank, suit=suit)[0] for rank in ranks], "run")
-        for rank, count in [("A", 3), ("K", 4)][:BOARD_FIXTURES[fixture] - 8]:
+        for rank, count in [("A", 3), ("K", 4), ("Q", 3), ("J", 3), ("9", 3), ("8", 3)][:BOARD_FIXTURES[fixture] - 8]:
             meld(0, creator, take(rank, count))
         for player in game["players"][1:]:
             for rank in ("9", "10", "J"):
                 meld(player["team"], player["id"], take(rank, 3))
         game["players"][0]["hand"] = [take(rank)[0] for rank in ("A", "K", "Q", "8", "7", "6", "5", "4", "2", "Joker")]
         game["players"][0]["redThrees"] = [*take("3", suit="diamonds"), *take("3", suit="hearts")]
+        game["discard"] = take("8")
         for index, player in enumerate(game["players"]):
             player["foot"] = [game["stock"].pop() for _ in range(11)]
             if index:
                 player["hand"] = [game["stock"].pop() for _ in range(11)]
-        game["discard"] = take("8")
-        game["message"] = "Your turn. Build your piles, then discard to finish."
+        game["message"] = "Your turn. Build your melds, then discard to finish."
         engine.assert_conservation(game)
         return
 

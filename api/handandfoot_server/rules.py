@@ -12,7 +12,7 @@ class Ruleset:
     high_score: int = 3000
     highest_opening: int = 120
     highest_score: int = 6000
-    opening_is_strict: bool = True
+    opening_is_strict: bool = False
     clean_bonus: int = 500
     dirty_bonus: int = 300
     flush_bonus: int = 1300
@@ -21,6 +21,7 @@ class Ruleset:
     red_three: int = 300
     black_three: int = 100
     discard_pickup: int = 1
+    discard_followup_draw: int = 1
     catch_up_gap: int = 5000
     catch_up_extra_cards: int = 1
 

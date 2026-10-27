@@ -31,10 +31,20 @@ export function Preview() {
         <Link className="button secondary" to="/preview/opening">
           Opening rehearsal · animations, sounds & flow
         </Link>
+        <Link className="button secondary" to="/preview/draw">
+          Draw rehearsal · replay & slow motion
+        </Link>
+        <Link className="button secondary" to="/preview/pickup">
+          Discard pickup · replay & step through
+        </Link>
         {[
+          ["opening", "Live game opening"],
+          ["next-round-opening", "Next-round opening · dealer passes"],
           ["full-board", "Full individual board · 16 open & completed piles"],
-          ["open-9", "Nine open piles · one row"],
-          ["open-10", "Ten open piles · wrapped row"],
+          ["open-9", "Nine open melds"],
+          ["open-10", "Ten open melds"],
+          ["open-13", "Thirteen open melds · full-width row"],
+          ["open-14", "Fourteen open melds · overflow row"],
           ["six-card", "Six-card reminder · spacious board"],
           ["scoring", "Interactive scoring review"],
           ["dense", "Eight-player table & long hand"],

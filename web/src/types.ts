@@ -90,6 +90,7 @@ export type ScoringReview = {
 };
 export type RoundResult = { round: number; reason: string; scores: Score[] };
 export type Snapshot = {
+  opening?: { id: string; ready: string[]; complete: boolean } | null;
   code: string;
   revision: number;
   token: string;
@@ -103,6 +104,7 @@ export type Snapshot = {
   sides: Side[];
   decks: number;
   drawCount: number;
+  pickupDrawPending?: boolean;
   round: number;
   targetScore: number;
   phase:
@@ -114,8 +116,10 @@ export type Snapshot = {
     | "round_over"
     | "finished";
   actorId: string | null;
+  dealerId: string | null;
   hand: Card[];
   footPreview: Card[][] | null;
+  footTop: Card | null;
   discard: Card | null;
   discardCount: number;
   stockCount: number;

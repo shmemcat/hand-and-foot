@@ -5,6 +5,13 @@ import {
   openingCues,
   openingReducer,
   samplePiles,
+  openingSnapshot,
+  DEAL_ANIMATIONS,
+  dealPilesLanded,
+  ARRIVAL_FADE_MS,
+  ARRIVAL_STAGGER_MS,
+  arrivalMotionScale,
+  arrivalDuration,
 } from "./openingSequence";
 
 describe("opening playback", () => {
@@ -37,19 +44,20 @@ describe("opening playback", () => {
     expect(state).toMatchObject({ step: 7, playing: false, choice: 1 });
   });
   it("preserves progress when paused and does not advance a manually selected beat", () => {
+    const duration = OPENING_BEATS[3].duration;
     let state = openingReducer(INITIAL_OPENING, { type: "seek", step: 3 });
-    state = openingReducer(state, { type: "tick", delta: 500, duration: 6200 });
+    state = openingReducer(state, { type: "tick", delta: 500, duration });
     state = openingReducer(state, { type: "pause" });
     expect(
-      openingReducer(state, { type: "tick", delta: 3000, duration: 6200 }),
+      openingReducer(state, { type: "tick", delta: 3000, duration }),
     ).toEqual(state);
     state = openingReducer(state, { type: "replay" });
     state = openingReducer(state, {
       type: "tick",
       delta: 10000,
-      duration: 6200,
+      duration,
     });
-    expect(state).toMatchObject({ step: 3, elapsed: 6200, playing: false });
+    expect(state).toMatchObject({ step: 3, elapsed: duration, playing: false });
   });
   it("clears a previous choice when going back, and preserves it when replaying later beats", () => {
     let state = openingReducer(INITIAL_OPENING, { type: "seek", step: 4 });
@@ -84,5 +92,53 @@ describe("opening playback", () => {
     const piles = samplePiles();
     expect(piles.map((pile) => pile.length)).toEqual([11, 11]);
     expect(new Set(piles.flat().map((card) => card.id)).size).toBe(22);
+  });
+  it("uses one shuffle cue and exactly two cues for every deal idea", () => {
+    expect(openingCues(2, 4, 2000)).toEqual([{ at: 200, sound: "deal" }]);
+    expect(OPENING_BEATS[3].duration).toBe(900);
+    for (const idea of DEAL_ANIMATIONS) {
+      expect(openingCues(3, 4, 1800, idea.id).length).toBe(2);
+      expect(openingCues(3, 8, 1800, idea.id)).toEqual(
+        openingCues(3, 4, 1800, idea.id),
+      );
+      expect(dealPilesLanded(0.1, idea.id)).toBe(0);
+      expect(dealPilesLanded(0.5, idea.id)).toBe(idea.id === "split" ? 0 : 1);
+      expect(dealPilesLanded(0.8, idea.id)).toBe(2);
+    }
+  });
+  it("keeps the four-player entrance speed and hands off after a short settle", () => {
+    const duration = arrivalDuration(4);
+    expect(duration).toBe(900);
+    expect(arrivalMotionScale(4, duration)).toBe(1);
+    const lastPlayerFinishes = ARRIVAL_FADE_MS + 3 * ARRIVAL_STAGGER_MS;
+    expect(duration - lastPlayerFinishes).toBe(99);
+    expect(openingCues(1, 4, 1500)).toEqual([{ at: 300, sound: "select" }]);
+    for (const players of [2, 3, 4, 5, 6, 8]) {
+      const beat = arrivalDuration(players);
+      expect(
+        (ARRIVAL_FADE_MS + (players - 1) * ARRIVAL_STAGGER_MS) *
+          arrivalMotionScale(players, beat),
+      ).toBeLessThanOrEqual(beat - 80);
+    }
+  });
+  it("supplies the current live board contract including the foot’s outer card and no unplayed melds", () => {
+    const state = openingReducer(
+      openingReducer(INITIAL_OPENING, { type: "seek", step: 4 }),
+      { type: "choose", pile: 1 },
+    );
+    const snapshot = openingSnapshot({
+      state,
+      names: ["You", "Poppy", "Hazel", "Jasper"],
+      mode: "individual",
+      dealer: 0,
+      duration: 2000,
+    });
+    expect(snapshot.hand.map((card) => card.id)).toEqual(
+      samplePiles()[1].map((card) => card.id),
+    );
+    expect(snapshot.footTop?.id).toBe(samplePiles()[0][0].id);
+    expect(snapshot.sides.every((side) => side.melds.length === 0)).toBe(true);
+    expect(snapshot.dealerId).toBe(snapshot.viewerId);
+    expect(snapshot.stockCount).toBe(182);
   });
 });

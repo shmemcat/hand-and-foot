@@ -88,8 +88,8 @@ export function GameMenu({
         <h3>Your progress</h3>
         <dl className="game-menu-facts">
           <div>
-            <dt>Meld amount</dt>
-            <dd>Over {ownSide?.opening ?? 50} points</dd>
+            <dt>Opening meld</dt>
+            <dd>At least {ownSide?.opening ?? 50} points</dd>
           </div>
           <div>
             <dt>Opening</dt>

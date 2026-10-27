@@ -22,6 +22,20 @@ const OpeningPreview = import.meta.env.DEV
       })),
     )
   : () => null;
+const DrawPreview = import.meta.env.DEV
+  ? React.lazy(() =>
+      import("./pages/DrawPreview").then((module) => ({
+        default: module.DrawPreview,
+      })),
+    )
+  : () => null;
+const PickupPreview = import.meta.env.DEV
+  ? React.lazy(() =>
+      import("./pages/PickupPreview").then((module) => ({
+        default: module.PickupPreview,
+      })),
+    )
+  : () => null;
 
 function AppRoutes() {
   const { user } = useAuth();
@@ -38,6 +52,26 @@ function AppRoutes() {
       <Route path="/scores" element={<Navigate to="/leaderboard" replace />} />
       <Route path="/user" element={<User />} />
       {import.meta.env.DEV && <Route path="/preview" element={<Preview />} />}
+      {import.meta.env.DEV && (
+        <Route
+          path="/preview/pickup"
+          element={
+            <React.Suspense fallback={null}>
+              <PickupPreview />
+            </React.Suspense>
+          }
+        />
+      )}
+      {import.meta.env.DEV && (
+        <Route
+          path="/preview/draw"
+          element={
+            <React.Suspense fallback={null}>
+              <DrawPreview />
+            </React.Suspense>
+          }
+        />
+      )}
       {import.meta.env.DEV && (
         <Route
           path="/preview/opening"

@@ -10,7 +10,11 @@ import { ProfileIcon } from "./ProfileIcon";
 export function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isHome = location.pathname === "/";
-  const isTable = location.pathname.startsWith("/room/");
+  const isTable =
+    location.pathname.startsWith("/room/") ||
+    location.pathname === "/preview/opening" ||
+    location.pathname === "/preview/draw" ||
+    location.pathname === "/preview/pickup";
   const sound = useSound();
   const { user } = useAuth();
   const [dark, setDark] = useState(() =>
@@ -37,6 +41,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       "/about": "About",
       "/preview": "Preview",
       "/preview/opening": "Opening Rehearsal",
+      "/preview/draw": "Draw Rehearsal",
+      "/preview/pickup": "Discard Pickup",
       "/user": user ? "User" : "Sign In",
     };
     document.title = titles[location.pathname]
@@ -111,53 +117,55 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 role="group"
                 aria-label="Sound and music"
               >
-                <div className="volume-row">
-                  <button
-                    type="button"
-                    className="volume-toggle"
-                    aria-label="Toggle sound effects"
-                    aria-pressed={!sound.muted}
-                    onClick={toggleEffects}
-                  >
-                    <Icon name={sound.muted ? "volume-off" : "volume"} />
-                  </button>
-                  <input
-                    aria-label="Sound effects volume"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={sound.volume}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-                      sound.setVolume(value);
-                      sound.setMuted(value === 0);
-                    }}
-                  />
-                </div>
-                <div className="volume-row">
-                  <button
-                    type="button"
-                    className="volume-toggle"
-                    aria-label="Toggle music"
-                    aria-pressed={sound.music}
-                    onClick={toggleMusic}
-                  >
-                    <Icon name={sound.music ? "sound" : "music-off"} />
-                  </button>
-                  <input
-                    aria-label="Music volume"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={sound.musicVolume}
-                    onChange={(e) => {
-                      const value = Number(e.target.value);
-                      sound.setMusicVolume(value);
-                      sound.setMusic(value > 0);
-                    }}
-                  />
+                <div className="sound-settings-inner">
+                  <div className="volume-row">
+                    <button
+                      type="button"
+                      className="volume-toggle"
+                      aria-label="Toggle sound effects"
+                      aria-pressed={!sound.muted}
+                      onClick={toggleEffects}
+                    >
+                      <Icon name={sound.muted ? "volume-off" : "volume"} />
+                    </button>
+                    <input
+                      aria-label="Sound effects volume"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={sound.volume}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        sound.setVolume(value);
+                        sound.setMuted(value === 0);
+                      }}
+                    />
+                  </div>
+                  <div className="volume-row">
+                    <button
+                      type="button"
+                      className="volume-toggle"
+                      aria-label="Toggle music"
+                      aria-pressed={sound.music}
+                      onClick={toggleMusic}
+                    >
+                      <Icon name={sound.music ? "sound" : "music-off"} />
+                    </button>
+                    <input
+                      aria-label="Music volume"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={sound.musicVolume}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        sound.setMusicVolume(value);
+                        sound.setMusic(value > 0);
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             )}

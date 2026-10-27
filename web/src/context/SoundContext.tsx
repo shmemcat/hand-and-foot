@@ -12,7 +12,6 @@ import { asset } from "../lib/assets";
 import { readStorage, writeStorage } from "../lib/storage";
 import { requestMusicPlayback } from "../lib/musicPlayback";
 type Sound =
-  | "turn"
   | "playerJoin"
   | "select"
   | "deal"
@@ -25,7 +24,6 @@ type Sound =
   | "goingOut"
   | "notification";
 const FILES: Record<Sound, string[]> = {
-  turn: ["sound-on"],
   playerJoin: ["join-ding"],
   select: ["card-place-1", "card-place-2"],
   deal: ["card-fan-1", "card-fan-2"],

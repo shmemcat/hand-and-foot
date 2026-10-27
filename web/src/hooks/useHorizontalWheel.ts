@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-export function useHorizontalWheel(enabled: boolean) {
+export function useHorizontalWheel(enabled: boolean, revision?: number) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const strip = ref.current;
@@ -34,6 +34,6 @@ export function useHorizontalWheel(enabled: boolean) {
     };
     strip.addEventListener("wheel", scroll, { passive: false });
     return () => strip.removeEventListener("wheel", scroll);
-  }, [enabled]);
+  }, [enabled, revision]);
   return ref;
 }

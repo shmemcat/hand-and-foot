@@ -6,7 +6,7 @@ Confirmed with Emily during implementation on October 25, 2026, with red-three a
 
 - Individual scoring: 2–6 players. Partnerships: 4, 6, or 8 people in two-person teams. Team membership and roster size stay fixed after the start.
 - Decks = seated players + 1, including bots. Each deck contains 52 cards and two Jokers.
-- Two piles of 11 per player. Inspect the top/bottom cards of both, then choose which is the hand. The other is the foot. No other foot faces are sent to the browser.
+- Two piles of 11 per player. Inspect the top/bottom cards of both, then choose which is the hand. The other is the foot. Its top card remains visible to its owner, with a full-card preview on hover or keyboard focus. No remaining foot faces or other players’ foot faces are sent to the browser.
 - Play toward 10,000 by default, with 15,000/20,000 available at table creation. Finish the current round before deciding the winner. Highest score wins; exact ties share the win.
 - The first dealer is randomly chosen. Lead starts to the dealer’s left. Dealer rotates between rounds.
 
@@ -22,9 +22,9 @@ The family’s “Jokers -50” notation is interpreted as “Jokers — 50 poin
 
 ## Turn and opening
 
-- Draw two from the stack, or take **only the top discard** and play it immediately. A pickup replaces the normal stack draw, following Bicycle’s alternative-draw structure.
-- If the acting side is **strictly more than 5,000 points behind the lowest-scoring other side**, draw three instead of two. Partnership scores are shared. Exactly a 5,000-point gap does not qualify. This extra card applies only to the stack draw, not discard pickup or red-three replacement.
-- Opening totals are **strictly over 50**, **strictly over 90 once the side exceeds 3,000**, and **strictly over 120 at 6,000 or higher**. Multiple piles can be staged and committed together. Red threes cannot be part of the opening or contribute to its points; they can only be laid down after the scoring side has completed its opening meld.
+- Draw two from the stack, or take **only the top discard** as the first card and play it immediately in a legal meld. If the side has not opened, that complete draft—including the discard—must meet the opening minimum. Only after the pickup meld is accepted, draw **one** card from the stack as the second card. Until that draw is complete, no further melds, red-three actions, discard pickup, or end-of-turn discard are allowed.
+- If the acting side is **strictly more than 5,000 points behind the lowest-scoring other side**, draw three instead of two. Partnership scores are shared. Exactly a 5,000-point gap does not qualify. This extra card applies only to the full stack draw; discard pickup still requires just its one follow-up stack card, and red-three replacements stay unchanged.
+- Opening totals are **at least 50**, **at least 90 once the side exceeds 3,000**, and **at least 120 at 6,000 or higher**. Exactly 50, 90, or 120 qualifies at its respective threshold. Multiple piles can be staged and committed together. Red threes cannot be part of the opening or contribute to its points; they can only be laid down after the scoring side has completed its opening meld.
 - Start matching piles with at least three cards. Natural cards must **always outnumber wilds**, including in the initial meld and every addition; equal counts are never legal. Two naturals and one wild can start a pile. Twos/Jokers are wild in ordinary matching piles. In a pile of twos, twos count as naturals and only Jokers count as wilds: seven twos form a clean book; twos with Jokers form a dirty book when twos outnumber Jokers. Joker-only piles and matching piles of threes are excluded.
 - Start a matching pile using the top discard with two matching natural hand cards, or immediately extend an existing legal pile. Wilds and threes cannot be picked up. If a pile already has six cards, its seventh card must be played from your hand: you cannot take the top discard to finish that book. A sideways bottom card marks a six-card pile; crowded rows use a slight tilt instead.
 - Matching books are complete at seven and can keep accepting legal additions, with the same single book bonus. A second pile of the same rank is also allowed. Straight flushes can extend beyond seven.

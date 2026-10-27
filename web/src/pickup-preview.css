@@ -1,0 +1,106 @@
+.pickup-rehearsal h1 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.4;
+}
+.pickup-rehearsal .draw-review-bar {
+  margin-bottom: 12px;
+}
+.pickup-review-heading {
+  margin-right: auto;
+}
+.pickup-review-heading small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.pickup-beats {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.pickup-beats button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 0 auto;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+}
+.pickup-beats button[aria-current="step"] {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--primary);
+}
+.pickup-beats button > span {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+.pickup-beat-detail {
+  display: flex;
+  align-items: start;
+  gap: 16px;
+  min-height: 80px;
+  padding: 12px 0 15px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.pickup-beat-detail p {
+  flex: 1;
+  margin: 0;
+  max-width: 800px;
+}
+.pickup-step-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.pickup-step-controls .text-button {
+  font-size: 15px;
+}
+.pickup-step-controls button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.pickup-sound {
+  margin-left: auto;
+  color: var(--muted);
+  white-space: nowrap;
+  font-size: 11px;
+}
+.pickup-review-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 20px 0 0;
+  max-width: 800px;
+}
+@media (max-width: 650px) {
+  .pickup-beat-detail {
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 120px;
+  }
+  .pickup-beat-detail p {
+    flex-basis: calc(100% - 110px);
+  }
+  .pickup-sound {
+    margin-left: 0;
+  }
+  .pickup-rehearsal .draw-review-bar {
+    gap: 12px;
+  }
+  .pickup-review-heading {
+    flex-basis: 100%;
+  }
+  .pickup-rehearsal .draw-review-bar select {
+    max-width: 200px;
+  }
+}
