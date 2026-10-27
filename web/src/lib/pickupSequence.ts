@@ -222,7 +222,6 @@ export function pickupFrame(
     busy: boolean;
     error: string;
     showOpeningRequirement?: boolean;
-    showDrawRequirement?: boolean;
   };
 } {
   if (["meld", "meld-existing", "mixed"].includes(scenario))
@@ -308,7 +307,6 @@ export function pickupFrame(
       busy: Boolean(beat.waiting),
       error: "",
       showOpeningRequirement: beat.id === "blocked",
-      showDrawRequirement: beat.id === "await-draw",
     },
   };
 }

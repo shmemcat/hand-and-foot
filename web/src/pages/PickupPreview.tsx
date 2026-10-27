@@ -165,7 +165,17 @@ export function PickupPreview() {
       </div>
       <div
         className="pickup-recording"
-        ref={(node) => node?.setAttribute("inert", "")}
+        // Keep the recorded frame fixed while allowing hover and focus hints.
+        onClickCapture={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        onKeyDownCapture={(event) => {
+          if (["Enter", " ", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
       >
         <Room
           key={`${scenario}:${replay}`}

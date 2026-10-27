@@ -235,9 +235,27 @@ it("prompts for just the second card after the pickup lands and shows why discar
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  const discardControl = screen.getByRole("group", { name: "Discard" });
+  fireEvent.mouseEnter(discardControl);
   expect(screen.getByRole("tooltip").textContent).toBe(
     "Draw your second card from the deck first.",
   );
+  fireEvent.mouseLeave(discardControl);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.focus(discardControl);
+  expect(screen.getByRole("tooltip")).toBeTruthy();
+  fireEvent.blur(discardControl);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Draw your second card from the deck" }),
+  );
+  expect(
+    screen
+      .getByRole("button", { name: /Draw from the deck/ })
+      .getAttribute("aria-current"),
+  ).toBe("step");
+  expect(command).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Play sequence" }));
   advance(pickupBeats("new").find((beat) => beat.id === "await-draw")!.hold);
   expect(view.container.querySelectorAll(".draw-card-flight")).toHaveLength(1);

@@ -792,10 +792,20 @@ it("restores the one-card deck prompt after reconnecting and locks both discard 
       }) as HTMLButtonElement
     ).disabled,
   ).toBe(true);
-  fireEvent.focus(screen.getByRole("group", { name: "Discard" }));
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  const discardControl = screen.getByRole("group", { name: "Discard" });
+  fireEvent.mouseEnter(discardControl);
   expect(screen.getByRole("tooltip").textContent).toBe(
     "Draw your second card from the deck first.",
   );
+  fireEvent.mouseLeave(discardControl);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.focus(discardControl);
+  expect(screen.getByRole("tooltip").textContent).toBe(
+    "Draw your second card from the deck first.",
+  );
+  fireEvent.blur(discardControl);
+  expect(screen.queryByRole("tooltip")).toBeNull();
   await act(async () => fireEvent.click(deck));
   expect(command).toHaveBeenCalledExactlyOnceWith(before, "draw", {});
   expect(document.querySelectorAll(".draw-card-flight")).toHaveLength(1);

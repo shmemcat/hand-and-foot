@@ -85,7 +85,6 @@ export type RoomRehearsal = {
     busy: boolean;
     error: string;
     showOpeningRequirement?: boolean;
-    showDrawRequirement?: boolean;
   };
 };
 
@@ -1276,7 +1275,6 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                   <DrawFirstHint
                     blocked={needsSecondDraw || pickup}
                     label="Discard"
-                    show={rehearsal?.draftReview?.showDrawRequirement}
                   >
                     <button
                       className="button small secondary"

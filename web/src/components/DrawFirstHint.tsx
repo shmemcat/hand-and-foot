@@ -4,12 +4,10 @@ export function DrawFirstHint({
   blocked,
   label,
   children,
-  show = false,
 }: {
   blocked: boolean;
   label: string;
   children: ReactNode;
-  show?: boolean;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -25,13 +23,8 @@ export function DrawFirstHint({
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
-      onClick={() => blocked && setOpen(true)}
       onKeyDown={(event) => {
         if (event.key === "Escape") setOpen(false);
-        if (blocked && ["Enter", " "].includes(event.key)) {
-          event.preventDefault();
-          setOpen(true);
-        }
       }}
     >
       {children}
@@ -40,7 +33,7 @@ export function DrawFirstHint({
           className="draw-first-tooltip"
           role="tooltip"
           id={id}
-          hidden={!open && !show}
+          hidden={!open}
         >
           Draw your second card from the deck first.
         </span>
