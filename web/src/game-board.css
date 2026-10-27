@@ -1,0 +1,732 @@
+/* The gameplay shell follows Golf's spacing and keeps detail in the game menu. */
+.site-frame.table-frame:has(.game-page) {
+  padding: 35px 35px 20px;
+  height: auto;
+  min-height: 0;
+}
+.table-frame:has(.game-page) > main {
+  display: block;
+  flex: none;
+}
+.game-page {
+  flex: none;
+  overflow-anchor: none;
+}
+.table-frame:has(.game-page) .site-nav {
+  margin-bottom: 18px;
+}
+.game-header {
+  position: relative;
+  z-index: 21;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.round-pill {
+  justify-self: start;
+  padding: 4px 13px;
+  border: 1px solid var(--line);
+  border-radius: 30px;
+  background: color-mix(in srgb, var(--emblem) 12%, transparent);
+  font:
+    600 13px/1.5 Bitter,
+    Georgia,
+    serif;
+  white-space: nowrap;
+}
+.game-header .piles-row {
+  gap: 30px;
+  padding: 0;
+}
+.game-header .draw-pile {
+  gap: 8px;
+  font:
+    600 12px/1.3 Bitter,
+    Georgia,
+    serif;
+}
+.game-header .draw-pile > span > small {
+  font: inherit;
+  opacity: 0.65;
+}
+.game-header .card-small,
+.game-header .empty-card {
+  width: 62px;
+  height: 87px;
+}
+.game-header .pile-button {
+  box-shadow: none;
+}
+.game-header .pile-button:has(.card-back) {
+  box-shadow:
+    2px 2px 0 var(--line),
+    4px 4px 0 var(--emblem);
+}
+.game-header .pile-button:not(:disabled) {
+  outline: none;
+}
+.game-header .pile-button:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 5px;
+}
+.game-header .draw-two {
+  right: -7px;
+  bottom: 5px;
+  font:
+    700 10px/1.2 Figtree,
+    Arial,
+    sans-serif;
+}
+.game-menu {
+  position: relative;
+  justify-self: end;
+}
+.game-menu > summary {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+}
+.game-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.game-menu > summary svg {
+  width: 21px;
+  height: 21px;
+}
+.game-menu > summary:hover,
+.game-menu[open] > summary {
+  background: var(--surface);
+}
+.game-menu-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 300px;
+  max-width: calc(100vw - 48px);
+  max-height: min(560px, calc(100dvh - 180px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--emblem) transparent;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px var(--shadow);
+  font-size: 13px;
+}
+.game-menu-panel h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+.game-menu-panel h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.game-menu-panel > p {
+  color: var(--muted);
+  font-size: 11px;
+}
+.game-menu-panel hr {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.game-menu-scores {
+  padding: 0;
+  margin: 14px 0 8px;
+  list-style: none;
+}
+.game-menu-scores button {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 7px 0;
+  background: transparent;
+  text-align: left;
+}
+.game-menu-scores button:hover {
+  color: var(--link);
+}
+.game-menu-scores span {
+  overflow-wrap: anywhere;
+}
+.game-menu-scores strong {
+  font-variant-numeric: tabular-nums;
+}
+.game-menu .text-button,
+.game-menu .text-link {
+  padding: 0;
+  font-size: 12px;
+}
+.game-menu-facts {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  font-size: 11px;
+}
+.game-menu-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.game-menu-facts dt {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.game-menu-facts dd {
+  margin: 0;
+  text-align: right;
+}
+.game-menu .menu-leave-button {
+  width: 100%;
+  font-size: 14px;
+}
+.game-page > .turn-message {
+  width: 100%;
+  max-width: none;
+  min-height: 52px;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 24px;
+  color: var(--text);
+  font:
+    600 14px/1.5 Bitter,
+    Georgia,
+    serif;
+}
+.game-page > .board-carousel {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  min-height: max(180px, calc(100dvh - 570px));
+}
+.board-carousel > .tableau {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: visible;
+  margin: 0 44px;
+  padding: 4px 12px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.board-carousel .tableau-heading {
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  margin: 0 0 8px;
+  text-align: center;
+}
+.board-carousel .tableau-heading h2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font:
+    600 17px/1.4 Bitter,
+    Georgia,
+    serif;
+}
+.tableau-heading h2 svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--primary);
+}
+.board-score {
+  font:
+    500 14px/1.4 Bitter,
+    Georgia,
+    serif;
+}
+.board-score small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.individual-game .player-lane {
+  display: flex;
+  flex: 1;
+  padding: 0;
+}
+.board-carousel .melds {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  align-content: flex-start;
+  gap: 20px;
+  width: 100%;
+  padding-top: 8px;
+}
+.board-carousel .pile-group {
+  --pile-gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 86px), 1fr));
+  align-items: start;
+  gap: 20px var(--pile-gap);
+  width: 100%;
+  max-width: calc(
+    var(--pile-count) * (176px + var(--pile-gap)) - var(--pile-gap)
+  );
+}
+.board-carousel .pile-group.crowded-piles {
+  --pile-gap: 10px;
+}
+/* Pack larger rows without shrinking the cards or their selection outlines. */
+.board-carousel .open-piles.compact-piles {
+  --pile-gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 76px), 1fr));
+  max-width: calc(var(--pile-count) * 88px - 12px);
+}
+.board-carousel .closed-books {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 70px), 1fr));
+}
+.board-carousel .closed-books.crowded-piles {
+  --pile-gap: 8px;
+}
+.closed-books.dense-books .meld-kind {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  min-height: 26px;
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: normal;
+}
+.red-three-pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.red-three-pile > .meld-kind {
+  font-size: 10px;
+}
+.red-three-stack {
+  position: relative;
+  height: 87px;
+}
+.red-three-stack > span {
+  position: absolute;
+  top: 0;
+}
+.red-three-stack .card {
+  width: 62px;
+  height: 87px;
+}
+.pile-group > .meld-pile {
+  width: 100%;
+  min-width: 0;
+}
+.closed-card-stack {
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow:
+    2px 2px 0 var(--line),
+    4px 4px 0 var(--emblem);
+}
+.closed-card-stack > .card {
+  width: 62px;
+  height: 87px;
+}
+.closed-card-stack.broken-book {
+  opacity: 0.6;
+  outline: 1px dashed var(--muted);
+  outline-offset: 4px;
+}
+.completed-book > .meld-kind {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.completed-book > .meld-count,
+.red-three-pile > .meld-count {
+  margin-top: 10px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.book-bonus {
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--secondary);
+}
+.meld-pile {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 176px;
+}
+.meld-kind {
+  margin-bottom: 6px;
+  color: var(--secondary);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+.meld-card-stack.indexed-stack {
+  display: block;
+  width: 76px;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+.indexed-stack > .meld-card-layers {
+  position: relative;
+  display: block;
+  width: 76px;
+  height: var(--stack-height);
+  margin-inline: auto;
+  padding: 0;
+}
+.meld-card-layer {
+  position: absolute;
+  left: 0;
+}
+.indexed-stack .card {
+  width: 76px;
+  height: 106px;
+  margin: 0;
+}
+.six-card-meld .meld-card-layer:last-child > .card {
+  transform: rotate(-5deg);
+}
+@container (min-width: 126px) {
+  .six-card-meld .indexed-stack {
+    width: 106px;
+  }
+  .six-card-meld .meld-card-layers {
+    height: calc(var(--stack-height) - 25px);
+  }
+  .six-card-meld .meld-card-layer:last-child > .card {
+    transform: translateY(-10px) rotate(90deg);
+  }
+}
+.card-index {
+  position: absolute;
+  top: 4px;
+  left: 7px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font:
+    600 12px/16px Figtree,
+    Arial,
+    sans-serif;
+}
+.card-index svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+.indexed-card > .card-art {
+  visibility: hidden;
+}
+.meld-pile.legal-target .indexed-stack,
+.meld-pile.legal-target .closed-card-stack {
+  border: 0;
+  outline: 1px dashed var(--secondary);
+  outline-offset: 5px;
+  background: transparent;
+}
+.meld-pile.legal-target .indexed-stack:focus-visible,
+.meld-pile.legal-target .closed-card-stack:focus-visible {
+  outline: 3px solid var(--text);
+}
+.meld-count {
+  margin-top: 14px;
+  font:
+    600 12px/1.4 Bitter,
+    Georgia,
+    serif;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.meld-staged-count {
+  color: var(--secondary);
+}
+.meld-inspection-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: 14px;
+}
+.meld-inspection-cards > .card {
+  width: 32px;
+  height: 45px;
+  border-radius: 4px;
+}
+.individual-game .empty-lane {
+  flex-direction: column;
+  align-self: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 8px 0;
+  font-size: 12px;
+  font-style: normal;
+  color: color-mix(in srgb, var(--muted) 65%, var(--panel));
+}
+.individual-game .empty-lane > svg {
+  width: 24px;
+  height: 24px;
+}
+.individual-game .melds:has(.empty-lane) {
+  padding-top: 0;
+  align-content: center;
+}
+.board-arrow {
+  position: absolute;
+  right: -12px;
+  /* Keep the usual first-row middle as the board grows downward. */
+  top: min(206px, 25dvh);
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 80px;
+  padding: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--link);
+  transform: translateY(-50%);
+  opacity: 0.65;
+}
+.board-arrow.previous {
+  right: auto;
+  left: -12px;
+}
+.board-arrow.previous svg {
+  transform: rotate(180deg);
+}
+.board-arrow svg {
+  width: 12px;
+  height: 18px;
+}
+.board-arrow:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--emblem) 12%, transparent);
+  opacity: 1;
+}
+.game-page > .board-browser {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 0;
+  padding: 0 0 12px;
+  min-height: 0;
+}
+.board-pagination {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.board-browser .table-dots {
+  gap: 0;
+  height: 24px;
+}
+.board-browser .table-dots > button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+}
+.board-browser .table-dots > button::before {
+  width: 6px;
+  height: 6px;
+  margin: 0;
+  border: 1px solid var(--emblem);
+  border-radius: 50%;
+  background: transparent;
+}
+.board-browser .table-dots > button.active::before {
+  background: var(--link);
+  border-color: var(--link);
+}
+.board-caption {
+  font-size: 10px;
+  color: var(--muted);
+}
+.follow-control {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin: 0;
+  font:
+    500 12px/1.4 Bitter,
+    Georgia,
+    serif;
+  cursor: pointer;
+}
+.follow-control input {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--emblem);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+.follow-control input:checked {
+  border-color: var(--link);
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+.follow-control input:checked::after {
+  content: "";
+  width: 5px;
+  height: 10px;
+  margin-top: -3px;
+  border: solid var(--link);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.board-browser .return-board {
+  position: static;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  padding: 0;
+  font-size: 11px;
+}
+.game-page > .hand-dock {
+  flex-shrink: 0;
+  padding: 12px 0 0;
+}
+.game-page .hand-scroll {
+  justify-content: safe center;
+  gap: 10px;
+  padding: 14px 4px 5px;
+}
+.game-page .hand-scroll .card {
+  width: 62px;
+  height: 87px;
+}
+.game-page .hand-actions {
+  padding-top: 10px;
+}
+.selection-count .clear-selection {
+  padding: 0;
+  background: transparent;
+  color: var(--link);
+  font: inherit;
+}
+.selection-count .clear-selection:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.game-page .choose-piles {
+  flex: 1 1 auto;
+  min-height: 180px;
+}
+@media (min-width: 769px) and (max-height: 800px) {
+  .site-frame.table-frame:has(.game-page) {
+    padding-bottom: 16px;
+  }
+  .table-frame:has(.game-page) .site-nav {
+    margin-bottom: 14px;
+  }
+  .game-header {
+    padding-bottom: 12px;
+  }
+  .game-header .card-small,
+  .game-header .empty-card {
+    width: 55px;
+    height: 77px;
+  }
+  .game-page > .turn-message {
+    min-height: 46px;
+  }
+  .game-page > .board-browser {
+    padding-bottom: 8px;
+  }
+}
+@media (max-width: 768px) {
+  .site-frame.table-frame:has(.game-page) {
+    padding: 12px 18px 16px;
+  }
+  .table-frame:has(.game-page) .site-nav {
+    margin-bottom: 16px;
+  }
+  .game-header .card-small,
+  .game-header .empty-card {
+    width: 50px;
+    height: 70px;
+  }
+  .game-header .piles-row {
+    gap: 20px;
+  }
+  .round-pill {
+    padding-inline: 8px;
+    font-size: 11px;
+  }
+  .game-menu > summary {
+    width: 36px;
+    height: 36px;
+  }
+  .game-page > .turn-message {
+    font-size: 12px;
+    padding-inline: 8px;
+  }
+  .board-carousel > .tableau {
+    margin-inline: 24px;
+    padding-inline: 4px;
+  }
+  .game-page .hand-scroll {
+    gap: 6px;
+  }
+  .game-page .hand-scroll .card {
+    width: 50px;
+    height: 70px;
+  }
+  .board-browser .return-board {
+    font-size: 10px;
+    max-width: 90px;
+    text-align: left;
+  }
+}
+.turn-message.inactivity-shake > p {
+  animation: inactivity-nudge 0.4s ease-in-out 5;
+}
+@keyframes inactivity-nudge {
+  0%,
+  100% {
+    translate: 0;
+  }
+  25%,
+  75% {
+    translate: -4px;
+  }
+  50% {
+    translate: 4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .turn-message.inactivity-shake > p {
+    animation: none;
+  }
+}

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="50" height="70" viewBox="0 0 160 224" role="img" aria-labelledby="title">
+  <title id="title">Single Leaves, Rose Clay miniature card back</title>
+  <rect width="160" height="224" rx="10" fill="#FAF6EE"/>
+  <rect x="5" y="5" width="150" height="214" rx="7" fill="#C1948A"/>
+  <rect x="10" y="10" width="140" height="204" rx="4" fill="none" stroke="#ECD2A0" stroke-width="2"/>
+  <defs><g id="half">
+    <g transform="translate(52.5 60) scale(2.291667 2)" fill="none" stroke="#51303A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 7v14M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v17h-5a4 4 0 0 0-4 1 4 4 0 0 0-4-1H3Z"/>
+    </g>
+    <path d="M80 29.8 84.2 34 80 38.2 75.8 34Z" fill="#ECD2A0"/>
+    <g transform="translate(22 21) rotate(-8 14 17) scale(1.166667 1.416667)" stroke="#754A50" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 20C4 20 2.8 11 9.8 6.1 15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z" fill="#754A50" fill-opacity=".27"/>
+      <path d="M2 22c0-6 5-10 11-12" fill="none"/>
+    </g>
+    <g transform="translate(138 21) scale(-1 1) rotate(-8 14 17) scale(1.166667 1.416667)" stroke="#754A50" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 20C4 20 2.8 11 9.8 6.1 15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z" fill="#754A50" fill-opacity=".27"/>
+      <path d="M2 22c0-6 5-10 11-12" fill="none"/>
+    </g>
+  </g></defs>
+  <use href="#half"/>
+  <use href="#half" transform="translate(160 224) rotate(180)"/>
+</svg>

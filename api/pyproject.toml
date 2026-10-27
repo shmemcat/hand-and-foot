@@ -1,0 +1,22 @@
+[project]
+name = "handandfoot-game-api"
+version = "0.1.0"
+description = "Independent Hand & Foot game service"
+requires-python = ">=3.11"
+dependencies = [
+  "flask>=3.0,<3.1", "flask-sqlalchemy>=3.1", "flask-socketio>=5.3",
+  "simple-websocket>=1.0", "psycopg2-binary>=2.9", "gunicorn>=21,<26",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["handandfoot_server*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

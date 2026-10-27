@@ -1,0 +1,22 @@
+{
+  "name": "handandfoot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:game": "node scripts/dev-game.mjs",
+    "build": "npm run build --workspace web",
+    "typecheck": "npm run typecheck --workspace web",
+    "test": "node scripts/test-api.mjs",
+    "test:web": "node scripts/test-web.mjs",
+    "test:accounts": "node --test scripts/shared-accounts.test.mjs",
+    "format": "prettier --write web/src web/vite.config.ts web/tsconfig.json scripts/*.mjs package.json web/package.json"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

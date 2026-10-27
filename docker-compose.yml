@@ -1,0 +1,25 @@
+services:
+  api:
+    build: ./api
+    environment:
+      HANDANDFOOT_DATABASE_URL: sqlite:////app/.local/handandfoot.sqlite
+    volumes:
+      - handandfoot-data:/app/.local
+    ports:
+      - "127.0.0.1:5104:5104"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5104/ready')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    ports:
+      - "127.0.0.1:3004:80"
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  handandfoot-data:

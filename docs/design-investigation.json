@@ -1,0 +1,255 @@
+{
+  "title": "Hand & Foot: sister-site investigation and initial design brief",
+  "reviewedOn": "2026-10-25",
+  "repository": "git@github.com:shmemcat/hand-and-foot.git",
+  "scope": "Sister-site research, selected visual design, and implementation planning. Application implementation and deployment remain future work.",
+  "evidence": {
+    "method": "Inspected production pages in a browser and compared their local source. Desktop screenshots used the default 1265 x 712 viewport; phone inspection used 390 x 844. Responsive breakpoints were also checked in source.",
+    "productionUrls": [
+      "https://cards.shmem.dev/euchre/",
+      "https://cards.shmem.dev/hearts/",
+      "https://cards.shmem.dev/golf/"
+    ],
+    "redirects": "euchre.shmem.dev, hearts.shmem.dev, and golf.shmem.dev redirect to the corresponding paths on cards.shmem.dev.",
+    "coverage": "Compared home and Play layouts across the sites, inspected representative game setup, rules, leaderboard, and sign-in pages, and reviewed the responsive page, game, card, and account code. Inspected an existing Euchre guest game without playing any cards.",
+    "limits": "Phone inspection is a browser viewport simulation, not physical-device testing. Signed-in account flows were reviewed in code; no credentials were entered and no new account was created. Existing Hearts tsconfig.tsbuildinfo modifications were left untouched."
+  },
+  "sharedStructure": {
+    "desktop": [
+      "Centered content shell nominally 1030px wide, with roughly 20px top/bottom margins, 20px corners, and 35px padding.",
+      "Distinct outer page and inner panel colors; generous breathing room.",
+      "Large, widely tracked page titles layered over a low-contrast emblem.",
+      "Home menu order: Play, Leaderboard, Rules, About; narrow stacked buttons offset to the right of center.",
+      "Small sound/music, theme, and account controls at the upper right; home identity at upper left on inner pages.",
+      "Cards hub link at the lower left of the home screen.",
+      "Play presents Create Game and Join Game side by side when space permits.",
+      "Rules use a section selector beside the article; setup and account forms remain centered.",
+      "Rounded buttons with a small shine mark and a darker lower edge; short motion transitions and sparkle accents."
+    ],
+    "mobile": [
+      "Main page breakpoint is 768px; Golf's dedicated game-table layout has a separate 700px breakpoint.",
+      "The desktop outer frame visually disappears and the panel color becomes the page surface.",
+      "The home title/emblem stays prominent and the menu retains its rightward offset.",
+      "The home wordmark in the upper-left navigation hides, leaving an icon on inner pages.",
+      "Create/Join tiles stack and radio/selection groups wrap or become vertical.",
+      "Inner-page title blocks shrink to about a 106px emblem; long page titles use smaller type and tracking.",
+      "Rules section navigation moves above the article and the text becomes a narrow centered column.",
+      "Home hub links are positioned near the lower-left safe area."
+    ]
+  },
+  "differences": [
+    {
+      "site": "Hearts",
+      "font": "Terminal Dosis",
+      "identity": "Blush pink and warm brown in light mode; charcoal/navy and pink in dark mode. Cupid-arrow-and-heart title emblem.",
+      "layout": "Narrow rounded sans-serif, uppercase menu treatment, and older 95vw transparent content wrappers on phones. Home positioning depends more on viewport height.",
+      "game": "Four-seat trick-taking table, a large fanned hand, passing phase, and dedicated mobile table variants.",
+      "cards": "Standard and illustrated Flourish options; standard rank/suit position changes on phones to support overlapping hands.",
+      "sources": [
+        "../hearts/web/src/styles/base_style.css",
+        "../hearts/web/src/styles/containers.module.css",
+        "../hearts/web/src/components/HeartsLogo.tsx",
+        "../hearts/web/src/components/game/MobileGameTable.tsx",
+        "../hearts/web/src/components/game/Card.tsx",
+        "../hearts/web/src/context/SharedAuthProvider.tsx"
+      ]
+    },
+    {
+      "site": "Euchre",
+      "font": "EB Garamond",
+      "identity": "Parchment/stone and dusty rose in light mode; blue velvet, ivory, and dusty rose in dark mode. Moon-and-stars emblem.",
+      "layout": "Serif and small-cap treatment. Newer reusable page layout and full-width, full-height mobile shell; explicit phone title sizing and narrow-screen adjustments.",
+      "game": "Partnership trick-taking table, five-card starting hands, trump/bower emphasis, trick markers, and compact match details.",
+      "cards": "Classic rank/suit cards plus an illustrated celestial variant. Standard faces remain light in dark mode.",
+      "sources": [
+        "../euchre/web/src/styles/euchre.css",
+        "../euchre/web/src/styles/containers.module.css",
+        "../euchre/web/src/components/ui/PageLayout.tsx",
+        "../euchre/web/src/components/EuchreLogo.tsx",
+        "../euchre/web/src/components/Card.tsx",
+        "../euchre/web/src/lib/account.ts"
+      ]
+    },
+    {
+      "site": "Golf",
+      "font": "Fraunces",
+      "identity": "Sage, cream, and dusty rose in light mode; forest green, ivory, and dusty rose in dark mode. Golf flag/hole emblem.",
+      "layout": "Closely follows Euchre's newer shell and forms. Warmer, rounder serif and title-case controls. The flag emblem is taller and sits differently behind the title.",
+      "game": "Two to six personal six-card tableaus around draw/discard piles. Responsive game layouts support an overview or cycling through opponents, rather than a trick-taking cross.",
+      "cards": "Production Card component uses the simple centered rank/suit face and separate light/dark backs; proportional SVG coordinates preserve the face at small sizes. Additional card-style exploration pages are present in source.",
+      "sources": [
+        "../golf/web/src/styles/golf.css",
+        "../golf/web/src/styles/containers.module.css",
+        "../golf/web/src/styles/mobile-table.css",
+        "../golf/web/src/styles/play-menu.module.css",
+        "../golf/web/src/components/GolfLogo.tsx",
+        "../golf/web/src/components/Card.tsx",
+        "../golf/web/src/context/AuthContext.tsx"
+      ]
+    }
+  ],
+  "accountIntegration": {
+    "existingService": "The independent Cards accounts service owns identities, cookie sessions, profile icons, email verification, password recovery, and account deletion.",
+    "publicApi": "/api/account/",
+    "sharedAccountPages": "/user/",
+    "frontendPattern": "Use the existing credentialed account client and session/CSRF handling. Keep the themed sign-in page and route account creation/recovery to shared Cards account pages.",
+    "backendPattern": "Game servers validate sessions through the private accounts interface and own their game-specific data.",
+    "futureWork": "Choose the Hand & Foot public path; register the game with the hub, gateway, local development runner, game-service contracts, and account-deletion cleanup when implementation begins. Existing per-game type unions and preferences currently enumerate Hearts, Euchre, and Golf and will need an intentional extension.",
+    "sources": [
+      "../cards/README.md",
+      "../cards/docs/account-interface-v1.md",
+      "../cards/public/account-client.js",
+      "../euchre/web/src/lib/account.ts",
+      "../hearts/web/src/context/SharedAuthProvider.tsx"
+    ]
+  },
+  "handAndFootBrief": {
+    "rulesReference": "https://bicyclecards.com/how-to-play/hand-and-foot",
+    "carryOver": [
+      "Use the Euchre/Golf shared page structure, home menu geometry, navigation, rules layout, forms, accounts, preferences, sound controls, and achievements/statistics conventions where applicable.",
+      "Give the new site its own font, full light/dark palette, title emblem, and card back.",
+      "Offer only the standard rank-and-suit face. No illustrated deck chooser is needed.",
+      "Keep red/black suit identity independent of decorative theme colors, and show labels/shapes as well as color for clean/dirty books.",
+      "Design the longer HAND & FOOT title specifically for narrow widths; do not blindly reuse four- or six-letter title tracking.",
+      "Keep strong 10/J/Q/K/A and suit readability at roughly 36 x 50 as well as larger sizes; support overlapping cards with visible indexes if the eventual layout needs them.",
+      "Add clear Joker faces to the standard deck; existing sister-site decks do not supply the full Hand & Foot card set."
+    ],
+    "deferredGameScreen": "Use Golf's cycling mobile table approach on desktop and mobile. Individual mode focuses one player; team mode focuses two public teammate lanes, with the active teammate below. Shared melds stay in their creator lane and can be extended by either teammate. The viewer's private hand stays at the bottom. See implementation-plan.md.",
+    "proposedBack": "A restrained two-way emblem back with a double frame and enough contrast to read at small sizes. The interactive preview is a concept, not final deck artwork."
+  },
+  "latestPaletteExploration": {
+    "status": "O2 Petal & antique gold, Single Leaves geometry, and M3 Rose Clay light-card colors are selected. Implementation planning follows.",
+    "deliverable": "Original October Petal plus eight refinements: four gold and four tonal secondary-button options, each in light and dark mode. The selected candidate appears beside the user's exact Hearts, Euchre, and Golf collection screenshots.",
+    "referenceFamilies": ["Lilac, plum, antique gold, forest", "Cream, petal, burgundy #613A43, sage #849974", "Painted wine, rose copper, lilac, silver sage", "Champagne ivory #F6F1EB, soft mauve #D5B1BC, dusty rose #C38FA0, plum #6F3A5A", "Blush, peach, nude, plum, maroon, charcoal"],
+    "retained": "Bitter + Figtree, the book emblem, the familiar home-page structure, matching darker bottom/right inset button shadows, and tea-rose #E5B1B6 card-back accents.",
+    "colorTreatment": "Retain cream, burgundy, and petal as the family. Compare champagne, antique gold, parchment gold, and soft brass with pink-beige, wine, stone, and mauve secondaries. Warm parchment and red-burgundy distinguish the proposal from the sisters' pink-white/charcoal, stone/navy, and sage/forest foundations.",
+    "previousPreview": "C:/Users/emily/.codex/visualizations/2026/10/26/01a17598-0e44-7ee3-9233-4435b6e24ee1/reference-palette-explorations.html",
+    "preview": "C:/Users/emily/.codex/visualizations/2026/10/26/01a17598-0e44-7ee3-9233-4435b6e24ee1/october-petal-collection.html",
+    "variantLabels": ["O0 Original October Petal", "O1 Petal & champagne", "O2 Petal & antique gold", "O3 Oxblood & parchment gold", "O4 Rosewood & soft brass", "O5 Classic tonal Petal", "O6 Oxblood & wine", "O7 Parchment & stone", "O8 Claret & mauve"],
+    "originalOctoberPetal": {
+      "light": {"outer":"#DFD3C3", "panel":"#F1E7D8", "text":"#613A43", "primary":"#DCAAA2", "secondary":"#C9D1B8"},
+      "dark": {"outer":"#2D2027", "panel":"#4B303B", "text":"#F4E8DD", "primary":"#DCAAA2", "secondary":"#819170"}
+    },
+    "verification": "Rendered the collection and detail views at 1024px and 320px. All nine choices update correctly without page or title overflow; paired and single-mode controls and gallery selection work. Both supplied collection images load intact. Minimum label/button contrast across normal and hover states is 5.10:1. No browser errors were reported."
+  },
+  "selectedDirection": {
+    "status": "O2 palette, Single Leaves card-back layout, and M3 Rose Clay light-card colors selected.",
+    "basePalette": "O2 Petal & antique gold: warm cream, burgundy, petal primary buttons, and antique-gold secondary buttons.",
+    "fontPackage": "F4 Bitter + Figtree",
+    "titleEmblem": "I5 Book of melds",
+    "light": {"outer":"#DFD3C3", "panel":"#F1E7D8", "text":"#613A43", "emblem":"#CFB7B5", "primary":"#DCAAA2", "secondary":"#C7AA6A"},
+    "dark": {"outer":"#2D2027", "panel":"#4B303B", "text":"#F4E8DD", "emblem":"#7E5B63", "primary":"#DCAAA2", "secondary":"#B99A5F"},
+    "cardBackAccent": "Tea rose #E5B1B6 remains the preferred card-back accent; antique gold can supplement the linework.",
+    "cardBackFamily": "Single Leaves from the Pressed Petals family: four broad corner leaves, paired book emblems, and fine rose/gold frames.",
+    "lightCardBack": {"name":"M3 Rose Clay", "ground":"#C1948A", "books":"#51303A", "leaves":"#754A50", "frame":"#F1D5CD", "gold":"#ECD2A0", "edge":"#8E625F"},
+    "darkCardBack": {"ground":"#4B303B", "books":"#E5B1B6", "leaves":"#E5B1B6", "frame":"#E5B1B6", "gold":"#C7AA6A", "edge":"#A26F7C"},
+    "buttonStyle": "Darker shade of each button's own fill for the bottom/right inset shadow, with the existing upper-left shine.",
+    "palettePreview": "C:/Users/emily/.codex/visualizations/2026/10/26/01a17598-0e44-7ee3-9233-4435b6e24ee1/october-petal-collection.html"
+  },
+  "cardBackExploration": {
+    "status": "The user selected Pressed Petals from these ten concepts; more foliage and light-mode variants are now being explored.",
+    "designs": ["Twin Books", "Library Diamonds", "Deco Binding", "Petal Quilt", "Gilded Trellis", "Rose Cameo", "Scalloped Linen", "Pressed Petals", "Ivory Bookplate", "Petal Brocade"],
+    "treatment": "Eight burgundy-ground designs, one cream-ground design, and one petal-ground design. Tea rose is the main accent; antique gold is supplementary. Identical mirrored halves keep the artwork invariant under 180-degree rotation. The same back is shown on light and dark table surfaces.",
+    "previewSizes": ["160 x 224 enlarged", "80 x 112 standard", "50 x 70 compact", "36 x 50 small"],
+    "preview": "C:/Users/emily/.codex/visualizations/2026/10/26/01a17598-0e44-7ee3-9233-4435b6e24ee1/october-petal-card-backs.html",
+    "verification": "Rendered all ten designs at desktop and 320px phone widths. Each has five card specimens with loaded book motifs; no page or artwork overflow occurred. Carousel navigation and favoriting work, stage heights remain stable, and no browser errors were reported.",
+    "latestRefinement": {
+      "status": "The user selected Single Leaves and subsequently selected M3 Rose Clay for the light-mode card back.",
+      "designs": ["Original Sprigs", "Willow Corners", "Olive Stems", "Laurel Frame", "Wheat Fronds", "Leaf Fans", "Trailing Ivy", "Single Leaves"],
+      "lightFinishes": {
+        "Ivory": {"paper":"#F6ECDD", "books":"#613A43", "leaves":"#A16B7B", "frame":"#CC858F", "gold":"#B09354"},
+        "Parchment": {"paper":"#E8D8C4", "books":"#613A43", "leaves":"#8B5664", "frame":"#C58E99", "gold":"#A2864F"},
+        "Blush": {"paper":"#F1D8DA", "books":"#613A43", "leaves":"#9C6172", "frame":"#CA929F", "gold":"#AA8B50"},
+        "Petal": {"paper":"#DCAAA2", "books":"#613A43", "leaves":"#74434F", "frame":"#F1D6D9", "gold":"#957646"},
+        "Tea rose": {"paper":"#E5B1B6", "books":"#613A43", "leaves":"#7D485B", "frame":"#F3DADC", "gold":"#9F824F"}
+      },
+      "darkTreatment": "Keep the burgundy #4B303B ground, tea-rose #E5B1B6 books/leaves, and antique-gold #C7AA6A details while comparing the new layouts.",
+      "preview": "C:/Users/emily/.codex/visualizations/2026/10/26/01a17598-0e44-7ee3-9233-4435b6e24ee1/pressed-petals-variations.html",
+      "verification": "Checked all eight layouts at 320px, with no page, artwork, or finish-label overflow. All five finish choices update the enlarged and small light cards consistently. Carousel navigation and favoriting work; book and botanical icons render; no browser errors were reported. Desktop inspection confirms the leafy frames sit beside the books.",
+      "midToneLightPalettes": {
+        "status": "The user selected M3 Rose Clay. The O2 website palette remains selected.",
+        "palettes": ["M1 Antique Tea Rose", "M2 Dusty Petal", "M3 Rose Clay", "M4 Mauve Linen", "M5 Smoky Lilac", "M6 Heather Taupe", "M7 Rosewood", "M8 Mulberry Silk", "M9 Pink Terracotta", "M10 Cashmere", "M11 Sandstone", "M12 Antique Champagne"],
+        "treatment": "Explore medium-depth rose, clay, mauve, lilac, taupe, beige, and muted gold grounds. Ten proposals use dark wine/plum details; Rosewood and Mulberry Silk use cream details. Keep the selected Single Leaves geometry and burgundy/tea-rose/gold dark back throughout the comparison.",
+        "preview": "C:/Users/emily/.codex/visualizations/2026/10/26/01a17598-0e44-7ee3-9233-4435b6e24ee1/single-leaves-midtones.html",
+        "verification": "Rendered desktop and 320px phone views. All twelve choices update the enlarged and small light cards consistently while the dark back stays fixed. No page, artwork, or option-label overflow occurred; all book/leaf icons render, and no browser errors were reported."
+      }
+    }
+  },
+  "implementationBrief": {
+    "plan": "docs/implementation-plan.md",
+    "status": "Implementation plan prepared; application code is future work.",
+    "rulesReference": "https://bicyclecards.com/how-to-play/hand-and-foot",
+    "confirmedByUser": {
+      "individualMaxPlayers": 6,
+      "partnershipMaxPlayers": 8,
+      "partnershipMaxTeams": 4,
+      "playersPerTeam": 2,
+      "deckCountFormula": "number of starting seated players, including bots, plus one",
+      "meldOwnership": "Shared team melds displayed in two player lanes",
+      "activeTeamLane": "Bottom lane",
+      "privateHand": "Always at the bottom for the viewer",
+      "tableLayout": "Golf mobile cycling table approach on desktop and mobile",
+      "accounts": "Shared Cards login across all sites",
+      "gameHost": "Independent Hand & Foot multiplayer service",
+      "backgroundMusic": "Use all seven tracks from Golf's background music rotation"
+    },
+    "derivedSetup": {"individualCounts":[2,3,4,5,6], "partnershipCounts":[4,6,8], "jokersPerDeckProposed":2},
+    "proposedPublicPaths": {"web":"/hand-and-foot/", "api":"/api/hand-and-foot/", "socket":"/hand-and-foot/socket.io"},
+    "deckInvariant": "Lock starting roster size for the match. Disconnections and bot replacements do not shrink the roster or change the deck count. Eight players use nine decks.",
+    "teamDisplay": "Cycle teams in partnership mode and players in individual mode. Keep creator-lane identity stable, reorder the active teammate below the other, and allow legal shared meld targets in either lane.",
+    "openingTarget": "Approximately 3–4 seconds with grouped hand/foot deal flights, legal upcard reveal, and starter focus; private feet stay hidden.",
+    "backgroundMusic": {
+      "source": "../golf/web/public/sounds/",
+      "tracks": ["backgroundmusic.mp3", "alex-morgan-jazz-restaurant-music-556244.mp3", "alex-morgan-jazz-dinner-restaurant-music-556236.mp3", "alex-morgan-jazz-bar-restaurant-music-564253.mp3", "alex-morgan-cocktail-jazz-556233.mp3", "alex-morgan-jazz-cocktail-lounge-music-556246.mp3", "alex-morgan-jazz-rainy-lounge-music-556235.mp3"],
+      "rotation": "Shuffle all seven; play each once per cycle; reshuffle without immediately repeating the previous final track. Pause/resume keeps the song and rotation. Page changes, game rounds, and rematches do not reset it.",
+      "controls": "Independent music/effects volume, opt-in playback, and Hand & Foot storage keys. Preserve Golf's autoplay and stale-callback handling.",
+      "sharedPlaybackLock": "cards.background-music.v1",
+      "credits": "Preserve Golf's existing Alex Morgan/Pixabay credits",
+      "references": ["../golf/web/src/context/SoundContext.tsx", "../golf/web/src/lib/musicPlayback.ts", "../golf/web/src/context/SoundContext.test.tsx"]
+    },
+    "houseRulesPending": ["Early wild meld composition", "Three scoring and initial treatment", "Foot entry timing", "Going-out permission, prerequisites, and bonus", "Short discard and stock exhaustion", "Closed/duplicate-rank books", "Ties, blocked rounds, and leftover-foot penalties"]
+  },
+  "previousPreferredDirection": {
+    "status": "Prior preferred direction, preserved while the full palette comparison above is open.",
+    "basePalette": "Purple base is fixed. T5 Dusty eucalyptus is selected for dark-mode primary buttons. Light-mode primary color is being explored within the eucalyptus, tea-rose, and purple palette. Purple secondary buttons and tea-rose card-back accents are retained.",
+    "fontPackage": "F4 Bitter + Figtree",
+    "titleEmblem": "I5 Book of melds",
+    "darkMode": "Keep the original P2 purple colors: outer #221B28, panel #3C2D45, emblem #836B8E, text #F7EFDF. Primary buttons are fixed to T5 Dusty eucalyptus #86AFA7.",
+    "lightMode": "Keep the deeper lavender outer #C6BADE, inner panel #E4DBED, violet text #4A3267, and emblem #A38FB8.",
+    "accentDirection": "Ten light-mode button choices from the established palette: matched T5, light eucalyptus, soft jade, deep eucalyptus, dusty sage, tea rose, soft tea rose, dusty mauve, soft orchid, and deep plum. Dark-mode colors stay fixed while comparing them.",
+    "pink": "R7 Tea rose is the selected supplementary color: deep #CC858F / soft #E5B1B6. Use it in navigation, links, and small decorative details. The card-back accent is fixed to soft tea rose #E5B1B6 for both the frame and the book motif, on the purple #3C2D45 back.",
+    "secondaryButtons": {
+      "light": "Lavender #C4B4D7 with violet #4A3267 text; hover #B6A4C9.",
+      "dark": "Mid-plum #63516F with cream #F7EFDF text; hover #705C7E.",
+      "reference": "Follow Euchre and Golf's pattern: a light tint of the brand palette for light-mode secondary buttons, and a lifted midtone of the dark surface family in dark mode. Both retain a darker shade of their own fill for the inset shadow.",
+      "sourceFiles": ["../euchre/web/src/styles/euchre.css", "../golf/web/src/styles/golf.css"]
+    },
+    "colorResearch": {
+      "sources": ["https://www.figma.com/resource-library/color-combinations/", "https://blog.adobe.com/en/publish/2020/04/27/color-your-spring-with-adobe-color-gradients", "https://m3.material.io/styles/color/the-color-system"],
+      "application": "Use a wider range of hue and value relationships instead of only nearby pink shades; keep purple surfaces stable and compare a separate supporting accent. Exact colors are custom exploration proposals, informed by the references."
+    },
+    "buttonStyle": "Use the existing inset -3px -3px bottom-and-right shadow, derived from a darker shade of each button's own fill. Do not use a differently colored shadow. Preserve the small upper-left shine and pressed inset reversal.",
+    "refinementPreview": "C:/Users/emily/.codex/visualizations/2026/10/26/01a17598-0e44-7ee3-9233-4435b6e24ee1/light-button-options.html"
+  },
+  "proposal": {
+    "interactiveFile": "C:/Users/emily/.codex/visualizations/2026/10/26/01a17598-0e44-7ee3-9233-4435b6e24ee1/hand-and-foot-directions.html",
+    "counts": { "palettes": 10, "fontPackages": 10, "titleEmblems": 10 },
+    "verification": {
+      "preview": "Rendered and inspected the interactive preview in the browser. Checked desktop and phone modes, font and emblem tabs, selection controls, and browser errors.",
+      "narrowPhone": "All ten font packages fit the title without page overflow at a 320px browser viewport. All ten emblem options render, including both composed emblems.",
+      "contrast": "Across all twenty light/dark variants, minimum body-text/panel contrast is 8.26:1 and minimum menu-label/button contrast is 4.52:1. Decorative emblems are not treated as text. These checks cover the proposal, not a future complete application.",
+      "status": "JavaScript syntax and research JSON parse successfully. The final local preview reports no browser errors."
+    },
+    "palettes": ["Apricot & Cocoa", "Aubergine & Honey", "Sea Glass & Clay", "Honey & Ink", "Periwinkle & Oat", "Terracotta & Linen", "Mulberry & Mist", "Petrol & Butter", "Olive & Blush", "Cinnamon & Cornflower"],
+    "fontPackages": ["Lora + Nunito Sans", "Cormorant Garamond + Source Sans 3", "DM Serif Display + DM Sans", "Bitter + Figtree", "Vollkorn + Source Sans 3", "Alegreya + Alegreya Sans", "Libre Baskerville + Public Sans", "Newsreader + Manrope", "Spectral + Karla", "Bree Serif + Nunito"],
+    "titleEmblems": ["Hand & Foot", "Open hand", "Footsteps", "Partner hands", "Book of melds", "Lucky clover", "Wildflower", "Feather", "Paper bird", "Magic hand"],
+    "recommendedBundles": [
+      "P2 Aubergine & Honey + F2 Cormorant Garamond / Source Sans 3 + I5 Book of melds",
+      "P1 Apricot & Cocoa + F1 Lora / Nunito Sans + I1 Hand & Foot",
+      "P8 Petrol & Butter + F4 Bitter / Figtree + I6 Lucky clover"
+    ],
+    "fontApproach": "Display face for page titles and menu specimens; companion UI face for readable instructions, compact scores, and card-rank specimens. Production can self-host just the selected font files, as the sisters do.",
+    "iconApproach": "The emblem concepts are previewed with Lucide line icons; two options compose two existing glyphs. Existing sister-site controls use Font Awesome Pro and can remain in that system. A chosen emblem should get a simplified small navigation/favicon treatment. No final icon package installation is implied by the sketches.",
+    "sources": ["https://fonts.google.com/", "https://lucide.dev/icons/"]
+  }
+}

@@ -1,0 +1,13 @@
+node_modules/
+web/dist/
+api/.venv/
+api/.local/
+api/.pytest_cache/
+*.egg-info/
+**/__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.local/
+*.tsbuildinfo
