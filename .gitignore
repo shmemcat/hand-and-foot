@@ -11,3 +11,4 @@ api/.pytest_cache/
 !.env.example
 .local/
 *.tsbuildinfo
+docs/
