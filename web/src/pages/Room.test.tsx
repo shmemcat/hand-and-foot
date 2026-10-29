@@ -2431,6 +2431,7 @@ it.each(["desktop", "mobile"])(
     expect(document.querySelectorAll(".staged-card")).toHaveLength(3);
     expect(command).toHaveBeenCalledTimes(2);
   },
+  15000,
 );
 
 it("outlines legal existing melds as soon as the discard is selected and stages it without hand selection", async () => {

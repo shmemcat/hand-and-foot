@@ -73,7 +73,15 @@ jobs:
         run: |
           image="ghcr.io/shmemcat/handandfoot-web:$RELEASE_TAG"
           docker run --rm "$image" nginx -t
-          docker push "$image"
+          for attempt in 1 2 3; do
+            if docker push "$image"; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
           digest=$(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' | jq -er '.digest')
           node scripts/component-release.mjs --web record "$RELEASE_TAG" "${{ steps.revision.outputs.sha }}" "$digest"
       - uses: actions/upload-artifact@v4
