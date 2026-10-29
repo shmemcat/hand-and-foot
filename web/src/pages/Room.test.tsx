@@ -1565,6 +1565,121 @@ it.each([50, 90, 120])(
   },
 );
 
+it.each(
+  ["desktop", "mobile"].flatMap((layout) =>
+    [50, 90, 120].map((minimum) => ({ layout, minimum })),
+  ),
+)(
+  "stages the entire opening with the discard at a $minimum-point minimum on $layout",
+  async ({ layout, minimum }) => {
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) =>
+        ({
+          matches:
+            (layout === "mobile" && query === "(max-width: 768px)") ||
+            query === "(prefers-reduced-motion: reduce)",
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
+    const snapshot = fixture();
+    snapshot.sides[0].opening = minimum;
+    const card = (id: string, rank: string, suit: string, value: number) => ({
+      id,
+      rank,
+      suit,
+      value,
+      wild: rank === "2",
+      redThree: false,
+    });
+    const jacks = [
+      card("jack-clubs", "J", "clubs", 10),
+      card("jack-hearts", "J", "hearts", 10),
+    ];
+    const queens = [
+      card("queen-hearts", "Q", "hearts", 10),
+      card("queen-spades", "Q", "spades", 10),
+      card("two-diamonds", "2", "diamonds", 20),
+    ];
+    const aces = ["clubs", "hearts", "spades"].map((suit) =>
+      card(`ace-${suit}`, "A", suit, 20),
+    );
+    const spare = card("spare-four", "4", "clubs", 5);
+    snapshot.hand = [...jacks, ...queens, ...aces, spare];
+    snapshot.discard = card("discard-jack", "J", "spades", 10);
+    const groups = [
+      {
+        cardIds: [...jacks.map((card) => card.id), snapshot.discard.id],
+        kind: "set",
+      },
+      { cardIds: queens.map((card) => card.id), kind: "set" },
+      { cardIds: aces.map((card) => card.id), kind: "set" },
+    ];
+    vi.mocked(getRoom).mockResolvedValue(snapshot);
+    vi.mocked(command).mockResolvedValue({
+      ...snapshot,
+      revision: 2,
+      token: "opening-pickup-accepted",
+      pickupDrawPending: true,
+      drawCount: 1,
+      hand: [spare],
+      discard: null,
+      sides: snapshot.sides.map((side) =>
+        side.id ? side : { ...side, opened: true },
+      ),
+    });
+    openRoom();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Pick up and immediately play the top discard",
+      }),
+    );
+    const hand = within(
+      screen.getByRole("region", { name: "Your private hand" }),
+    );
+    const stage = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Stage meld",
+    });
+    const play = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Play draft",
+    });
+    for (const [index, cards] of [jacks, queens, aces].entries()) {
+      for (const card of cards)
+        fireEvent.click(
+          hand.getByRole("button", { name: `${card.rank} of ${card.suit}` }),
+        );
+      expect(stage.disabled).toBe(false);
+      expect(screen.queryByRole("group", { name: "Stage meld" })).toBeNull();
+      if (layout === "mobile")
+        expect(
+          screen.getByRole("group", { name: "Add selected cards to a pile" }),
+        ).toBeTruthy();
+      fireEvent.click(stage);
+      expect(play.disabled).toBe([30, 70, 130][index] < minimum);
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", {
+          name: "Draw 2 cards from the stack",
+        }).disabled,
+      ).toBe(true);
+      expect(command).not.toHaveBeenCalled();
+    }
+    expect(document.querySelectorAll(".staged-card")).toHaveLength(8);
+    await act(async () => fireEvent.click(play));
+    expect(command).toHaveBeenCalledExactlyOnceWith(snapshot, "pickup", {
+      groups,
+    });
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: "Draw your second card from the deck",
+      }).disabled,
+    ).toBe(false);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Stage meld" })
+        .disabled,
+    ).toBe(true);
+  },
+);
+
 it("restores the one-card deck prompt after reconnecting and locks both discard controls until it lands", async () => {
   vi.useFakeTimers();
   const before = fixture();

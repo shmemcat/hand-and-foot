@@ -986,7 +986,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     error,
   ]);
   function stage(meldId?: string) {
-    if (!canStage || discardIsStaged) return;
+    if (!canStage || pickupStagingLocked) return;
     const target = ownSide.melds.find((meld) => meld.id === meldId);
     if (meldId ? !target || !canAddToMeld(target) : !stageKind) return;
     setDrafts((old) => [
@@ -1223,6 +1223,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const discardIsStaged = Boolean(
     pickup && snapshot.discard && stagedIds.has(snapshot.discard.id),
   );
+  const pickupStagingLocked = discardIsStaged && ownSide.opened;
   const pendingDiscard =
     pickup && snapshot.discard && !discardIsStaged ? snapshot.discard : null;
   const pickupPlayableIds = pendingDiscard
@@ -1242,7 +1243,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     stageIds.length > 0 && stageCards.length === stageIds.length;
   const stageKind = hasStageCards ? detectMeldKind(stageCards) : null;
   function canAddToMeld(meld: Meld) {
-    if (!canStage || discardIsStaged || !hasStageCards) return false;
+    if (!canStage || pickupStagingLocked || !hasStageCards) return false;
     let target = meld;
     for (const draft of drafts.filter((draft) => draft.meldId === meld.id)) {
       const additions = draft.cardIds.flatMap((id) => cardMap.get(id) || []);
@@ -1900,7 +1901,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                       </span>
                     ) : mobileGame &&
                       canStage &&
-                      !discardIsStaged &&
+                      !pickupStagingLocked &&
                       stageIds.length > 0 ? (
                       <div
                         className="mobile-meld-targets"
@@ -2163,10 +2164,10 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                         )}
                       </span>
                       <DrawFirstHint
-                        blocked={discardIsStaged || needsSecondDraw}
+                        blocked={pickupStagingLocked || needsSecondDraw}
                         label="Stage meld"
                         hint={
-                          discardIsStaged
+                          pickupStagingLocked
                             ? "Play your meld that includes the discard first, then draw before staging more"
                             : undefined
                         }
@@ -2175,7 +2176,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                           className="button small"
                           disabled={
                             !canStage ||
-                            discardIsStaged ||
+                            pickupStagingLocked ||
                             (!stageKind && !canStageRedThrees)
                           }
                           onClick={() =>
