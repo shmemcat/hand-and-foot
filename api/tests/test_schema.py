@@ -26,3 +26,10 @@ def test_production_account_mode_requires_the_private_account_configuration(tmp_
     app = create_app({"TESTING": True, "START_WORKER": False, "REQUIRE_ACCOUNTS": True,
                       "SECRET_KEY": "schema-test-" * 4, "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'accounts.sqlite'}"})
     assert app.test_client().get("/ready").status_code == 503
+
+
+def test_postgresql_urls_select_the_installed_driver_without_connecting():
+    app = create_app({"TESTING": True, "START_WORKER": False, "AUTO_CREATE_SCHEMA": False,
+                      "SECRET_KEY": "schema-test-" * 4, "SQLALCHEMY_DATABASE_URI": "postgresql://example:synthetic@127.0.0.1/disposable"})
+    with app.app_context():
+        assert db.engine.driver == "psycopg2"

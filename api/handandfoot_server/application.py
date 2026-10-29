@@ -11,6 +11,7 @@ import time
 from flask import Flask, jsonify, request, session
 from flask_socketio import SocketIO, join_room
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from . import bots, engine, scoring, lobby, inactivity
 from .models import AchievementUnlock, DeletedAccount, MatchResult, Receipt, Room, db
 from .account_remote import RemoteAccounts
@@ -69,6 +70,10 @@ def create_app(config=None):
         SOURCE_REVISION=os.environ.get("HANDANDFOOT_SOURCE_REVISION", "unknown"),
     )
     app.config.update(config or {})
+    database_url = make_url(app.config["SQLALCHEMY_DATABASE_URI"])
+    if database_url.drivername == "postgresql":
+        database_url = database_url.set(drivername="postgresql+psycopg2")
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     if len(app.config["SECRET_KEY"]) < 32:
         raise ValueError("Use a secret key of at least 32 characters.")
     db.init_app(app)
