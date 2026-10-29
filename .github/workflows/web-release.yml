@@ -1,0 +1,83 @@
+name: Release immutable Hand and Foot frontend
+
+on:
+  push:
+    tags: ["web-v*"]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing web-vMAJOR.MINOR.PATCH tag to publish without promotion
+        required: true
+
+concurrency:
+  group: handandfoot-web-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Cache frontend npm packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm/_cacache
+          key: ${{ runner.os }}-web-npm-v1-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-web-npm-v1-
+      - name: Validate the frontend tag and source
+        id: revision
+        run: |
+          [[ "$RELEASE_TAG" =~ ^web-v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Test and build the frontend
+        run: |
+          npm ci --prefer-offline --no-audit --no-fund
+          npm run test:web
+          npm run build
+      - name: Check immutable release contracts
+        run: node --test scripts/component-release.test.mjs
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refuse an existing frontend version
+        run: node scripts/component-release.mjs --web check "$RELEASE_TAG"
+      - name: Build only the Cards frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/Dockerfile
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+          load: true
+          tags: ghcr.io/shmemcat/handandfoot-web:${{ env.RELEASE_TAG }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/shmemcat/hand-and-foot
+            org.opencontainers.image.revision=${{ steps.revision.outputs.sha }}
+            org.opencontainers.image.version=${{ env.RELEASE_TAG }}
+      - name: Check and publish the immutable frontend
+        run: |
+          image="ghcr.io/shmemcat/handandfoot-web:$RELEASE_TAG"
+          docker run --rm "$image" nginx -t
+          docker push "$image"
+          digest=$(docker buildx imagetools inspect "$image" --format '{{json .Manifest}}' | jq -er '.digest')
+          node scripts/component-release.mjs --web record "$RELEASE_TAG" "${{ steps.revision.outputs.sha }}" "$digest"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: handandfoot-web-${{ env.RELEASE_TAG }}
+          path: release-artifacts/handandfoot-web.json
+          if-no-files-found: error

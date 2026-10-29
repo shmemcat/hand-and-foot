@@ -6,7 +6,6 @@ const sound = vi.hoisted(() => ({ play: vi.fn() }));
 vi.mock("../context/SoundContext", () => ({ useSound: () => sound }));
 afterEach(() => {
   vi.useRealTimers();
-  sound.play.mockClear();
 });
 
 it("nudges once after 15 idle actionable seconds and ends the shake after 2 seconds", () => {
@@ -18,17 +17,16 @@ it("nudges once after 15 idle actionable seconds and ends the shake after 2 seco
     },
   );
   act(() => vi.advanceTimersByTime(60_000));
-  expect(sound.play).not.toHaveBeenCalled();
+  expect(view.result.current.shaking).toBe(false);
   view.rerender({ active: true });
   act(() => vi.advanceTimersByTime(14_999));
-  expect(sound.play).not.toHaveBeenCalled();
+  expect(view.result.current.shaking).toBe(false);
   act(() => vi.advanceTimersByTime(1));
-  expect(sound.play).toHaveBeenCalledExactlyOnceWith("notification");
   expect(view.result.current.shaking).toBe(true);
   act(() => vi.advanceTimersByTime(2000));
   expect(view.result.current.shaking).toBe(false);
   act(() => vi.advanceTimersByTime(60_000));
-  expect(sound.play).toHaveBeenCalledOnce();
+  expect(view.result.current.shaking).toBe(false);
 });
 
 it("resets on interaction and a new decision, and cancels when you cannot act", () => {
@@ -40,15 +38,14 @@ it("resets on interaction and a new decision, and cancels when you cannot act", 
   act(() => vi.advanceTimersByTime(14_000));
   act(() => view.result.current.reset());
   act(() => vi.advanceTimersByTime(14_000));
-  expect(sound.play).not.toHaveBeenCalled();
+  expect(view.result.current.shaking).toBe(false);
   view.rerender({ active: true, decision: "turn-2" });
   act(() => vi.advanceTimersByTime(14_000));
   view.rerender({ active: false, decision: "turn-2" });
   act(() => vi.advanceTimersByTime(60_000));
-  expect(sound.play).not.toHaveBeenCalled();
+  expect(view.result.current.shaking).toBe(false);
   view.rerender({ active: true, decision: "turn-3" });
   act(() => vi.advanceTimersByTime(15_000));
-  expect(sound.play).toHaveBeenCalledExactlyOnceWith("notification");
   expect(view.result.current.shaking).toBe(true);
   view.rerender({ active: false, decision: "turn-3" });
   expect(view.result.current.shaking).toBe(false);

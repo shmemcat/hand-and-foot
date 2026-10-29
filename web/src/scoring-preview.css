@@ -1,0 +1,337 @@
+.score-board-study {
+  margin-top: 20px;
+  overflow-anchor: none;
+}
+.score-review-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+.score-review-bar > div {
+  margin-right: auto;
+}
+.score-review-bar h1 {
+  font-size: 18px;
+  line-height: 1.3;
+}
+.score-review-bar small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.score-review-bar label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.score-review-bar select {
+  width: auto;
+  padding: 6px 9px;
+  font-size: 11px;
+}
+.score-review-bar .button {
+  width: auto;
+  min-width: 72px;
+}
+.score-transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0 17px;
+  margin-bottom: 18px;
+  border-bottom: 1px dashed var(--line);
+}
+.score-transport .button {
+  width: auto;
+  min-width: 124px;
+  font-size: 12px;
+}
+.score-step-button {
+  background: transparent;
+  width: 28px;
+  height: 32px;
+  border-radius: 4px;
+}
+.score-transport input[type="range"] {
+  flex: 1;
+  min-width: 100px;
+  height: 4px;
+  padding: 0;
+  accent-color: var(--text);
+}
+.score-transport > span {
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.score-transport .text-button {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.score-native-stage {
+  position: relative;
+}
+.score-native-stage .game-page {
+  zoom: 0.85;
+}
+.score-native-stage .game-page > .board-carousel {
+  min-height: 560px;
+}
+.score-native-stage .hand-dock {
+  min-height: 180px;
+}
+.score-native-stage .hand-dock .empty-hand {
+  min-height: 134px;
+  display: grid;
+  place-items: center;
+  margin: 0;
+}
+.score-native-stage .card:disabled,
+.score-native-stage .pile-button:disabled {
+  opacity: 1;
+}
+.score-running-count {
+  position: relative;
+  justify-self: end;
+  text-align: right;
+  min-width: 205px;
+  padding: 2px 0;
+}
+.score-running-count > span:first-child {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 1.7px;
+  color: var(--muted);
+}
+.score-running-count > strong {
+  display: block;
+  font:
+    500 32px/1.25 Bitter,
+    Georgia,
+    serif;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0;
+}
+.score-running-count > small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.score-tally-add {
+  position: absolute;
+  right: 135px;
+  top: 27px;
+  font-size: 20px;
+  color: var(--text);
+  padding: 3px 10px;
+  background: var(--surface);
+  border-radius: 5px;
+  animation: score-points-add 600ms ease-out both;
+}
+.score-settlement-piles {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 30px;
+  min-height: 59px;
+}
+.score-settlement-pile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.score-settlement-stack {
+  position: relative;
+  width: 32px;
+  height: 45px;
+}
+.score-settlement-stack > .card {
+  width: 32px;
+  height: 45px;
+}
+.score-settlement-stack.has-cards:before,
+.score-settlement-stack.has-cards:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 4px;
+  z-index: 0;
+  transform: translate(2px, 2px);
+}
+.score-settlement-stack.has-cards:before {
+  transform: translate(4px, 4px);
+}
+.score-settlement-stack > .card {
+  z-index: 1;
+}
+.score-empty-pile {
+  display: block;
+  width: 32px;
+  height: 45px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+}
+.score-settlement-pile > span {
+  display: block;
+  text-align: left;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.score-settlement-pile strong {
+  display: block;
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.score-settlement-pile strong small {
+  font-size: 9px;
+  font-weight: 400;
+}
+.score-join-point {
+  position: absolute;
+  width: 150px;
+  height: 100px;
+  top: -110px;
+  left: 0;
+  pointer-events: none;
+}
+.score-holding-area {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 100px;
+  padding-bottom: 10px;
+  pointer-events: none;
+}
+.score-holding-card > .card {
+  width: 62px;
+  height: 87px;
+}
+.card-points-left {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: max-content;
+  padding: 3px 6px;
+  background: var(--secondary);
+  color: var(--button-text);
+  border-radius: 3px;
+  font:
+    600 9px/1.3 Figtree,
+    Arial,
+    sans-serif;
+}
+.score-card-flight {
+  position: fixed;
+  z-index: 250;
+  pointer-events: none;
+  animation: score-card-direct 600ms cubic-bezier(0.25, 0.55, 0.3, 1) both;
+  transform-origin: center;
+}
+.score-card-flight.is-paired {
+  animation-name: score-card-pair;
+}
+.score-card-flight > .card {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+}
+.score-review-note {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+  text-align: center;
+  margin: 15px auto 0;
+}
+.score-preview-back {
+  display: inline-block;
+  font-size: 11px;
+  margin-top: 16px;
+}
+.score-preview-sheet {
+  text-align: left;
+  max-width: 520px;
+}
+.score-preview-sheet h2 {
+  font-size: 32px;
+  margin: 20px 0 7px;
+}
+.score-preview-sheet > p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.score-preview-sheet dl {
+  margin: 22px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.score-preview-sheet dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  margin: 9px 0;
+  font-size: 13px;
+}
+.score-preview-sheet dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.score-preview-sheet > .button {
+  display: flex;
+  margin: 20px auto 0;
+}
+@keyframes score-card-pair {
+  0% {
+    transform: translate(0, 0);
+  }
+  38%,
+  58% {
+    transform: translate(var(--score-mid-x), var(--score-mid-y));
+  }
+  100% {
+    transform: translate(var(--score-end-x), var(--score-end-y))
+      scale(var(--score-end-scale-x), var(--score-end-scale-y));
+  }
+}
+@keyframes score-card-direct {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(var(--score-end-x), var(--score-end-y))
+      scale(var(--score-end-scale-x), var(--score-end-scale-y));
+  }
+}
+@keyframes score-points-add {
+  from {
+    transform: translateY(5px);
+  }
+  to {
+    transform: translateY(-7px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .score-board-study *,
+  .score-board-study *::before,
+  .score-board-study *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .score-card-flight {
+    display: none;
+  }
+}

@@ -1,6 +1,74 @@
 /* Shared page geometry follows Golf and Euchre; the palette remains O2. */
+.win-stats-notice {
+  max-width: 360px;
+  margin-inline: auto;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+.idle-warning {
+  margin: 0 auto 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--secondary-shadow);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  font-size: 14px;
+}
+.session-status {
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  margin: 16px auto;
+}
+.play-choice[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}
+.table-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  padding: 24px;
+  background: rgb(0 0 0 / 40%);
+  backdrop-filter: blur(4px);
+}
+.table-dialog {
+  width: min(100%, 360px);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  padding: 28px;
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: center;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 25%);
+}
+.table-dialog h2 {
+  margin: 0 0 14px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+.table-dialog p {
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+.table-dialog .button-stack {
+  margin: 0;
+}
+.table-dialog .button-stack button {
+  width: 100%;
+}
+.table-dialog .error {
+  margin: 18px 0 0;
+}
 :root {
   --primary-shadow: color-mix(in srgb, var(--primary) 77%, #000);
+  --primary-hover: color-mix(in srgb, var(--primary) 88%, #000);
   --secondary-shadow: color-mix(in srgb, var(--secondary) 77%, #000);
   --link: #89525e;
   --volume-panel: var(--panel);
@@ -10,6 +78,15 @@
   --link: #e5b1b6;
   --volume-panel: var(--soft);
   --volume-track: var(--panel);
+  --primary-hover: #aa7d7b;
+  --primary-pressed: #aa7d7b;
+  --primary-hover-shadow: #7c5b5b;
+  --primary-pressed-shadow: #7c5b5b;
+  --primary-hover-shine: #bca8a7;
+  --secondary-hover: #a28142;
+  --secondary-pressed: #9b783b;
+  --secondary-hover-shadow: #795c2e;
+  --secondary-pressed-shadow: #6e5028;
 }
 body {
   font-size: 17px;
@@ -61,8 +138,29 @@ a {
   height: 23px;
   color: var(--primary);
 }
-.brand:hover {
-  color: var(--link);
+.brand,
+.brand > svg,
+.nav-user,
+.nav-user > svg,
+.site-nav .icon-button,
+.volume-toggle,
+.cards-hub-link {
+  transition: color 0.15s ease;
+}
+/* SVG parts and inherited labels follow the control without another fade. */
+.brand > span,
+.brand > svg *,
+.nav-user > span,
+.nav-user > svg *,
+.site-nav .icon-button *,
+.volume-toggle *,
+.cards-hub-link * {
+  transition: none;
+}
+.brand:is(:hover, :focus-visible),
+.brand:is(:hover, :focus-visible) > svg,
+.nav-user:is(:hover, :focus-visible) > svg {
+  color: var(--primary-hover);
 }
 .site-nav .nav-actions {
   gap: 20px;
@@ -79,8 +177,8 @@ a {
   width: 18px;
   height: 18px;
 }
-.site-nav .icon-button:hover {
-  color: var(--link);
+.site-nav .icon-button:is(:hover, :focus-visible) {
+  color: var(--primary-hover);
   background: transparent;
 }
 .nav-user {
@@ -262,11 +360,11 @@ a {
 }
 .nav-user svg {
   width: 16px;
-  height: 19px;
+  height: 18px;
   color: var(--primary);
 }
-.nav-user:hover {
-  color: var(--link);
+.nav-user:is(:hover, :focus-visible) {
+  color: var(--primary-hover);
 }
 .sound-wrap {
   position: relative;
@@ -311,8 +409,8 @@ a {
   color: var(--primary);
   flex-shrink: 0;
 }
-.volume-toggle:hover {
-  color: var(--link);
+.volume-toggle:is(:hover, :focus-visible) {
+  color: var(--primary-hover);
 }
 .volume-toggle svg {
   width: 14px;
@@ -479,8 +577,20 @@ a {
   width: 28px;
   height: 28px;
 }
-.cards-hub-link:hover {
-  color: var(--link);
+.cards-hub-link:is(:hover, :focus-visible) {
+  color: var(--primary-hover);
+}
+.button,
+.segmented > button,
+.seat-choices > button,
+.rules-nav button {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.button::before {
+  transition: background-color 0.15s ease;
 }
 .button {
   flex-direction: row;
@@ -502,8 +612,8 @@ a {
   height: 7px;
   background: color-mix(in srgb, var(--primary) 45%, #fff);
 }
-.button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary) 88%, #000);
+.button:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--primary-hover);
   filter: none;
   transform: none;
 }
@@ -520,7 +630,7 @@ a {
 .button.secondary:before {
   background: color-mix(in srgb, var(--secondary) 45%, #fff);
 }
-.button.secondary:hover:not(:disabled) {
+.button.secondary:is(:hover, :focus-visible):not(:disabled) {
   background: color-mix(in srgb, var(--secondary) 88%, #000);
 }
 .button.secondary:active:not(:disabled) {
@@ -591,7 +701,7 @@ a {
   flex-direction: column;
   width: 225px;
   gap: 16px;
-  margin: 20px 0 0 200px;
+  margin: 26px 0 0 200px;
   align-items: stretch;
 }
 .home-menu .button,
@@ -724,7 +834,7 @@ a {
 }
 .segmented > button:hover,
 .seat-choices > button:hover {
-  background: color-mix(in srgb, var(--primary) 88%, #000);
+  background: var(--primary-hover);
 }
 .seat-choices {
   justify-content: center;
@@ -767,7 +877,7 @@ a {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
   gap: 30px;
-  align-items: start;
+  align-items: stretch;
 }
 .rules-nav {
   display: flex;
@@ -1099,14 +1209,29 @@ a {
     height: 24px;
   }
   .site-frame .site-nav {
-    min-height: 28px;
+    width: 100%;
+    min-height: 44px;
   }
   .site-nav .nav-actions {
-    gap: 20px;
+    min-width: 0;
+    gap: 16px;
+  }
+  .site-nav .icon-button {
+    width: 28px;
+    min-width: 28px;
+    height: 44px;
+    min-height: 44px;
   }
   .nav-user {
     font-size: 16px;
-    max-width: min(155px, 39vw);
+    line-height: 24px;
+    min-height: 44px;
+    max-width: min(160px, 39vw);
+  }
+  .site-nav .nav-user svg {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
   }
   .home-page {
     margin-top: clamp(72px, 14svh, 140px);
@@ -1286,4 +1411,47 @@ a {
   .play-choice:hover {
     transform: none;
   }
+}
+
+/* Keep hover and depressed controls consistent across dark-mode pages. */
+:root[data-theme="dark"] .button:is(:hover, :focus-visible):not(:disabled),
+:root[data-theme="dark"]
+  .segmented
+  > button:is(:hover, :focus-visible):not(:disabled),
+:root[data-theme="dark"]
+  .seat-choices
+  > button:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--primary-hover);
+  color: #2c0c14;
+  box-shadow: inset -3px -3px 0 var(--primary-hover-shadow);
+}
+:root[data-theme="dark"]
+  .button:is(:hover, :focus-visible):not(:disabled)::before {
+  background: var(--primary-hover-shine);
+}
+:root[data-theme="dark"]
+  .button:is(:active, [aria-pressed="true"]):not(:disabled),
+:root[data-theme="dark"] .segmented > button:is(.active, :active),
+:root[data-theme="dark"] .seat-choices > button:is(.active, :active),
+:root[data-theme="dark"] .profile-icon-grid button[aria-pressed="true"] {
+  background: var(--primary-pressed);
+  color: #2c0c14;
+}
+:root[data-theme="dark"]
+  .button:is(:active, [aria-pressed="true"]):not(:disabled),
+:root[data-theme="dark"] .segmented > button:is(.active, :active),
+:root[data-theme="dark"] .seat-choices > button:is(.active, :active) {
+  box-shadow: inset 3px 3px 0 var(--primary-pressed-shadow);
+}
+:root[data-theme="dark"]
+  .button.secondary:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--secondary-hover);
+  color: #180e13;
+  box-shadow: inset -3px -3px 0 var(--secondary-hover-shadow);
+}
+:root[data-theme="dark"]
+  .button.secondary:is(:active, [aria-pressed="true"]):not(:disabled) {
+  background: var(--secondary-pressed);
+  color: #180e13;
+  box-shadow: inset 3px 3px 0 var(--secondary-pressed-shadow);
 }

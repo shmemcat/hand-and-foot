@@ -100,19 +100,17 @@ it("starts silently, pauses scheduled reveals, and cancels playback on unmount",
   act(() => vi.advanceTimersByTime(5000));
   expect(sound.play).toHaveBeenCalledTimes(1);
 });
-it("supports eight-player partnerships and changing the first player through the dealer", () => {
+it("uses six-player partnerships and changes the first player through the dealer", () => {
   show();
   fireEvent.change(screen.getByLabelText("Scoring"), {
     target: { value: "partnership" },
   });
-  fireEvent.change(screen.getByLabelText("Players"), {
-    target: { value: "8" },
-  });
-  expect(screen.getByLabelText<HTMLSelectElement>("Players").value).toBe("8");
+  expect(screen.queryByLabelText("Players")).toBeNull();
+  expect(screen.getByText("6 players · 7 decks")).toBeTruthy();
   expect(
     screen.getByLabelText<HTMLSelectElement>("Dealer for this rehearsal")
       .options.length,
-  ).toBe(8);
+  ).toBe(6);
   fireEvent.change(screen.getByLabelText("Dealer for this rehearsal"), {
     target: { value: "0" },
   });
@@ -210,6 +208,7 @@ it("migrates the requested opening timings while preserving notes", () => {
   );
   expect(saved.durations.slice(0, 4)).toEqual([900, 1700, 2000, 900]);
   expect(saved.revision).toBe(7);
+  expect(saved.players).toBe(6);
   expect(saved.dealStyle).toBe("drops");
   expect(
     screen.getByLabelText<HTMLTextAreaElement>("What should change?").value,
@@ -351,7 +350,8 @@ it("persists timing and notes and safely rejects malformed saved settings", () =
     JSON.stringify({ players: 99, durations: [] }),
   );
   show();
-  expect(screen.getByLabelText<HTMLSelectElement>("Players").value).toBe("4");
+  expect(screen.getByText("6 players · 7 decks")).toBeTruthy();
+  expect(screen.queryByLabelText("Players")).toBeNull();
   fireEvent.change(screen.getByLabelText("What should change?"), {
     target: { value: "Slower fan, quieter chime." },
   });

@@ -1,0 +1,197 @@
+/* Stacked result actions and host tooltip follow Golf. */
+.score-player-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.score-player-name > svg {
+  width: 13px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--secondary);
+}
+.score-player-name > span {
+  overflow-wrap: anywhere;
+}
+.round-breakdown .score-player-name {
+  justify-content: center;
+}
+.round-score-sheet .side-result dl > .round-total {
+  padding: 12px 0;
+}
+.round-score-sheet .side-result dl {
+  margin-bottom: 0;
+}
+.round-score-sheet .side-result .match-total {
+  margin-top: 0;
+}
+.score-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
+  width: min(250px, 100%);
+  margin: 20px auto 0;
+}
+.round-score-sheet .score-actions .button {
+  width: 100%;
+  min-width: 0;
+  min-height: 35px;
+  height: 35px;
+  padding: 0 12px;
+  font-size: 15px;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.waiting-dots {
+  display: inline-flex;
+  width: 1em;
+  text-align: left;
+}
+.waiting-dots > span {
+  animation: waiting-dot 1.2s ease-in-out infinite;
+}
+.waiting-dots > span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.waiting-dots > span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes waiting-dot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.25;
+  }
+  35% {
+    opacity: 1;
+  }
+}
+.score-host-waiting {
+  display: block;
+  position: relative;
+  width: 100%;
+  cursor: not-allowed;
+  border-radius: 8px;
+}
+.score-host-waiting > button {
+  pointer-events: none;
+}
+.score-host-tooltip {
+  position: absolute;
+  z-index: 70;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 280px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  box-shadow: 0 2px 8px #0003;
+}
+.round-breakdown {
+  margin: 20px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  text-align: left;
+  background: var(--surface);
+  overflow: hidden;
+}
+.round-breakdown > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  list-style: none;
+}
+.round-breakdown > summary::-webkit-details-marker {
+  display: none;
+}
+.breakdown-chevron {
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.18s;
+}
+.round-breakdown[open] .breakdown-chevron {
+  transform: rotate(225deg);
+}
+.round-breakdown-scroll {
+  overflow-x: auto;
+}
+.round-breakdown table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.round-breakdown th,
+.round-breakdown td {
+  padding: 9px 12px;
+  text-align: center;
+  border-top: 1px solid var(--line);
+}
+.round-breakdown th:first-child {
+  width: 100px;
+  text-align: left;
+  white-space: nowrap;
+}
+.round-breakdown thead th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.round-breakdown tbody th {
+  font-weight: 400;
+  color: var(--muted);
+}
+.round-breakdown tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--panel) 40%, transparent);
+}
+.round-breakdown tfoot {
+  font-weight: 700;
+  color: var(--text);
+  background: var(--panel);
+}
+.results-toggle {
+  position: fixed;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: max(16px, env(safe-area-inset-left));
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--primary);
+  box-shadow: 0 2px 8px #0003;
+  cursor: pointer;
+}
+.results-toggle:hover {
+  color: var(--text);
+}
+@media (prefers-reduced-motion: reduce) {
+  .waiting-dots > span {
+    animation: none;
+  }
+  .breakdown-chevron {
+    transition: none;
+  }
+}

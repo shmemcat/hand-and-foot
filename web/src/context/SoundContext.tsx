@@ -11,6 +11,7 @@ import { Howl } from "howler";
 import { asset } from "../lib/assets";
 import { readStorage, writeStorage } from "../lib/storage";
 import { requestMusicPlayback } from "../lib/musicPlayback";
+import { MUSIC_OFF_EVENT } from "../lib/achievementEvents";
 type Sound =
   | "playerJoin"
   | "select"
@@ -22,6 +23,7 @@ type Sound =
   | "win"
   | "pop"
   | "goingOut"
+  | "redThreeCelebration"
   | "notification";
 const FILES: Record<Sound, string[]> = {
   playerJoin: ["join-ding"],
@@ -34,6 +36,7 @@ const FILES: Record<Sound, string[]> = {
   win: ["game-end"],
   pop: ["pop"],
   goingOut: ["going-out"],
+  redThreeCelebration: ["red-three-celebration"],
   notification: ["notification"],
 };
 const MUSIC_FILES = [
@@ -191,6 +194,9 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     writeStorage("handandfoot.muted.v1", value);
   };
   const setMusic = (value: boolean) => {
+    if (musicEnabled.current && !value)
+      window.dispatchEvent(new Event(MUSIC_OFF_EVENT));
+    musicEnabled.current = value;
     setMusicState(value);
     writeStorage("handandfoot.music.v1", value);
   };

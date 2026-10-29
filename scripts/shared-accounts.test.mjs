@@ -72,6 +72,35 @@ test(
       });
       const gateway = stack.base("gateway"),
         hand = stack.webBase("handandfoot");
+      const guestSession = await call(hand, "/api/hand-and-foot/session");
+      assert.equal(guestSession.user, null);
+      const gameCookieName = [...cookies.keys()].find((name) =>
+        name.startsWith("handandfoot_session_"),
+      );
+      assert.ok(gameCookieName, "Each local preview has its own game cookie");
+      cookies.set("handandfoot_session", "a-cookie-from-another-local-preview");
+      let guestLobby = await call(
+        hand,
+        "/api/hand-and-foot/rooms",
+        {
+          name: "Guest host",
+          scoringMode: "partnership",
+          capacity: 6,
+          playMode: "online",
+        },
+        { "X-Handandfoot-CSRF": guestSession.csrf },
+      );
+      guestLobby = await call(
+        hand,
+        `/api/hand-and-foot/rooms/${guestLobby.code}/commands`,
+        {
+          actionId: randomUUID(),
+          revision: guestLobby.revision,
+          token: guestLobby.token,
+          type: "unseat",
+        },
+        { "X-Handandfoot-CSRF": guestSession.csrf },
+      );
       const username = "hf_" + randomBytes(5).toString("hex");
       const password = "isolated-handandfoot-password-123",
         email = username + "@example.test";
@@ -87,6 +116,11 @@ test(
         token: new URL(mail.url).searchParams.get("token"),
       });
       const login = await account(hand, "login", { username, password });
+      assert.ok(
+        [...cookies.keys()].some((name) => name.startsWith("cards_session_")),
+        "The stack shares its own scoped account cookie",
+      );
+      cookies.set("cards_session", "another-preview-account-cookie");
       await account(hand, "profile", { profile_icon: "cat" });
       for (const base of [
         gateway,
@@ -97,29 +131,42 @@ test(
         assert.equal(state.user.name, username);
         assert.equal(state.user.profile_icon, "cat");
       }
+      // Exercise each game's own private cookie reader, not just its account proxy.
+      assert.equal(
+        (await call(gateway, "/api/golf/session")).user.id,
+        login.user.id,
+      );
+      assert.ok((await call(gateway, "/api/stats")).stats);
+      await call(gateway, "/api/account/euchre/multiplayer-results");
       const session = await call(hand, "/api/hand-and-foot/session");
       assert.equal(session.user.id, login.user.id);
       const gameHeaders = { "X-Handandfoot-CSRF": session.csrf };
       const room = await call(
         hand,
-        "/api/hand-and-foot/rooms",
-        {
-          name: "Untrusted alias",
-          scoringMode: "partnership",
-          capacity: 8,
-          playMode: "online",
-        },
+        `/api/hand-and-foot/rooms/${guestLobby.code}/join`,
+        { name: "Untrusted alias", seat: null },
         gameHeaders,
       );
-      assert.equal(room.decks, 9);
+      assert.equal(room.decks, 7);
       assert.equal(room.players[0].name, username);
-      const originalGameCookie = cookies.get("handandfoot_session");
-      cookies.delete("handandfoot_session");
+      assert.equal(room.players.length, 1);
+      assert.equal(room.viewerId, guestLobby.viewerId);
+      assert.equal(room.hostId, guestLobby.hostId);
+      assert.equal(room.waitingPlayers[0].id, guestLobby.viewerId);
+      assert.equal(room.players[0].profileIcon, "cat");
+      assert.deepEqual(
+        (await call(hand, "/api/hand-and-foot/active")).rooms.map(
+          (item) => item.code,
+        ),
+        [room.code],
+      );
+      const originalGameCookie = cookies.get(gameCookieName);
+      cookies.delete(gameCookieName);
       assert.equal(
         (await call(hand, `/api/hand-and-foot/rooms/${room.code}`)).viewerId,
         room.viewerId,
       );
-      cookies.set("handandfoot_session", originalGameCookie);
+      cookies.set(gameCookieName, originalGameCookie);
       await account(stack.webBase("euchre"), "logout", {});
       for (const base of [gateway, ...roles.map((role) => stack.webBase(role))])
         assert.equal((await account(base, "session")).user, null);

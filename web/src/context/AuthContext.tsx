@@ -6,7 +6,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { createAccountClient, type AccountUser } from "../lib/account";
+import {
+  createAccountClient,
+  type AccountUser,
+  type ProfileUpdate,
+} from "../lib/account";
 import { invalidateGameSession } from "../lib/api";
 
 const Context = createContext<{
@@ -15,6 +19,8 @@ const Context = createContext<{
   error: string;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (data: ProfileUpdate) => Promise<string>;
+  deleteAccount: (password: string) => Promise<string>;
 } | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [client] = useState(() =>
@@ -87,6 +93,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (version === generation.current) setLoading(false);
     }
   };
+  const updateProfile = async (data: ProfileUpdate): Promise<string> => {
+    if (working.current)
+      throw new Error("Please wait for your account to finish updating.");
+    working.current = true;
+    const expected = identity.current;
+    const version = ++generation.current;
+    setLoading(true);
+    setError("");
+    try {
+      const fresh = await client.session();
+      if (!expected || fresh.user?.id !== expected) {
+        if (version === generation.current) apply(fresh.user);
+        throw new Error("Your account changed. Please try again.");
+      }
+      const next = await client.updateProfile(data, fresh.csrf_token);
+      if (version === generation.current) apply(next.user);
+      return next.message || "Profile saved.";
+    } finally {
+      working.current = false;
+      if (version === generation.current) setLoading(false);
+    }
+  };
+  const deleteAccount = async (password: string): Promise<string> => {
+    if (working.current)
+      throw new Error("Please wait for your account to finish updating.");
+    working.current = true;
+    const expected = identity.current;
+    const version = ++generation.current;
+    setLoading(true);
+    setError("");
+    try {
+      const fresh = await client.session();
+      if (!expected || fresh.user?.id !== expected) {
+        if (version === generation.current) apply(fresh.user);
+        throw new Error("Your account changed. Please refresh and try again.");
+      }
+      const next = await client.deleteAccount(password, fresh.csrf_token);
+      if (version === generation.current) apply(next.user);
+      return next.message || "Account deleted.";
+    } finally {
+      working.current = false;
+      if (version === generation.current) setLoading(false);
+    }
+  };
   return (
     <Context.Provider
       value={{
@@ -95,6 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error,
         login: (name, password) => mutate(name, password),
         logout: () => mutate(),
+        updateProfile,
+        deleteAccount,
       }}
     >
       {children}

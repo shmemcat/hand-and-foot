@@ -1,0 +1,105 @@
+.login-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 16px;
+  color: var(--text);
+  line-height: 1.5;
+  text-align: center;
+}
+.login-warning h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+}
+.login-warning svg {
+  width: 24px;
+  height: 24px;
+  color: var(--secondary-shadow);
+  animation: login-warning-shake 1s linear infinite;
+}
+.login-warning > span {
+  max-width: 100%;
+}
+.login-warning a {
+  white-space: nowrap;
+}
+.button-stack > .login-warning {
+  margin-top: 0;
+}
+@keyframes login-warning-shake {
+  0% {
+    transform: rotate(-15deg);
+  }
+  4% {
+    transform: rotate(15deg);
+  }
+  8%,
+  24% {
+    transform: rotate(-18deg);
+  }
+  12%,
+  28% {
+    transform: rotate(18deg);
+  }
+  16% {
+    transform: rotate(-22deg);
+  }
+  20% {
+    transform: rotate(22deg);
+  }
+  32% {
+    transform: rotate(-12deg);
+  }
+  36% {
+    transform: rotate(12deg);
+  }
+  40%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+@property --link-highlight-progress {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+.cards-link {
+  --link-highlight-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20rx%3D%225%22%20fill%3D%22%23dcaaa2%22%20fill-opacity%3D%220.28%22%2F%3E%3C%2Fsvg%3E");
+  --link-highlight-inset: calc(10px - 8px * var(--link-highlight-progress));
+  font-family: Figtree, Arial, sans-serif;
+  color: var(--link);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  /* Keep the text in place while leaving room for the highlight to bounce. */
+  margin: 0 -2px;
+  padding: 2px;
+  /* One rounded image stays seamless throughout the bounce. */
+  background-image: var(--link-highlight-image);
+  background-repeat: no-repeat;
+  background-position: var(--link-highlight-inset) var(--link-highlight-inset);
+  background-size:
+    calc(100% - var(--link-highlight-inset) - 2px)
+    calc(100% - var(--link-highlight-inset) - 2px);
+  /* Paint the highlight separately on each line of a wrapped link. */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: --link-highlight-progress 0.35s cubic-bezier(0.25, 0.1, 0, 2.05);
+}
+
+.cards-link:hover,
+.cards-link:focus-visible {
+  --link-highlight-progress: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-warning svg {
+    animation: none;
+  }
+}

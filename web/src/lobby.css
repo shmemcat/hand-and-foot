@@ -1,0 +1,316 @@
+/* Golf's lobby geometry, using Hand & Foot's palette and native buttons. */
+.game-lobby-page {
+  width: 100%;
+}
+.game-lobby-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+  width: 100%;
+  margin-top: 24px;
+}
+.game-lobby {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 600px;
+}
+.lobby-sharing {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+.lobby-copy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lobby-copy-row label {
+  flex: 0 0 38px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.lobby-copy-row input:not([type="range"]) {
+  min-width: 0;
+  flex: 1;
+  height: 42px;
+  padding: 6px 10px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.lobby-copy-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--button-text);
+  box-shadow: inset -2px -2px 0 var(--primary-shadow);
+}
+.lobby-copy-button svg {
+  width: 16px;
+  height: 16px;
+}
+.lobby-player-seats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 520px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.lobby-player-seat {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 92px;
+  padding: 10px 8px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.lobby-player-seats[data-seats="2"] .lobby-player-seat,
+.lobby-player-seats[data-seats="4"] .lobby-player-seat {
+  grid-column: span 3;
+}
+.lobby-player-seats[data-seats="5"] .lobby-player-seat:nth-child(4) {
+  grid-column: 2 / span 2;
+}
+.lobby-player-seats[data-seats="5"] .lobby-player-seat:nth-child(5) {
+  grid-column: 4 / span 2;
+}
+.lobby-player-seat[data-empty="true"] {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--surface) 45%, transparent);
+}
+.lobby-player-seat[data-mine="true"] {
+  border-color: var(--primary-shadow);
+}
+.lobby-profile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  color: var(--text);
+}
+.lobby-profile svg {
+  height: 22px;
+  width: 22px;
+}
+.lobby-player-seat[data-empty="true"] .lobby-profile {
+  opacity: 0.45;
+}
+.lobby-player-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.lobby-player-status {
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+.lobby-team-label {
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+.lobby-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.lobby-empty-seats {
+  width: 100%;
+  max-width: 420px;
+}
+.lobby-empty-seats legend {
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  margin: 0 auto 4px;
+}
+.lobby-empty-seats > div {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0 20px;
+}
+.lobby-empty-seats label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.game-lobby .lobby-empty-seats input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  flex: 0 0 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--primary-shadow);
+}
+.lobby-message {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.lobby-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.lobby-actions > .button {
+  flex: none;
+  max-width: 225px;
+  min-width: 0;
+  width: 100%;
+}
+.game-lobby .lobby-select-seat.button {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  margin-top: 4px;
+  padding: 7px 6px;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  text-decoration: none;
+  box-shadow: inset -2px -2px 0 var(--primary-shadow);
+}
+.lobby-waiting-room {
+  width: 100%;
+  max-width: 520px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+.lobby-waiting-room .lobby-remove-player {
+  width: auto;
+  min-width: 0;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+.lobby-waiting-room h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.lobby-waiting-room ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lobby-waiting-room li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.lobby-waiting-room svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.lobby-waiting-room small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.lobby-actions[data-host="false"] {
+  flex-direction: column;
+  align-items: center;
+}
+.lobby-actions[data-host="false"] > .button {
+  width: 225px;
+  flex: none;
+}
+@media (max-width: 768px) {
+  .game-lobby {
+    gap: 16px;
+  }
+  .lobby-player-seats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .lobby-player-seats[data-seats] .lobby-player-seat {
+    grid-column: span 2;
+  }
+  .lobby-player-seats[data-seats="5"] .lobby-player-seat:nth-child(4) {
+    grid-column: span 2;
+  }
+  .lobby-player-seats[data-seats="3"] .lobby-player-seat:last-child,
+  .lobby-player-seats[data-seats="5"] .lobby-player-seat:last-child {
+    grid-column: 2 / span 2;
+  }
+  .lobby-player-seat {
+    min-height: 82px;
+    padding: 8px 10px;
+    gap: 4px;
+  }
+  .lobby-player-name {
+    font-size: 13px;
+  }
+  .lobby-player-status {
+    font-size: 10px;
+  }
+  .lobby-copy-row input:not([type="range"]) {
+    height: 44px;
+  }
+  .lobby-copy-button {
+    flex-basis: 44px;
+    height: 44px;
+  }
+  .lobby-actions {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .lobby-actions[data-host] > .button {
+    width: 190px;
+    max-width: 100%;
+    flex: none;
+    height: 36px;
+    min-height: 36px;
+  }
+}

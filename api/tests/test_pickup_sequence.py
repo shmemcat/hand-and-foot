@@ -69,7 +69,8 @@ def test_pickup_requires_one_followup_draw_before_any_other_play_and_survives_pr
 
 def test_catchup_does_not_add_an_extra_card_to_the_pickup_followup():
     game, command = pickup_game(opened=True)
-    game["sides"][1]["score"] = 6001
+    for side in game["sides"][1:]:
+        side["score"] = 6001
     assert engine.project(game, "0")["drawCount"] == 3
     pending = engine.apply(game, 0, command)
     assert engine.project(pending, "0")["drawCount"] == 1

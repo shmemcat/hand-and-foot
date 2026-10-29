@@ -10,7 +10,16 @@ export function MeldCards({
   paused: boolean;
 }) {
   return (
-    <div className="meld-flight-layer" aria-hidden="true">
+    <div
+      className="meld-flight-layer"
+      data-to-divider={flight.divider !== undefined}
+      style={
+        {
+          "--meld-divider": `${Math.max(0, flight.divider ?? 0)}px`,
+        } as CSSProperties
+      }
+      aria-hidden="true"
+    >
       {flight.cards.map(({ card, from, to, meldId }) => (
         <div
           className="meld-card-flight"

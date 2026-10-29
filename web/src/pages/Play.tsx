@@ -1,19 +1,33 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
-import { request } from "../lib/api";
+import { GameApiError, request } from "../lib/api";
 import { readStorage, writeStorage } from "../lib/storage";
 import type { Snapshot } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { LoginWarning } from "../components/LoginWarning";
+import { useActiveTable } from "../hooks/useActiveTable";
+import { TableProgressDialog } from "../components/TableProgressDialog";
 
 export function Play() {
-  const last = readStorage<string | null>("handandfoot.room.v1", null);
+  const navigate = useNavigate();
+  const active = useActiveTable();
+  const blocked =
+    active.checking || Boolean(active.table) || Boolean(active.error);
   return (
     <div className="page play-page">
       <PageTitle>PLAY</PageTitle>
       <div className="page-body">
         <div className="play-choices">
-          <Link className="play-choice" to="/game/create">
+          <Link
+            className="play-choice"
+            to="/game/create"
+            aria-disabled={blocked || undefined}
+            tabIndex={blocked ? -1 : undefined}
+            onClick={(event) => {
+              if (blocked) event.preventDefault();
+            }}
+          >
             <span>Create Game</span>
             <small>
               Play with bots
@@ -21,7 +35,15 @@ export function Play() {
               or invite friends
             </small>
           </Link>
-          <Link className="play-choice" to="/game/join">
+          <Link
+            className="play-choice"
+            to="/game/join"
+            aria-disabled={blocked || undefined}
+            tabIndex={blocked ? -1 : undefined}
+            onClick={(event) => {
+              if (blocked) event.preventDefault();
+            }}
+          >
             <span>Join Game</span>
             <small>
               Enter a lobby code
@@ -30,19 +52,52 @@ export function Play() {
             </small>
           </Link>
         </div>
+        <SessionStatus active={active} />
         <div className="button-stack">
-          {last && (
-            <Link className="text-link" to={`/room/${last}`}>
-              Rejoin your table
-            </Link>
-          )}
           <Link className="button" to="/">
             Home
           </Link>
         </div>
       </div>
+      {active.table && (
+        <TableProgressDialog
+          key={active.table.code}
+          table={active.table}
+          busy={active.busy}
+          error={active.error}
+          online={active.online}
+          onContinue={() => navigate(`/room/${active.table!.code}`)}
+          onLeave={() => void active.leave()}
+        />
+      )}
     </div>
   );
+}
+
+function SessionStatus({
+  active,
+}: {
+  active: ReturnType<typeof useActiveTable>;
+}) {
+  if (active.table) return null;
+  if (active.checking)
+    return (
+      <p className="session-status" role="status">
+        Checking for an active game…
+      </p>
+    );
+  if (active.error)
+    return (
+      <div className="session-status">
+        <p className="error" role="alert">
+          {active.error}
+        </p>
+        <button className="text-button" onClick={active.retry}>
+          Try again
+        </button>
+      </div>
+    );
+  return null;
 }
 
 export function CreateGame() {
@@ -52,15 +107,15 @@ export function CreateGame() {
   const [scoring, setScoring] = useState<"partnership" | "individual">(
     "individual",
   );
-  const [capacity, setCapacity] = useState(4);
-  const [targetScore, setTargetScore] = useState(10000);
+  const [capacity, setCapacity] = useState(6);
   const [name, setName] = useState(() =>
     readStorage("handandfoot.name.v1", ""),
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const sizes = scoring === "partnership" ? [4, 6, 8] : [2, 3, 4, 5, 6];
+  const active = useActiveTable();
   async function submit() {
+    if (busy || active.checking || active.table || active.error) return;
     setBusy(true);
     setError("");
     try {
@@ -69,17 +124,20 @@ export function CreateGame() {
         playMode: mode,
         scoringMode: scoring,
         capacity,
-        targetScore,
+        targetScore: 10000,
       });
       if (!user) writeStorage("handandfoot.name.v1", name.trim());
       writeStorage("handandfoot.room.v1", result.code);
       navigate(`/room/${result.code}`);
     } catch (error) {
+      if (error instanceof GameApiError && error.code === "TABLE_IN_PROGRESS")
+        navigate("/play", { replace: true });
       setError((error as Error).message);
     } finally {
       setBusy(false);
     }
   }
+  if (active.table && !busy) return <Navigate to="/play" replace />;
   return (
     <div className="page setup-page">
       <PageTitle>CREATE GAME</PageTitle>
@@ -132,64 +190,67 @@ export function CreateGame() {
               className={scoring === "partnership" ? "active" : ""}
               onClick={() => {
                 setScoring("partnership");
-                if (![4, 6, 8].includes(capacity)) setCapacity(4);
+                setCapacity((count) => Math.max(4, count + (count % 2)));
               }}
             >
-              Partners
+              Teams of 2
             </button>
             <button
               type="button"
               aria-pressed={scoring === "individual"}
               className={scoring === "individual" ? "active" : ""}
-              onClick={() => {
-                setScoring("individual");
-                if (capacity > 6) setCapacity(4);
-              }}
+              onClick={() => setScoring("individual")}
             >
-              Individual
+              Individuals
             </button>
           </div>
         </fieldset>
         <fieldset>
           <legend>Players</legend>
           <div className="seat-choices">
-            {sizes.map((size) => (
-              <button
-                type="button"
-                key={size}
-                aria-pressed={capacity === size}
-                className={capacity === size ? "active" : ""}
-                onClick={() => setCapacity(size)}
-              >
-                {size}
-              </button>
-            ))}
+            {(scoring === "partnership" ? [4, 6] : [2, 3, 4, 5, 6]).map(
+              (count) => (
+                <button
+                  key={count}
+                  type="button"
+                  aria-pressed={capacity === count}
+                  className={capacity === count ? "active" : ""}
+                  onClick={() => setCapacity(count)}
+                >
+                  {count}
+                </button>
+              ),
+            )}
           </div>
         </fieldset>
-        <fieldset>
-          <legend>Play to</legend>
-          <div className="segmented">
-            {[10000, 15000, 20000].map((target) => (
-              <button
-                type="button"
-                key={target}
-                aria-pressed={targetScore === target}
-                className={targetScore === target ? "active" : ""}
-                onClick={() => setTargetScore(target)}
-              >
-                {target.toLocaleString()}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <p className="setup-detail">{capacity + 1} decks</p>
+        <p className="setup-detail">
+          {capacity} players
+          {scoring === "partnership" ? ` · ${capacity / 2} teams` : ""}
+          {" · "}
+          {capacity + 1} decks · Play to 10,000
+        </p>
+        <p className="setup-detail">
+          {mode === "practice"
+            ? `Single player · You and ${capacity - 1} ${capacity === 2 ? "bot" : "bots"}`
+            : "Invite friends with a private lobby code or link. Open seats can be filled with bots."}
+        </p>
+        <LoginWarning />
+        <SessionStatus active={active} />
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
         <div className="button-stack">
-          <button className="button" disabled={busy}>
+          <button
+            className="button"
+            disabled={
+              busy ||
+              active.checking ||
+              Boolean(active.table) ||
+              Boolean(active.error)
+            }
+          >
             {busy ? "Creating…" : "Create Game"}
           </button>
           <Link className="button secondary" to="/play">
@@ -210,23 +271,28 @@ export function JoinGame() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const active = useActiveTable();
   async function submit() {
+    if (busy || active.checking || active.table || active.error) return;
     setBusy(true);
     setError("");
     try {
       const result = await request<Snapshot>(
         `/rooms/${code.trim().toUpperCase()}/join`,
-        { name: user?.name || name.trim() || "You" },
+        { name: user?.name || name.trim() || "You", seat: null },
       );
       if (!user) writeStorage("handandfoot.name.v1", name.trim());
       writeStorage("handandfoot.room.v1", result.code);
       navigate(`/room/${result.code}`);
     } catch (error) {
+      if (error instanceof GameApiError && error.code === "TABLE_IN_PROGRESS")
+        navigate("/play", { replace: true });
       setError((error as Error).message);
     } finally {
       setBusy(false);
     }
   }
+  if (active.table && !busy) return <Navigate to="/play" replace />;
   return (
     <div className="page setup-page">
       <PageTitle>JOIN GAME</PageTitle>
@@ -268,13 +334,24 @@ export function JoinGame() {
             />
           </label>
         )}
+        <LoginWarning />
+        <SessionStatus active={active} />
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
         <div className="button-stack">
-          <button className="button" disabled={busy}>
+          <button
+            className="button"
+            disabled={
+              busy ||
+              active.checking ||
+              Boolean(active.table) ||
+              Boolean(active.error) ||
+              code.length !== 6
+            }
+          >
             {busy ? "Joining…" : "Join Game"}
           </button>
           <Link className="button secondary" to="/play">

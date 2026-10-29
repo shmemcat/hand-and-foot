@@ -1,0 +1,45 @@
+.foot-review-heading {
+  margin-right: auto;
+}
+.foot-review-heading h1 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.4;
+}
+.foot-review-heading small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.foot-rehearsal .draw-review-bar {
+  position: sticky;
+  top: 0;
+  z-index: 110;
+  background: var(--panel);
+  padding-top: 10px;
+  gap: 14px;
+}
+.foot-rehearsal .draw-review-bar > .button {
+  min-width: 94px;
+  width: auto;
+  padding-inline: 16px;
+}
+.foot-rehearsal-board[data-beat="leaving"][data-entry="play"]
+  .meld-card-layer[data-card-id="foot-last-hand-card"],
+.foot-rehearsal-board[data-beat="leaving"][data-entry="discard"] .discard-face {
+  visibility: hidden;
+}
+.foot-review-note {
+  margin: 16px 0 0;
+  max-width: 830px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+@media (prefers-reduced-motion: reduce) {
+  .foot-rehearsal-board[data-beat="leaving"] .meld-card-layer,
+  .foot-rehearsal-board[data-beat="leaving"] .discard-face {
+    visibility: visible !important;
+  }
+}

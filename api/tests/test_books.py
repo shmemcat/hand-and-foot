@@ -43,6 +43,66 @@ def test_a_larger_dirty_book_keeps_its_bonus_and_natural_majority():
     assert completed["complete"] and completed["dirty"] and completed["bonus"] == 300
 
 
+@pytest.mark.parametrize("rank,wild_rank", [("9", "2"), ("9", "Joker"), ("2", "Joker")])
+def test_completed_clean_books_reject_wild_additions_atomically(rank, wild_rank):
+    game = rig()
+    target = book(game, rank)
+    game["sides"][0]["opened"] = True
+    natural = take(game, rank)
+    wild = take(game, wild_rank)
+    game["players"][0]["hand"] = natural + wild + take(game, "4")
+    before = copy.deepcopy(game)
+    # A legal addition earlier in the same command must also be rolled back.
+    with pytest.raises(ValueError, match="completed clean book only accepts matching natural"):
+        engine.apply(game, 0, {"type": "meld", "groups": [
+            {"meldId": target["id"], "cardIds": natural},
+            {"meldId": target["id"], "cardIds": wild},
+        ]})
+    assert game == before
+    assert target["bonus"] == 500 and not target["dirty"]
+    engine.assert_conservation(game)
+
+
+def test_an_open_clean_pile_can_close_dirty_but_cannot_be_dirtied_after_closing():
+    game = rig()
+    ids = take(game, "9", 6)
+    target = {"id": "six", "creator": "0", "kind": "set", "cardIds": ids,
+              **meld_details([game["cards"][i] for i in ids])}
+    game["sides"][0].update(opened=True, melds=[target])
+    natural, wild, tail = take(game, "9"), take(game, "Joker"), take(game, "4")
+    game["players"][0]["hand"] = natural + wild + tail
+    before = copy.deepcopy(game)
+    with pytest.raises(ValueError, match="completed clean book"):
+        engine.apply(game, 0, {"type": "meld", "groups": [
+            {"meldId": "six", "cardIds": natural},
+            {"meldId": "six", "cardIds": wild},
+        ]})
+    assert game == before
+    result = engine.apply(game, 0, {"type": "meld", "groups": [
+        {"meldId": "six", "cardIds": natural + wild},
+    ]})
+    completed = result["sides"][0]["melds"][0]
+    assert completed["complete"] and completed["dirty"] and completed["bonus"] == 300
+    engine.assert_conservation(result)
+
+
+@pytest.mark.parametrize("wild_rank", ["2", "Joker"])
+def test_completed_dirty_books_accept_another_wild_with_a_natural_majority(wild_rank):
+    game = rig()
+    ids = take(game, "9", 5) + take(game, "2", 2)
+    target = {"id": "dirty", "creator": "0", "kind": "set", "cardIds": ids,
+              **meld_details([game["cards"][i] for i in ids])}
+    game["sides"][0].update(opened=True, melds=[target])
+    wild = take(game, wild_rank)
+    game["players"][0]["hand"] = wild + take(game, "4")
+    result = engine.apply(game, 0, {"type": "meld", "groups": [
+        {"meldId": "dirty", "cardIds": wild},
+    ]})
+    completed = result["sides"][0]["melds"][0]
+    assert len(completed["cardIds"]) == 8 and completed["dirty"] and completed["bonus"] == 300
+    engine.assert_conservation(result)
+
+
 @pytest.mark.parametrize("dirty,suit", [(False, "clubs"), (True, "hearts")])
 def test_book_cover_swaps_an_equivalent_card_from_stock_without_touching_private_cards(dirty, suit):
     game = rig()
@@ -91,12 +151,13 @@ def test_cover_can_come_from_another_public_matching_pile_without_changing_a_str
     engine.assert_conservation(game)
 
 
-def test_bot_adds_to_a_completed_clean_book_without_dirtying_it():
+@pytest.mark.parametrize("rank", ["9", "2"])
+def test_bot_adds_to_a_completed_clean_book_without_dirtying_it(rank):
     game = rig()
-    target = book(game, "9")
+    target = book(game, rank)
     game["sides"][0]["opened"] = True
-    natural = take(game, "9")
-    game["players"][0]["hand"] = natural + take(game, "2") + take(game, "4")
+    natural = take(game, rank)
+    game["players"][0]["hand"] = natural + take(game, "Joker") + take(game, "4")
     view = engine.project(game, "0") | {"viewerId": "0"}
     groups = bots.plan_melds(view)
     assert groups[0] == {"meldId": target["id"], "cardIds": natural}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
 import { ProfileIcon } from "../components/ProfileIcon";
 import { request } from "../lib/api";
@@ -13,7 +13,8 @@ type Entry = {
 type Rankings = { monthly: Entry[]; all_time: Entry[] };
 
 export function Leaderboard() {
-  const [mode, setMode] = useState<"practice" | "online">("practice");
+  const [search, setSearch] = useSearchParams();
+  const mode = search.get("mode") === "online" ? "online" : "practice";
   const [data, setData] = useState<Rankings | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -46,7 +47,7 @@ export function Leaderboard() {
               key={category}
               type="button"
               aria-pressed={category === mode}
-              onClick={() => setMode(category)}
+              onClick={() => setSearch({ mode: category }, { replace: true })}
             >
               {category === "practice" ? "Against Bots" : "Multiplayer"}
             </button>

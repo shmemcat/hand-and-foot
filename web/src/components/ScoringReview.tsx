@@ -3,9 +3,15 @@ import type { Snapshot } from "../types";
 import { Book, Icon } from "./Icons";
 import { Card } from "./Card";
 
-export function AnimatedNumber({ value }: { value: number }) {
-  const [shown, setShown] = useState(value);
-  const current = useRef(value);
+export function AnimatedNumber({
+  value,
+  from = value,
+}: {
+  value: number;
+  from?: number;
+}) {
+  const [shown, setShown] = useState(from);
+  const current = useRef(from);
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       current.current = value;
@@ -49,6 +55,11 @@ export function ScoringReview({
   const review = snapshot.scoring!;
   const side = snapshot.sides[review.team];
   const score = review.score;
+  const redCount = snapshot.players
+    .filter((player) => player.team === review.team)
+    .reduce((sum, player) => sum + player.redThrees.length, 0);
+  const redsQualified = review.redThreeQualified ?? redCount >= 3;
+  const redsBroken = review.usedPiles.includes(`reds:${review.team}`);
   const lookup = new Map(
     side.melds.flatMap((meld) => meld.cards).map((card) => [card.id, card]),
   );
@@ -163,7 +174,9 @@ export function ScoringReview({
                   </span>
                   <small>
                     {option.redThree
-                      ? "5 pts each for debt; fewer than 3 left means −300 each"
+                      ? redsQualified
+                        ? `Breaks the +${option.bonusAtRisk} red-three bonus; cards stay worth 5 each, with no penalty`
+                        : "5 pts each toward debt; unspent reds cost −300 each"
                       : option.bonusAtRisk
                         ? `Breaks the +${option.bonusAtRisk} bonus`
                         : "No book bonus at risk"}
@@ -179,7 +192,7 @@ export function ScoringReview({
               disabled={busy}
               onClick={() => void act("score_auto")}
             >
-              Cover automatically, protecting book bonuses first
+              Cover automatically · open piles, then dirty books
             </button>
           </>
         ) : (
@@ -214,7 +227,6 @@ export function ScoringReview({
               {review.canceled.map((id) => (
                 <span className="canceled-card" key={id}>
                   <Card small card={lookup.get(id)} />
-                  <span aria-hidden="true">×</span>
                 </span>
               ))}
             </div>
@@ -242,7 +254,11 @@ export function ScoringReview({
             </strong>
           </div>
           <div>
-            <span>Remaining red threes</span>
+            <span>
+              {redsQualified && redsBroken
+                ? "Red-three bonus forfeited"
+                : "Red-three bonus / penalty"}
+            </span>
             <strong>
               <AnimatedNumber value={score.redThrees} />
             </strong>

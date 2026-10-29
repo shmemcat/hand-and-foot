@@ -1,7 +1,11 @@
 """Private account client. Games never receive JWT/password/mail secrets."""
 
+import errno
+import http.client
 import json
+import logging
 import secrets
+import time
 import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
@@ -13,10 +17,35 @@ from handandfoot_server.account_contracts import (
     AccountsUnavailable,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         return None
+
+
+def read_account_response(outbound, *, retry_safe):
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)
+    for attempt in range(3):
+        try:
+            with opener.open(outbound, timeout=2) as response:
+                return response.read(262145)
+        except (OSError, urllib.error.URLError, http.client.HTTPException) as error:
+            reason = getattr(error, "reason", error)
+            # A short-lived outbound socket can collide with a local address on
+            # Windows (10048). No request was sent, so a fresh socket is safe.
+            conflict = isinstance(reason, OSError) and reason.errno in {errno.EADDRINUSE, 10048}
+            # Only read-only account lookups may retry interrupted responses.
+            # HTTP errors, invalid payloads and timeouts are never retried.
+            interrupted = isinstance(reason, (
+                ConnectionResetError, ConnectionAbortedError, BrokenPipeError, http.client.IncompleteRead,
+            ))
+            if attempt == 2 or not (conflict or (retry_safe and interrupted)):
+                raise
+            logger.debug("Retrying shared account connection: %s, errno=%s (%s/2)",
+                         type(reason).__name__, getattr(reason, "errno", None), attempt + 1)
+            time.sleep(.02 * (attempt + 1))
 
 
 def validate_origin(url):
@@ -84,21 +113,24 @@ class RemoteAccounts:
             method="POST",
         )
         try:
-            with urllib.request.build_opener(
-                urllib.request.ProxyHandler({}), NoRedirect
-            ).open(outbound, timeout=2) as response:
-                raw = response.read(262145)
-                if len(raw) > 262144:
-                    raise ValueError("Oversized account response")
-                result = json.loads(raw)
-                if (
-                    not isinstance(result, dict)
-                    or type(result.get("version")) is not int
-                    or result["version"] != 1
-                ):
-                    raise ValueError("Unsupported account contract")
-                return result
-        except (OSError, ValueError, urllib.error.URLError) as error:
+            raw = read_account_response(outbound, retry_safe=path in {"session", "legacy", "profiles"})
+            if len(raw) > 262144:
+                raise ValueError("Oversized account response")
+            result = json.loads(raw)
+            if (
+                not isinstance(result, dict)
+                or type(result.get("version")) is not int
+                or result["version"] != 1
+            ):
+                raise ValueError("Unsupported account contract")
+            return result
+        except (OSError, ValueError, urllib.error.URLError, http.client.HTTPException) as error:
+            reason = getattr(error, "reason", error)
+            # Report the failure category without cookies, credentials, URLs,
+            # response bodies, or exception messages that may contain them.
+            logger.warning("Shared account %s request failed: %s (status=%s, errno=%s)",
+                           path, type(reason).__name__, getattr(error, "code", None),
+                           getattr(reason, "errno", None))
             raise AccountsUnavailable(
                 "Account validation could not complete"
             ) from error
@@ -107,7 +139,7 @@ class RemoteAccounts:
         cache = request.environ.setdefault("cards.remote_accounts", {})
         if "session" not in cache:
             # Anonymous guests must remain playable during an accounts outage.
-            name = (
+            name = current_app.config.get("CARDS_COOKIE_NAME") or (
                 "__Host-cards_session"
                 if current_app.config["CARDS_COOKIE_SECURE"]
                 else "cards_session"

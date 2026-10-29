@@ -1,0 +1,7 @@
+{
+  "component": "handandfoot-game",
+  "image": "ghcr.io/shmemcat/handandfoot-game-api",
+  "tagPrefix": "game-v",
+  "schemaRevision": "handandfoot_001",
+  "package": "handandfoot_server"
+}

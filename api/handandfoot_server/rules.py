@@ -27,6 +27,8 @@ class Ruleset:
 
 
 FAMILY = Ruleset()
+MIN_PLAYERS = 2
+MAX_PLAYERS = 6
 RANKS = ["4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
 SUITS = ["clubs", "diamonds", "hearts", "spades"]
 
@@ -38,12 +40,17 @@ def rules_snapshot():
 def validate_setup(scoring_mode, capacity, play_mode):
     if scoring_mode not in ("individual", "partnership"):
         raise ValueError("Choose individual or partnership scoring.")
-    if type(capacity) is not int or capacity not in (
-        (2, 3, 4, 5, 6) if scoring_mode == "individual" else (4, 6, 8)
-    ):
-        raise ValueError("Individual tables need 2–6 players; partners need 4, 6, or 8.")
+    if type(capacity) is not int or not MIN_PLAYERS <= capacity <= MAX_PLAYERS:
+        raise ValueError("Tables need between 2 and 6 players.")
+    if scoring_mode == "partnership" and (capacity < 4 or capacity % 2):
+        raise ValueError("Partnership games need 4 or 6 players in teams of 2.")
     if play_mode not in ("practice", "online"):
         raise ValueError("Choose practice or online play.")
+
+
+def validate_target_score(target):
+    if type(target) is not int or target != FAMILY.target_score:
+        raise ValueError("Games play to 10,000 points.")
 
 
 def card_value(rank, suit):
@@ -84,7 +91,7 @@ def draw_count(sides, team):
     return 2 + (FAMILY.catch_up_extra_cards if others and min(others) - sides[team]["score"] > FAMILY.catch_up_gap else 0)
 
 
-def meld_details(cards, kind="set"):
+def meld_details(cards, kind="set", *, existing=None):
     if len(cards) < 3:
         raise ValueError("Start a pile with at least three cards.")
     if kind == "run":
@@ -106,6 +113,8 @@ def meld_details(cards, kind="set"):
     if len({card["rank"] for card in natural}) != 1:
         raise ValueError("Natural cards in a pile must have the same rank.")
     dirty = len(natural) != len(cards)
+    if existing and existing["complete"] and not existing["dirty"] and dirty:
+        raise ValueError("A completed clean book only accepts matching natural cards.")
     if len(natural) <= len(cards) - len(natural):
         raise ValueError("Natural cards must always outnumber wilds, including in the initial meld.")
     return {"rank": natural[0]["rank"], "complete": len(cards) >= 7, "dirty": dirty,

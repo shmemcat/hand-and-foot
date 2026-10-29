@@ -32,6 +32,19 @@ function pile(overrides: Partial<Meld> = {}): Meld {
     ...overrides,
   };
 }
+
+it("keeps reconciled cards normal when saved scoring metadata marks them spent", () => {
+  const meld = pile({ bonusLost: true, spentCardIds: ["s1", "heart"] });
+  show(meld);
+  expect(document.querySelector(".card.spent")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Inspect 10’s, book broken" }),
+  );
+  const inspection = screen.getByRole("group", { name: "Cards in 10’s" });
+  expect(inspection.querySelectorAll(".card")).toHaveLength(meld.cards.length);
+  expect(inspection.querySelector(".spent")).toBeNull();
+  expect(inspection.textContent).not.toContain("×");
+});
 function show(meld = pile(), canTarget = false) {
   const onTarget = vi.fn();
   render(
@@ -183,6 +196,22 @@ it("preserves completed book bonuses and allows their cards to be inspected", ()
     ),
   ).toHaveLength(7);
 });
+
+it.each([
+  { complete: false, bonus: 300 },
+  { complete: true, bonus: 500 },
+])(
+  "labels a broken $bonus book without presenting a bonus or deduction",
+  (state) => {
+    show(pile({ ...state, bonusLost: true }));
+    expect(screen.getByText("Broken book")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Inspect 10’s, book broken" }),
+    );
+    expect(screen.queryByText(/bonus|−300|−500/)).toBeNull();
+    expect(screen.getByRole("group", { name: "Cards in 10’s" })).toBeTruthy();
+  },
+);
 
 it("explains the hand-only finish on a six-card pile while still accepting hand additions", () => {
   const meld = pile();

@@ -2,6 +2,8 @@ import type { Card, Draft, Meld } from "../types";
 
 type MeldKind = NonNullable<Draft["kind"]>;
 const runRanks = ["4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+export const CLEAN_BOOK_NATURALS_ONLY =
+  "A completed clean book only accepts matching natural cards.";
 
 // Match the family rules enforced by the game service for each pile.
 export function isValidMeld(cards: readonly Card[], kind: MeldKind): boolean {
@@ -46,6 +48,16 @@ export function detectMeldKind(cards: readonly Card[]): MeldKind | null {
   return isValidMeld(cards, "run") ? "run" : null;
 }
 
+/** Closed books keep their type; twos are natural in a matching book of twos. */
+export function canExtendMeld(meld: Meld, additions: readonly Card[]): boolean {
+  return (
+    additions.length > 0 &&
+    (!(meld.kind === "set" && meld.complete && !meld.dirty) ||
+      additions.every((card) => card.rank === meld.rank)) &&
+    isValidMeld([...meld.cards, ...additions], meld.kind)
+  );
+}
+
 /** Cards that can join the pending discard in at least one completable pile. */
 export function pickupPlayableCards(
   hand: readonly Card[],
@@ -75,7 +87,14 @@ export function pickupPlayableCards(
     if (
       (!meld || meld.kind === "set") &&
       (meld || naturals.length >= 2) &&
-      isValidMeld(unique([...required, ...naturals]), "set")
+      (meld
+        ? canExtendMeld(
+            meld,
+            unique([...required, ...naturals]).filter(
+              (item) => !meld.cards.some((old) => old.id === item.id),
+            ),
+          )
+        : isValidMeld(unique([...required, ...naturals]), "set"))
     )
       return true;
     if (meld && meld.kind !== "run") return false;

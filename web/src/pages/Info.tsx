@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
+import { Sparkle } from "../components/Sparkle";
+import "../about.css";
+import {
+  RulesDealExample,
+  RulesOpeningExample,
+  RulesPickupExample,
+  RulesBooksExamples,
+  RulesStraightExample,
+  RulesThreesExamples,
+  RulesCardValues,
+} from "../components/RulesExamples";
 
 export function Rules() {
   const [section, setSection] = useState("setup");
@@ -30,9 +41,9 @@ export function Rules() {
           <section id="rules-setup" hidden={section !== "setup"}>
             <h2 id="setup">The Deal</h2>
             <p>
-              Play individually with 2–6 people, or in two-person partnerships
-              with 4, 6, or 8 people. Bot seats count as players. Use one more
-              deck than the number of players, with two Jokers per deck.
+              Play individually with 2–6 people, or with 4 or 6 people in teams
+              of 2. Bot seats count as players. Use one more deck than the
+              number of players, with two Jokers per deck.
             </p>
             <p>
               Each player receives two piles of 11 cards. Inspect the top and
@@ -42,12 +53,13 @@ export function Rules() {
               foot to preview it. The remaining cards stay face-down until you
               finish your hand. Everyone else’s cards remain private.
             </p>
+            <RulesDealExample />
             <p>
               A random dealer is chosen for the first round. The player to the
               dealer’s left leads; the dealer rotates each new round. Play
-              toward <strong>10,000 points</strong> by default. The highest
-              score at the end of the round wins once a side reaches the target;
-              equal highest scores share the win.
+              toward <strong>10,000 points</strong>. The highest score at the
+              end of the round wins once a side reaches the target; equal
+              highest scores share the win.
             </p>
           </section>
           <section id="rules-turn" hidden={section !== "turn"}>
@@ -86,6 +98,7 @@ export function Rules() {
               threes do not count toward opening and can only be laid down after
               your side has opened.
             </p>
+            <RulesOpeningExample />
             <div className="rule-callout">
               <strong>The sixth-card rule:</strong> when a pile already has six
               cards, play the seventh card from your hand. You cannot take the
@@ -98,6 +111,7 @@ export function Rules() {
               picked up. Taking the discard and playing it is one move: a
               rejected pickup leaves all your cards where they were.
             </p>
+            <RulesPickupExample />
           </section>
           <section id="rules-piles" hidden={section !== "piles"}>
             <h2 id="piles">Piles &amp; books</h2>
@@ -114,9 +128,15 @@ export function Rules() {
               book if the twos outnumber the Jokers. Joker-only piles and
               matching piles of threes are not allowed.
             </p>
+            <RulesBooksExamples />
             <p>
-              A matching book is complete at seven cards. Keep adding legal
-              cards to it, or start another pile of the same rank. A{" "}
+              A matching book is complete at seven cards. You may keep adding
+              cards that preserve its type, or start another pile of the same
+              rank. A completed clean book only accepts matching natural cards;
+              adding a wild cannot turn it dirty. A completed dirty book accepts
+              matching naturals or wilds, as long as naturals still outnumber
+              wilds. Twos remain natural in a book of twos, so a completed clean
+              book of twos accepts more twos but no Jokers. A{" "}
               <strong>straight flush</strong> is consecutive natural cards in
               one suit, starting no lower than four and ending no higher than
               ace. You can build it from three cards; seven completes it for a{" "}
@@ -124,6 +144,7 @@ export function Rules() {
               <strong>50 more bonus points</strong>. Straight flushes cannot
               contain wilds.
             </p>
+            <RulesStraightExample />
             <h3>Into your foot</h3>
             <p>
               Play the last card in your hand and you pick up your foot
@@ -135,45 +156,26 @@ export function Rules() {
             <h3>Threes</h3>
             <p>
               After drawing, you can replace a red three from the stack, without
-              ending the turn. It is set aside rather than left for someone to
-              pick up. Replacement is allowed before opening. Once your side has
-              completed its opening meld, you can instead lay it down for your
-              side without replacement. Select any number of red threes to lay
-              them down together. A shared pile of at least three red threes is
-              worth <strong>+300 each</strong>; fewer than three is{" "}
+              ending the turn. Put the red three on the discard pile, draw its
+              replacement, and keep playing. Your final discard covers it when
+              you end the turn. Red threes cannot be picked up. Replacement is
+              allowed before opening. Once your side has completed its opening
+              meld, you can instead lay it down for your side without
+              replacement. Select any number of red threes to lay them down
+              together. A shared pile with at least three red threes at round
+              end qualifies for <strong>+300 each</strong> and 5 raw points
+              each. Breaking that pile for reconciliation loses the entire
+              bonus; its reds still count as 5 each and cannot become penalties.
+              A pile with fewer than three at round end costs{" "}
               <strong>−300 each</strong>. Replacing a red three and laying one
               down are separate choices. Black threes are discard-only and cost
               100 points if left unplayed.
             </p>
+            <RulesThreesExamples />
           </section>
           <section id="rules-scoring" hidden={section !== "scoring"}>
             <h2 id="scoring">Scoring</h2>
-            <div className="rule-card-values">
-              <div>
-                <span>Jokers</span>
-                <strong>50</strong>
-              </div>
-              <div>
-                <span>Twos & aces</span>
-                <strong>20</strong>
-              </div>
-              <div>
-                <span>Fours through eights</span>
-                <strong>5</strong>
-              </div>
-              <div>
-                <span>Nines through kings</span>
-                <strong>10</strong>
-              </div>
-              <div>
-                <span>Leftover black threes</span>
-                <strong>−100</strong>
-              </div>
-              <div>
-                <span>Leftover red threes</span>
-                <strong>−300</strong>
-              </div>
-            </div>
+            <RulesCardValues />
             <p>
               A round ends when someone goes out or the stack can no longer
               supply a draw. Both the remaining hand and the unplayed foot
@@ -186,18 +188,27 @@ export function Rules() {
                 interactive scoring review. Unfinished piles have no book bonus
                 to risk. Using any card from a complete book breaks that book’s
                 bonus. Keep choosing piles until the debt is covered, or there
-                are no piles left.
+                are no piles left. Automatic cover uses unfinished piles first,
+                then breaks dirty books before clean books.
               </li>
               <li>
-                <strong>Watch the count.</strong> Used cards are marked,
-                remaining debt counts down, and the bonus total updates. When a
-                card is worth more than the last bit of debt, only the debt owed
-                is deducted, but its book still breaks.
+                <strong>Watch the count.</strong> Your foot joins your hand,
+                cards reconcile into the settlement pile, then surviving books
+                and card values are counted. Cards keep their normal appearance.
+                When a card is worth more than the last bit of debt, only the
+                debt owed is deducted, but its book still breaks.
               </li>
               <li>
-                <strong>Count red threes again.</strong> Red threes used to pay
-                debt contribute only 5 points each. If fewer than three remain
-                afterward, each remaining red three scores −300.
+                <strong>Settle red threes.</strong> Qualification is fixed at
+                round end, before reconciliation. If at least three were
+                exposed, breaking the pile forfeits its entire +300-per-red
+                bonus. The reds remain worth 5 each toward debt or the raw card
+                count, even if fewer than three remain. A pile that started
+                scoring with only one or two reds still has a −300-per-red
+                penalty and no raw card value. Red threes left in your hand or
+                foot still create 300 points of debt each. An ace left in hand
+                costs 20: break three qualified reds for 15, forfeit their +900
+                bonus, and finish at −5 with no red penalties.
               </li>
               <li>
                 <strong>Confirm the score.</strong> Played card points minus all
@@ -208,18 +219,6 @@ export function Rules() {
                 every side confirms.
               </li>
             </ol>
-            <p className="fine-print">
-              Family preset v1. Foundational reference:{" "}
-              <a
-                href="https://bicyclecards.com/how-to-play/hand-and-foot"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Bicycle’s Hand and Foot rules
-              </a>
-              . Our family’s scoring, opening thresholds, deal choice, top-card
-              pickup, and straight flushes take precedence.
-            </p>
           </section>
         </article>
       </div>
@@ -238,47 +237,71 @@ export function About() {
       <PageTitle>ABOUT</PageTitle>
       <article className="prose about-body page-body">
         <p>
-          Play Hand &amp; Foot with friends or bots, using our family rules.
-          Choose individual scoring or two-person partnerships.
+          Welcome to my <strong className="bold">Hand and Foot</strong> web app!
+          I’m <strong className="bold">Emily</strong>, aka{" "}
+          <strong className="bold">
+            <span className="sparkle-container">
+              <Sparkle className="sparkle-svg" />
+              <Sparkle className="sparkle-svg" />
+              <Sparkle className="sparkle-svg" />
+              <Sparkle className="sparkle-svg" />
+              <Sparkle className="sparkle-svg" />
+              <span className="sparkle">shmemcat</span>
+            </span>
+          </strong>
+          .
         </p>
         <p>
-          See the <Link to="/leaderboard">Leaderboard</Link> for the top
-          players.
+          Hand and foot is THE game of choice for my family. We absolutely love
+          playing it together, in fact it's usually the activity of choice when
+          we all get together for an entire day. It's hard to pick a favorite
+          bit, but I think it's either when my Mom starts getting sick of her
+          rotten luck and draws one card from each pile in efforts to get into
+          her foot as quickly as possible (and proceeds to have absolutely no
+          poker face about the result) or when my sister sandbags and puts her
+          entire hand down at once and starts immediately playing into her foot.
         </p>
-        <h2>Credits</h2>
         <p>
-          All seven jazz tracks are by{" "}
+          Hand and Foot is part of my{" "}
+          <a className="cards-link" href="https://cards.shmem.dev/">
+            Cards
+          </a>{" "}
+          project, alongside{" "}
+          <a className="cards-link" href="https://cards.shmem.dev/hearts/">
+            Hearts
+          </a>
+          ,{" "}
+          <a className="cards-link" href="https://cards.shmem.dev/euchre/">
+            Euchre
+          </a>
+          , and{" "}
+          <a className="cards-link" href="https://cards.shmem.dev/golf/">
+            Golf
+          </a>
+          . Find the code on my{" "}
           <a
+            className="cards-link"
+            href="https://github.com/shmemcat/hand-and-foot"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+          !
+        </p>
+        <p>
+          Credit for this snazzy music you’re listening to
+          <br />
+          goes to{" "}
+          <a
+            className="cards-link"
             href="https://pixabay.com/users/alex-morgan-54692529/"
             target="_blank"
             rel="noreferrer"
           >
-            Alex Morgan on Pixabay
+            alex-morgan
           </a>
-          , from the same rotation as Golf.
-        </p>
-        <p>
-          Titles use{" "}
-          <a
-            href="https://github.com/google/fonts/tree/main/ofl/bitter"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Bitter
-          </a>
-          ; the rest uses{" "}
-          <a
-            href="https://github.com/google/fonts/tree/main/ofl/figtree"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Figtree
-          </a>
-          . Both fonts use the SIL Open Font License. The book motif includes
-          Lucide artwork under its ISC license.
-        </p>
-        <p>
-          Find the other games at <a href="https://cards.shmem.dev">Cards</a>.
+          !
         </p>
       </article>
       <div className="button-stack">

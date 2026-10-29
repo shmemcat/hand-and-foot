@@ -17,9 +17,9 @@ export function DrawPreview() {
     () =>
       openingSnapshot({
         state: { ...INITIAL_OPENING, step: 7, choice: 0 },
-        names: ["You", "Poppy", "Hazel", "Jasper"],
+        names: ["You", "Poppy", "Hazel", "Jasper", "Sunny", "Clover"],
         mode: "individual",
-        dealer: 3,
+        dealer: 5,
         duration: 2200,
       }),
     [],

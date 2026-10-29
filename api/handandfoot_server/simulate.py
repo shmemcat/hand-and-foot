@@ -1,11 +1,12 @@
 """Repeatable complete-match rehearsal using redacted bot views."""
 import argparse
 from . import bots, engine, scoring
+from .rules import MIN_PLAYERS, MAX_PLAYERS
 
 
-def simulate(count=8, mode="partnership", seed=1, target=10000, *, verbose=False):
+def simulate(count=6, mode="partnership", seed=1, *, verbose=False):
     players = [{"id": str(i), "name": f"Bot {i + 1}", "bot": True} for i in range(count)]
-    game = engine.new_game(players, mode, seed=seed, target_score=target)
+    game = engine.new_game(players, mode, seed=seed)
     last_round = 0
     for step in range(50000):
         if game["phase"] == "finished":
@@ -30,7 +31,7 @@ def simulate(count=8, mode="partnership", seed=1, target=10000, *, verbose=False
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--players", type=int, default=8)
+    parser.add_argument("--players", type=int, choices=range(MIN_PLAYERS, MAX_PLAYERS + 1), default=MAX_PLAYERS)
     parser.add_argument("--mode", choices=["individual", "partnership"], default="partnership")
     parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()

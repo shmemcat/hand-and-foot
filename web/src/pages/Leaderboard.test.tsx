@@ -48,3 +48,19 @@ it("offers a retry when standings cannot be loaded", async () => {
   await screen.findAllByText("No winners yet");
   expect(screen.queryByRole("alert")).toBeNull();
 });
+
+it("opens the multiplayer category directly from a completed match", async () => {
+  vi.mocked(request).mockResolvedValue({ monthly: [], all_time: [] });
+  render(
+    <MemoryRouter initialEntries={["/leaderboard?mode=online"]}>
+      <Leaderboard />
+    </MemoryRouter>,
+  );
+  await screen.findAllByText("No winners yet");
+  expect(request).toHaveBeenLastCalledWith("/leaderboard?mode=online");
+  expect(
+    screen
+      .getByRole("button", { name: "Multiplayer" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
+});

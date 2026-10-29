@@ -5,6 +5,10 @@ from .rules import RANKS, meld_details
 HAND_FIXTURES = {"hand-20": 20, "hand-32": 32, "hand-45": 45}
 BOARD_FIXTURES = {"full-board": 8, "open-9": 9, "open-10": 10, "open-13": 13, "open-14": 14, "six-card": 3}
 OPENING_FIXTURES = ("opening", "next-round-opening")
+FOOT_FIXTURES = ("foot-play", "foot-discard")
+GOING_OUT_FIXTURES = ("going-out", "going-out-blocked", "going-out-complete-book")
+RED_THREE_FIXTURES = ("red-three-target",)
+SCORING_FIXTURES = ("score-choreography", "score-reds", "score-exhausted", "score-finish")
 
 
 def populate(game, fixture):
@@ -24,7 +28,7 @@ def populate(game, fixture):
         side["melds"] = [meld for meld in side["melds"] if meld["complete"] or meld["id"] in keep]
         engine.assert_conservation(game)
         return
-    game.update(stock=list(game["cards"]), discard=[], replaced=[], phase="play", actor=0, openingComplete=True)
+    game.update(stock=list(game["cards"]), discard=[], discardFaceDown=False, tableEvents=[], replaced=[], phase="play", actor=0, openingComplete=True)
     for player in game["players"]:
         player.update(hand=[], foot=[], piles=[], chosen=True, inFoot=False, redThrees=[])
 
@@ -40,6 +44,85 @@ def populate(game, fixture):
         game["sides"][team]["opened"] = True
         game["sides"][team]["melds"].append({"id": engine.uid(), "creator": creator, "kind": kind, "cardIds": ids,
                                           **meld_details([game["cards"][i] for i in ids], kind)})
+
+    if fixture in SCORING_FIXTURES:
+        owner = game["players"][0]
+        owner["redThrees"] = take("3", 3, "hearts")
+        if fixture == "score-reds":
+            owner.update(hand=take("A"), inFoot=True)
+        else:
+            meld(0, owner["id"], take("K", 7))
+            meld(0, owner["id"], [*take("Q", 4), *take("2", 2), *take("Joker")])
+            meld(0, owner["id"], take("7", 7))
+            for rank in ("10", "5", "9"):
+                meld(0, owner["id"], take(rank, 3))
+            owner["hand"] = [*take("A"), *take("4"), *take("9"), *take("K")]
+            owner["foot"] = [take(rank)[0] for rank in ("Joker", "2", "A", "K", "Q", "J", "9", "8", "7", "6", "4")]
+        for index, player in enumerate(game["players"][1:], 1):
+            player.update(hand=take("4"), inFoot=True)
+            game["sides"][index]["score"] = 2400 - index * 100
+        game["sides"][0]["score"] = 19000 if fixture == "score-finish" else 2850
+        game["discard"] = take("8")
+        if fixture == "score-exhausted":
+            game["replaced"].extend(game["stock"])
+            game["stock"] = []
+        engine.finish_round(game, None if fixture == "score-exhausted" else 1,
+                            "The stack ran out." if fixture == "score-exhausted" else "Poppy went out.")
+        engine.assert_conservation(game)
+        return
+
+    if fixture in RED_THREE_FIXTURES:
+        owner = game["players"][0]
+        meld(0, owner["id"], take("K", 7))
+        meld(0, owner["id"], take("9", 3))
+        owner["redThrees"] = [*take("3", suit="hearts"), *take("3", suit="diamonds")]
+        owner["hand"] = [*take("3", suit="hearts"), *take("A", 3), *take("4")]
+        owner["foot"] = [game["stock"].pop() for _ in range(11)]
+        for player in game["players"][1:]:
+            player["hand"] = [game["stock"].pop() for _ in range(11)]
+            player["foot"] = [game["stock"].pop() for _ in range(11)]
+        game["discard"] = take("8")
+        game["message"] = "Select your red 3, click the outlined red-three pile, then Play draft."
+        engine.assert_conservation(game)
+        return
+
+    if fixture in GOING_OUT_FIXTURES:
+        owner = game["players"][0]
+        owner["inFoot"] = True
+        meld(0, owner["id"], take("K", 7))
+        wilds = 2 if fixture != "going-out" else 3
+        meld(0, owner["id"], [*take("Q", 4), *take("2", wilds)])
+        meld(0, owner["id"], take("8", 3))
+        owner["hand"] = [*take("Q" if fixture == "going-out-complete-book" else "8", 1 if fixture == "going-out-complete-book" else 3), *take("4")]
+        for player in game["players"][1:]:
+            player["hand"] = [game["stock"].pop() for _ in range(11)]
+            player["foot"] = [game["stock"].pop() for _ in range(11)]
+        game["discard"] = take("9")
+        game["message"] = "Your turn. Stage your cards, keeping the final discard."
+        engine.assert_conservation(game)
+        return
+
+    if fixture in FOOT_FIXTURES:
+        owner = game["players"][0]
+        for rank in ("K", "9", "7"):
+            meld(0, owner["id"], take(rank, 3))
+        owner["hand"] = take("K")
+        owner["foot"] = [take(rank, suit=suit)[0] for rank, suit in [
+            ("2", "diamonds"), ("8", "hearts"), ("J", "clubs"), ("5", "spades"),
+            ("A", "clubs"), ("9", "hearts"), ("8", "spades"), ("Q", "diamonds"),
+            ("5", "hearts"), ("10", "clubs"), ("K", "hearts"),
+        ]]
+        for player in game["players"][1:]:
+            player["hand"] = [game["stock"].pop() for _ in range(11)]
+            player["foot"] = [game["stock"].pop() for _ in range(11)]
+        game["discard"] = take("8")
+        game["message"] = (
+            "Your turn. Add your last King to the Kings to enter your foot and keep playing."
+            if fixture == "foot-play" else
+            "Your turn. Discard your last King to enter your foot and end your turn."
+        )
+        engine.assert_conservation(game)
+        return
 
     if fixture in BOARD_FIXTURES:
         creator = game["players"][0]["id"]
@@ -121,5 +204,5 @@ def populate(game, fixture):
         game["sides"][0]["score"] = -6000
         game["phase"] = "draw"
     else:
-        game["message"] = "Your turn. Try adding to your partner’s upper lane."
+        game["message"] = "Your turn. Build your team’s shared melds, then discard to finish."
     engine.assert_conservation(game)

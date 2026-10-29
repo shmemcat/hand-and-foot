@@ -30,3 +30,9 @@ class DeletedAccount(db.Model):
     __tablename__ = "handandfoot_deleted_accounts_v1"
     user_id = db.Column(db.BigInteger, primary_key=True)
     request_id = db.Column(db.String(32), nullable=False)
+
+
+class AchievementUnlock(db.Model):
+    __tablename__ = "handandfoot_achievement_unlocks_v1"
+    user_id = db.Column(db.BigInteger, primary_key=True)
+    achievement_id = db.Column(db.String(64), primary_key=True)

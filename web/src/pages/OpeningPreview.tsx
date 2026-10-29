@@ -16,16 +16,7 @@ import {
 import { readStorage, writeStorage } from "../lib/storage";
 import "../opening-preview.css";
 
-const NAMES = [
-  "You",
-  "Poppy",
-  "Hazel",
-  "Jasper",
-  "Sunny",
-  "Clover",
-  "Wren",
-  "Kit",
-];
+const NAMES = ["You", "Poppy", "Hazel", "Jasper", "Sunny", "Clover"];
 const SETTINGS_KEY = "handandfoot.opening-preview.v1";
 type Settings = {
   revision: 7;
@@ -38,7 +29,7 @@ type Settings = {
 const DEFAULTS: Settings = {
   revision: 7,
   dealStyle: "drops",
-  players: 4,
+  players: 6,
   mode: "individual",
   speed: 1,
   durations: OPENING_BEATS.map((b) => b.duration),
@@ -62,13 +53,9 @@ function loadSettings(): Settings {
     )
   )
     return DEFAULTS;
-  if (
-    (saved.mode === "individual" && saved.players! > 6) ||
-    (saved.mode === "partnership" && ![4, 6, 8].includes(saved.players!))
-  )
-    return DEFAULTS;
   return {
     ...saved,
+    players: 6,
     // Apply each requested pacing change once, retaining the other preferences.
     durations: saved.durations.map((n, i) =>
       i === 5 && (saved.revision ?? 0) < 7
@@ -423,38 +410,14 @@ export function OpeningPreview() {
                     configure({
                       ...settings,
                       mode,
-                      players:
-                        mode === "partnership" &&
-                        ![4, 6, 8].includes(settings.players)
-                          ? 4
-                          : mode === "individual" && settings.players > 6
-                            ? 6
-                            : settings.players,
                     });
                   }}
                 >
-                  <option value="individual">Individual</option>
-                  <option value="partnership">Partnerships</option>
+                  <option value="individual">6 individuals</option>
+                  <option value="partnership">3 teams of 2</option>
                 </select>
               </label>
-              <label>
-                Players
-                <select
-                  value={settings.players}
-                  onChange={(e) =>
-                    configure({ ...settings, players: Number(e.target.value) })
-                  }
-                >
-                  {(settings.mode === "individual"
-                    ? [2, 3, 4, 5, 6]
-                    : [4, 6, 8]
-                  ).map((n) => (
-                    <option key={n} value={n}>
-                      {n} players
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <p>6 players · 7 decks</p>
               <label>
                 Dealer for this rehearsal
                 <select

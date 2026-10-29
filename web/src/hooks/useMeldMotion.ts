@@ -16,7 +16,7 @@ export type CardPosition = {
   height: number;
   rotation?: number;
 };
-function landingPosition(element: Element): CardPosition {
+export function landingPosition(element: Element): CardPosition {
   const rect = position(element);
   const style = getComputedStyle(element);
   const matrix = style.transform
@@ -55,6 +55,7 @@ export type MeldFlight = {
   before: Snapshot;
   speed: number;
   boardHeight: number;
+  divider?: number;
   cards: { card: Card; from: CardPosition; to: CardPosition; meldId: string }[];
 };
 const position = (element: Element): CardPosition => {
@@ -74,6 +75,7 @@ export function useMeldMotion(
   reduced: boolean,
   speed = 1,
   paused = false,
+  viewedTeam?: number,
 ) {
   const [flight, setFlight] = useState<MeldFlight | null>(null);
   const current = useRef<MeldFlight | null>(null);
@@ -99,15 +101,20 @@ export function useMeldMotion(
       flight.token === incoming.token &&
       (incoming.phase === "play" ||
         (incoming.phase === "draw" && incoming.pickupDrawPending)) &&
-      incoming.actorId === incoming.viewerId &&
-      flight.cards.every(({ card, meldId }) =>
-        incoming.sides.some((side) =>
-          side.melds.some(
-            (meld) =>
-              meld.id === meldId &&
-              meld.cards.some((item) => item.id === card.id),
+      flight.cards.every(
+        ({ card, meldId }) =>
+          incoming.players.some(
+            (player) =>
+              meldId === `reds:${player.id}` &&
+              player.redThrees.some((item) => item.id === card.id),
+          ) ||
+          incoming.sides.some((side) =>
+            side.melds.some(
+              (meld) =>
+                meld.id === meldId &&
+                meld.cards.some((item) => item.id === card.id),
+            ),
           ),
-        ),
       ),
   );
   const hiddenIds = new Set(
@@ -119,6 +126,25 @@ export function useMeldMotion(
           ...incoming,
           hand: flight!.before.hand,
           footTop: flight!.before.footTop,
+          // A closed book keeps its cover, type, and count until the addition lands.
+          sides: incoming.sides.map((side) => ({
+            ...side,
+            melds: side.melds.map((meld) => {
+              const old = flight!.before.sides
+                .flatMap((item) => item.melds)
+                .find((item) => item.id === meld.id);
+              return old?.complete &&
+                meld.complete &&
+                flight!.cards.some((card) => card.meldId === meld.id)
+                ? {
+                    ...meld,
+                    cards: old.cards,
+                    dirty: old.dirty,
+                    bonus: old.bonus,
+                  }
+                : meld;
+            }),
+          })),
           players: incoming.players.map((player) =>
             player.id === incoming.viewerId
               ? {
@@ -152,25 +178,43 @@ export function useMeldMotion(
       !document.hidden &&
       (incoming.phase === "play" ||
         (incoming.phase === "draw" && incoming.pickupDrawPending)) &&
-      incoming.actorId === incoming.viewerId &&
-      prior.snapshot.actorId === incoming.viewerId
+      prior.snapshot.actorId === incoming.actorId &&
+      (incoming.actorId === incoming.viewerId ||
+        incoming.players.some(
+          (player) =>
+            player.id === incoming.actorId &&
+            player.bot &&
+            player.team === viewedTeam,
+        ))
     ) {
       const viewer = incoming.players.find(
-        (player) => player.id === incoming.viewerId,
+        (player) => player.id === incoming.actorId,
       );
       const melds =
         incoming.sides.find((side) => side.id === viewer?.team)?.melds ?? [];
-      const oldMeldIds = new Set(
-        prior.snapshot.sides.flatMap((side) =>
+      const oldMeldIds = new Set([
+        ...prior.snapshot.players.flatMap((player) =>
+          player.redThrees.map((card) => card.id),
+        ),
+        ...prior.snapshot.sides.flatMap((side) =>
           side.melds.flatMap((meld) => meld.cards.map((card) => card.id)),
         ),
-      );
-      const fromCards = [
-        ...prior.snapshot.hand,
-        ...(prior.snapshot.phase === "draw" && prior.snapshot.discard
-          ? [prior.snapshot.discard]
-          : []),
-      ];
+      ]);
+      const own = incoming.actorId === incoming.viewerId;
+      const fromCards = own
+        ? [
+            ...prior.snapshot.hand,
+            ...(prior.snapshot.phase === "draw" && prior.snapshot.discard
+              ? [prior.snapshot.discard]
+              : []),
+          ]
+        : [
+            ...melds.flatMap((meld) => meld.cards),
+            ...(viewer?.redThrees ?? []),
+          ];
+      const header = board.current
+        .querySelector(".game-header")
+        ?.getBoundingClientRect();
       const targets = [
         ...board.current.querySelectorAll<HTMLElement>(
           ".meld-pile[data-meld-id]",
@@ -178,16 +222,28 @@ export function useMeldMotion(
       ];
       const cards: MeldFlight["cards"] = [];
       for (const card of fromCards) {
+        const red = viewer?.redThrees.some((item) => item.id === card.id);
         const meld = melds.find((item) =>
           item.cards.some((item) => item.id === card.id),
         );
-        if (!meld || oldMeldIds.has(card.id)) continue;
-        const from = prior.sources.get(card.id);
-        const pile = targets.find((item) => item.dataset.meldId === meld.id);
+        if ((!meld && !red) || oldMeldIds.has(card.id)) continue;
+        const from = own
+          ? prior.sources.get(card.id)
+          : header
+            ? {
+                left: header.left + header.width / 2 - 31,
+                top: header.bottom - 14,
+                width: 62,
+                height: 87,
+              }
+            : undefined;
+        const pile = red
+          ? board.current.querySelector<HTMLElement>(
+              `.red-three-pile[data-red-three-team-id="${viewer!.team}"]`,
+            )
+          : targets.find((item) => item.dataset.meldId === meld!.id);
         const layer = [
-          ...(pile?.querySelectorAll<HTMLElement>(
-            ".meld-card-layer[data-card-id]",
-          ) ?? []),
+          ...(pile?.querySelectorAll<HTMLElement>("[data-card-id]") ?? []),
         ].find((item) => item.dataset.cardId === card.id);
         const target =
           layer?.querySelector(".card") ??
@@ -197,7 +253,7 @@ export function useMeldMotion(
             card,
             from,
             to: landingPosition(target),
-            meldId: meld.id,
+            meldId: red ? `reds:${viewer!.id}` : meld!.id,
           });
       }
       if (cards.length) {

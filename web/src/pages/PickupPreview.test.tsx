@@ -10,6 +10,7 @@ import {
 } from "../lib/pickupSequence";
 import { command, getRoom, socketCredentials } from "../lib/api";
 import { MELD_FLIGHT_MS } from "../hooks/useMeldMotion";
+import { DRAW_FLIGHT_MS } from "../hooks/useDrawMotion";
 
 const sound = vi.hoisted(() => ({ play: vi.fn() }));
 vi.mock("../context/SoundContext", () => ({ useSound: () => sound }));
@@ -259,7 +260,7 @@ it("prompts for just the second card after the pickup lands and shows why discar
   fireEvent.click(screen.getByRole("button", { name: "Play sequence" }));
   advance(pickupBeats("new").find((beat) => beat.id === "await-draw")!.hold);
   expect(view.container.querySelectorAll(".draw-card-flight")).toHaveLength(1);
-  advance(600);
+  advance(DRAW_FLIGHT_MS);
   expect(view.container.querySelectorAll(".hand-card")).toHaveLength(10);
   expect(view.container.querySelector(".draw-flight-layer")).toBeNull();
   seek("Click Stage meld");

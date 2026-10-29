@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useSound } from "../context/SoundContext";
-import { readStorage, writeStorage } from "../lib/storage";
 import { Book, Icon } from "./Icons";
 import { cardsHome } from "../lib/links";
 import { useAuth } from "../context/AuthContext";
 import { ProfileIcon } from "./ProfileIcon";
+import { usePreferences } from "../context/PreferencesContext";
+import { GearOverlay } from "./SettingsGear";
+import "../account.css";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -14,21 +16,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
     location.pathname.startsWith("/room/") ||
     location.pathname === "/preview/opening" ||
     location.pathname === "/preview/draw" ||
-    location.pathname === "/preview/pickup";
+    location.pathname === "/preview/pickup" ||
+    location.pathname === "/preview/red-threes" ||
+    location.pathname === "/preview/foot" ||
+    location.pathname === "/preview/scoring";
   const sound = useSound();
   const { user } = useAuth();
-  const [dark, setDark] = useState(() =>
-    readStorage("handandfoot.dark.v1", false),
-  );
+  const { preferences, update } = usePreferences();
+  const dark = preferences.dark;
   const [settings, setSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", dark ? "#2D2027" : "#DFD3C3");
-    writeStorage("handandfoot.dark.v1", dark);
-  }, [dark]);
   useEffect(() => {
     setSettings(false);
     const titles: Record<string, string> = {
@@ -40,10 +37,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
       "/leaderboard": "Leaderboard",
       "/about": "About",
       "/preview": "Preview",
+      "/preview/user": "User Preview",
       "/preview/opening": "Opening Rehearsal",
       "/preview/draw": "Draw Rehearsal",
       "/preview/pickup": "Discard Pickup",
+      "/preview/foot": "Into Your Foot",
+      "/preview/red-threes": "Red 3 Celebration",
+      "/preview/scoring": "Counting the Round",
+      "/preview/endings": "Round & Game Endings",
+      "/preview/endings/designs": "Score Panel Ideas",
       "/user": user ? "User" : "Sign In",
+      "/options": "Options",
+      "/profile": "Profile",
     };
     document.title = titles[location.pathname]
       ? `${titles[location.pathname]} | Hand & Foot`
@@ -174,7 +179,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             type="button"
             className="icon-button"
             aria-label={dark ? "Use light theme" : "Use dark theme"}
-            onClick={() => setDark(!dark)}
+            onClick={() => update({ dark: !dark })}
           >
             <Icon name={dark ? "moon" : "sun"} />
           </button>
@@ -184,6 +189,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
       </nav>
+      <GearOverlay />
       <main id="main" tabIndex={-1}>
         {children}
       </main>

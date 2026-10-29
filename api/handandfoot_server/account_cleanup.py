@@ -4,7 +4,7 @@ import re
 import secrets
 from . import engine
 from flask import jsonify, request
-from .models import DeletedAccount, MatchResult, Receipt, Room, db
+from .models import AchievementUnlock, DeletedAccount, MatchResult, Receipt, Room, db
 
 
 def scrub_text(value, names):
@@ -51,11 +51,14 @@ def register_cleanup(app, lock, announce):
                 db.session.add(DeletedAccount(user_id=uid, request_id=receipt))
             for row in Room.query.all():
                 data = copy.deepcopy(row.payload)
-                touched = False
+                touched = principal in data.get("removed", {})
+                data.get("removed", {}).pop(principal, None)
                 for group in [data["players"], data.get("game", {}).get("players", []) if data.get("game") else []]:
                     for player in group:
                         if player.get("key") == principal or player.get("accountId") == uid:
-                            player.update(key=None, accountId=None, name="Deleted player", bot=True, away=False)
+                            if data.get("game"):
+                                data["game"].get("playerAchievements", {}).pop(player["id"], None)
+                            player.update(key=None, accountId=None, name="Deleted player", bot=True, away=False, utcOffsetMinutes=None)
                             touched = True
                 if not touched:
                     continue
@@ -65,6 +68,8 @@ def register_cleanup(app, lock, announce):
                     roster = data["players"]
                 if not any(p["id"] == data["hostId"] and p.get("key") for p in roster):
                     data["hostId"] = next((p["id"] for p in roster if p.get("key")), "")
+                if not any(p.get("key") for p in roster):
+                    data.update(status="closed", closedReason="empty", inactivity={})
                 if data.get("game"):
                     for side in data["game"]["sides"]:
                         side["name"] = " & ".join(p["name"] for p in roster if p["team"] == side["id"])
@@ -79,8 +84,11 @@ def register_cleanup(app, lock, announce):
                         if player.get("key") == principal or player.get("accountId") == uid:
                             player["key"] = None
                             player["accountId"] = None
+                            player.pop("utcOffsetMinutes", None)
+                            player.pop("achievements", None)
                     row.payload = scrub_text(data, names)
             Receipt.query.filter_by(principal=principal).update({"principal": "deleted"})
+            AchievementUnlock.query.filter_by(user_id=uid).delete()
             db.session.commit()
         for code, revision in changed:
             announce(code, revision)

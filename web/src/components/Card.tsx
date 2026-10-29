@@ -20,18 +20,18 @@ export function Card({
   onClick,
   small = false,
   disabled = false,
-  spent = false,
   indexed = false,
+  pointsLeft,
 }: {
   card?: Face;
   selected?: boolean;
   onClick?: () => void;
   small?: boolean;
   disabled?: boolean;
-  spent?: boolean;
   indexed?: boolean;
+  pointsLeft?: number;
 }) {
-  const className = `card ${small ? "card-small" : ""} ${selected ? "selected" : ""} ${spent ? "spent" : ""} ${indexed ? "indexed-card" : ""} ${card && ["hearts", "diamonds"].includes(card.suit) ? "red" : ""} ${card?.wild ? "wild" : ""}`;
+  const className = `card ${small ? "card-small" : ""} ${selected ? "selected" : ""} ${indexed ? "indexed-card" : ""} ${card && ["hearts", "diamonds"].includes(card.suit) ? "red" : ""} ${card?.wild ? "wild" : ""}`;
   const suit = card
     ? suits[card.suit as keyof typeof suits] || suits.joker
     : null;
@@ -71,6 +71,9 @@ export function Card({
         <span className="selection-check" aria-hidden="true">
           ✓
         </span>
+      )}
+      {pointsLeft !== undefined && (
+        <span className="card-points-left">{pointsLeft} pts left</span>
       )}
     </>
   ) : (

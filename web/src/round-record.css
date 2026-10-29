@@ -1,0 +1,225 @@
+.round-record-trigger {
+  color: inherit;
+  letter-spacing: inherit;
+}
+.round-record-trigger:hover {
+  border-color: var(--secondary);
+}
+.round-record-trigger:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 4px;
+}
+.round-record {
+  width: min(900px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  box-sizing: border-box;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 20px 80px #0005;
+  text-align: center;
+  outline: none;
+}
+.round-record::backdrop {
+  background: #0006;
+  backdrop-filter: blur(4px);
+}
+.round-record-content {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 34px);
+  padding: 24px 8px 20px;
+  box-sizing: border-box;
+}
+.round-record-header {
+  flex-shrink: 0;
+  margin: 0 36px 20px;
+}
+.round-record-eyebrow {
+  margin: 0 0 7px;
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+.round-record-header h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+.round-record-reason {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.round-record-carousel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.round-record-viewport {
+  margin: 0 44px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: 6px;
+  scrollbar-width: thin;
+}
+.round-record-scores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  animation: round-record-arrive 200ms ease-out;
+}
+.round-record-scores[data-sides="2"],
+.round-record-scores[data-sides="4"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.round-record-player {
+  min-width: 0;
+}
+.round-record-player-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.round-record-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.round-record-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.round-record-name > svg {
+  width: 13px;
+  flex-shrink: 0;
+  color: var(--secondary);
+}
+.round-record-score {
+  flex-shrink: 0;
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--emblem) 14%, transparent);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.round-record-score[data-negative="true"] {
+  color: var(--secondary);
+}
+.round-record-breakdown {
+  margin: 0;
+}
+.round-record-breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 11px;
+}
+.round-record-breakdown dt {
+  text-align: left;
+  color: var(--muted);
+}
+.round-record-breakdown dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.round-record-breakdown .round-record-total {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-weight: 600;
+}
+.round-record-total dt {
+  color: var(--text);
+}
+.round-record-arrow {
+  position: absolute;
+  top: calc(50% - 36px);
+  width: 36px;
+  height: 72px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--secondary);
+  font:
+    32px Georgia,
+    serif;
+}
+.round-record-arrow:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.round-record-previous {
+  left: 0;
+}
+.round-record-next {
+  right: 0;
+}
+.round-record-navigation {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 12px;
+}
+.round-record-navigation button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.round-record-navigation button > span {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+}
+.round-record-navigation button[aria-pressed="true"] > span {
+  background: var(--secondary);
+  border-color: var(--secondary);
+}
+.round-record-close {
+  flex-shrink: 0;
+  align-self: center;
+  width: 180px;
+  min-width: 0;
+  min-height: 40px;
+  margin-top: 14px;
+}
+@keyframes round-record-arrive {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (max-width: 700px) {
+  .round-record {
+    width: calc(100vw - 24px);
+  }
+  .round-record-viewport {
+    margin-inline: 28px;
+  }
+  .round-record-scores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+  }
+}

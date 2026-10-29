@@ -1,6 +1,11 @@
 import { expect, it } from "vitest";
 import type { Card, Meld } from "../types";
-import { detectMeldKind, isValidMeld, pickupPlayableCards } from "./melds";
+import {
+  canExtendMeld,
+  detectMeldKind,
+  isValidMeld,
+  pickupPlayableCards,
+} from "./melds";
 
 function cards(...ranks: string[]): Card[] {
   return ranks.map((rank, index) => ({
@@ -153,6 +158,58 @@ it("keeps a natural majority when suggesting additional wild cards", () => {
   expect([
     ...pickupPlayableCards(hand, discard, [target], [hand[0].id]),
   ]).toEqual([hand[0].id]);
+});
+
+it.each(["8", "2"])(
+  "preserves a completed clean book of %s while allowing natural additions",
+  (rank) => {
+    const target = pickupPile(Array(7).fill(rank));
+    const [natural, joker] = cards(rank, "Joker").map((card) => ({
+      ...card,
+      id: `hand-${card.id}`,
+    }));
+    expect(canExtendMeld(target, [natural])).toBe(true);
+    expect(canExtendMeld(target, [joker])).toBe(false);
+    expect(canExtendMeld(target, [natural, joker])).toBe(false);
+  },
+);
+
+it("allows a wild to close an open clean pile, and only extends a dirty book with a natural majority", () => {
+  const [wild] = cards("Joker").map((card) => ({
+    ...card,
+    id: `hand-${card.id}`,
+  }));
+  expect(canExtendMeld(pickupPile(Array(6).fill("8")), [wild])).toBe(true);
+  expect(
+    canExtendMeld(pickupPile(["8", "8", "8", "8", "8", "Joker", "Joker"]), [
+      wild,
+    ]),
+  ).toBe(true);
+  expect(
+    canExtendMeld(pickupPile(["8", "8", "8", "8", "Joker", "Joker", "Joker"]), [
+      wild,
+    ]),
+  ).toBe(false);
+});
+
+it("only suggests naturals for pickup onto a completed clean book without blocking a separate dirty pile", () => {
+  const hand = cards("8", "Joker").map((card) => ({
+    ...card,
+    id: `hand-${card.id}`,
+  }));
+  const clean = pickupPile(Array(7).fill("8"));
+  expect([...pickupPlayableCards(hand, discard, [clean])]).toEqual([
+    hand[0].id,
+  ]);
+  expect([
+    ...pickupPlayableCards(hand, discard, [clean], [hand[1].id]),
+  ]).toEqual([]);
+  const extraNatural = { ...hand[0], id: "second-natural" };
+  expect(
+    pickupPlayableCards([...hand, extraNatural], discard, [clean]).has(
+      hand[1].id,
+    ),
+  ).toBe(true);
 });
 
 it("rejects pickup guidance for a three or a wild discard", () => {

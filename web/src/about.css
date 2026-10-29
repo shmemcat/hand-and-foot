@@ -1,0 +1,81 @@
+.about-body {
+  --sparkle: var(--primary);
+}
+.prose.about-body {
+  text-align: center;
+}
+:root[data-theme="dark"] .about-body {
+  --sparkle: var(--text);
+}
+.about-body .bold {
+  font-size: inherit;
+}
+.about-body .cards-link {
+  text-decoration: none;
+}
+.about-body .sparkle-container,
+.about-body .sparkle {
+  position: relative;
+  display: inline-block;
+}
+.about-body .sparkle-svg {
+  position: absolute;
+  z-index: 3;
+  fill: var(--sparkle);
+  width: 20px;
+  height: 20px;
+  aspect-ratio: 1;
+  animation: about-sparkle 5s calc((var(--delay-step) * var(--d)) * 1s) infinite
+    both;
+  --delay-step: 0.15;
+  top: calc(var(--y, 50) * 1%);
+  left: calc(var(--x, 0) * 1%);
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+}
+@keyframes about-sparkle {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+  }
+  10% {
+    transform: translate(-50%, -50%) scale(var(--s, 1));
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(0);
+  }
+}
+.about-body .sparkle-svg:nth-of-type(1) {
+  --x: 10;
+  --y: 10;
+  --s: 0.4;
+  --d: 1;
+}
+.about-body .sparkle-svg:nth-of-type(2) {
+  --x: 30;
+  --y: 80;
+  --s: 0.4;
+  --d: 2;
+}
+.about-body .sparkle-svg:nth-of-type(3) {
+  --x: 50;
+  --y: 50;
+  --s: 0.4;
+  --d: 3;
+}
+.about-body .sparkle-svg:nth-of-type(4) {
+  --x: 70;
+  --y: 20;
+  --s: 0.4;
+  --d: 4;
+}
+.about-body .sparkle-svg:nth-of-type(5) {
+  --x: 90;
+  --y: 70;
+  --s: 0.4;
+  --d: 5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-body .sparkle-svg {
+    animation: none;
+  }
+}

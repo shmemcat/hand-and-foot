@@ -7,6 +7,7 @@ export function PlayDraftButton({
   onPlay,
   showRequirement = false,
   blocked = false,
+  blockedReason = null,
 }: {
   count: number;
   total: number;
@@ -14,27 +15,32 @@ export function PlayDraftButton({
   onPlay: () => void;
   showRequirement?: boolean;
   blocked?: boolean;
+  blockedReason?: string | null;
 }) {
   const tooltipId = useId();
   const [open, setOpen] = useState(false);
   const belowMinimum = minimum !== null && total < minimum;
-  const disabled = count === 0 || belowMinimum || blocked;
+  const requirement = belowMinimum
+    ? `Meld must be greater than or equal to ${minimum} points`
+    : blockedReason;
+  const disabled = count === 0 || Boolean(requirement) || blocked;
   return (
     <span
       className="play-draft-control"
       role="group"
       aria-label="Play draft"
-      aria-describedby={belowMinimum ? tooltipId : undefined}
-      tabIndex={belowMinimum ? 0 : undefined}
+      aria-describedby={requirement ? tooltipId : undefined}
+      tabIndex={requirement ? 0 : undefined}
       data-opening-blocked={belowMinimum}
+      data-requirement-blocked={Boolean(requirement)}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
-      onClick={() => belowMinimum && setOpen(true)}
+      onClick={() => requirement && setOpen(true)}
       onKeyDown={(event) => {
         if (event.key === "Escape") setOpen(false);
-        if (belowMinimum && ["Enter", " "].includes(event.key)) {
+        if (requirement && ["Enter", " "].includes(event.key)) {
           event.preventDefault();
           setOpen(true);
         }
@@ -43,21 +49,21 @@ export function PlayDraftButton({
       <button
         className="button small"
         disabled={disabled}
-        aria-describedby={belowMinimum ? tooltipId : undefined}
+        aria-describedby={requirement ? tooltipId : undefined}
         onClick={() => {
           if (!disabled) onPlay();
         }}
       >
         Play draft
       </button>
-      {belowMinimum && (
+      {requirement && (
         <span
           className="opening-requirement-tooltip"
           role="tooltip"
           id={tooltipId}
           hidden={!open && !showRequirement}
         >
-          Meld must be greater than or equal to {minimum} points
+          {requirement}
         </span>
       )}
     </span>

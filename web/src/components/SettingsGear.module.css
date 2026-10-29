@@ -1,0 +1,139 @@
+.wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.gearBtn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.gearBtn svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.gearBtn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.drop {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  transform: scale(0.92);
+  transform-origin: top right;
+  padding-top: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  z-index: 50;
+}
+
+.wrap[data-modal-open="true"] .drop {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+.inner {
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 130px;
+}
+
+.menuItem {
+  font-family: Figtree, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text);
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  transition:
+    color 0.2s ease-in-out,
+    background-color 0.2s ease-in-out;
+  white-space: nowrap;
+}
+
+.menuItem:hover {
+  color: var(--link);
+  background-color: var(--primary);
+}
+
+/* Keep the account gear in the page frame below the main navigation. */
+.overlay {
+  position: absolute;
+  top: 88px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.overlayMirror {
+  width: 100%;
+  margin: 0;
+  position: relative;
+  margin-top: 0;
+}
+
+.overlayGear {
+  position: absolute;
+  top: 0;
+  right: 68px;
+  pointer-events: auto;
+}
+
+@media only screen and (max-width: 768px) {
+  .overlay {
+    top: 58px;
+    right: 0;
+  }
+
+  .overlayMirror {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .overlayGear {
+    top: 0;
+    right: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gearBtn,
+  .drop {
+    transition: none;
+  }
+}

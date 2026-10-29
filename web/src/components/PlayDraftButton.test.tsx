@@ -73,3 +73,36 @@ it("allows smaller subsequent melds but never submits an empty draft", () => {
   fireEvent.click(screen.getByRole("button"));
   expect(onPlay).toHaveBeenCalledOnce();
 });
+
+it("explains a blocked going-out draft on hover and keyboard focus", () => {
+  const onPlay = vi.fn();
+  const message =
+    "You need a clean book and a dirty book to go out. Keep one card after discarding.";
+  const view = render(
+    <PlayDraftButton
+      count={1}
+      total={30}
+      minimum={null}
+      blockedReason={message}
+      onPlay={onPlay}
+    />,
+  );
+  const control = screen.getByRole("group", { name: "Play draft" });
+  expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.mouseEnter(control);
+  expect(screen.getByRole("tooltip").textContent).toBe(message);
+  fireEvent.mouseLeave(control);
+  fireEvent.focus(control);
+  expect(screen.getByRole("tooltip").textContent).toBe(message);
+  fireEvent.keyDown(control, { key: "Escape" });
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.click(screen.getByRole("button"));
+  expect(onPlay).not.toHaveBeenCalled();
+  view.rerender(
+    <PlayDraftButton count={1} total={30} minimum={null} onPlay={onPlay} />,
+  );
+  expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(
+    false,
+  );
+  expect(screen.queryByRole("tooltip", { hidden: true })).toBeNull();
+});

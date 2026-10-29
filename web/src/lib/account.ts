@@ -1,5 +1,16 @@
-export type AccountUser = { id: string; name: string; profile_icon?: string };
-export type AccountSession = { user: AccountUser | null; csrf_token: string };
+export type AccountUser = {
+  id: string;
+  name: string;
+  profile_icon?: string;
+  email?: string;
+  email_verified?: boolean;
+};
+export type ProfileUpdate = { profile_icon?: string; email?: string };
+export type AccountSession = {
+  user: AccountUser | null;
+  csrf_token: string;
+  message?: string;
+};
 export function createAccountClient(
   base = "/api/account",
   fetcher: typeof fetch = fetch,
@@ -43,5 +54,17 @@ export function createAccountClient(
       }),
     logout: (csrf: string) =>
       send("/logout", { method: "POST", headers: { "X-CSRF-Token": csrf } }),
+    deleteAccount: (password: string, csrf: string) =>
+      send("/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+        body: JSON.stringify({ password }),
+      }),
+    updateProfile: (data: ProfileUpdate, csrf: string) =>
+      send("/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+        body: JSON.stringify(data),
+      }),
   };
 }

@@ -12,3 +12,5 @@ api/.pytest_cache/
 .local/
 *.tsbuildinfo
 docs/
+
+release-artifacts/

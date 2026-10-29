@@ -18,6 +18,7 @@
   --outer: #dfd3c3;
   --panel: #f1e7d8;
   --text: #613a43;
+  --bold-text: var(--text);
   --muted: #825e62;
   --emblem: #cfb7b5;
   --primary: #dcaaa2;
@@ -31,6 +32,7 @@
   --red: #b43147;
   --button-text: #4b2730;
   --shadow: rgba(72, 40, 42, 0.09);
+  --score-sheet-width: 760px;
   color-scheme: light;
 }
 :root[data-theme="dark"] {
@@ -39,6 +41,7 @@
   --outer: #2d2027;
   --panel: #4b303b;
   --text: #f4e8dd;
+  --bold-text: #d2b477;
   --muted: #d1b7b6;
   --emblem: #7e5b63;
   --secondary: #b99a5f;
@@ -51,6 +54,11 @@
 }
 * {
   box-sizing: border-box;
+}
+strong,
+b,
+.bold {
+  color: var(--bold-text);
 }
 body {
   margin: 0;
@@ -327,12 +335,19 @@ small {
   font-size: 12px;
   line-height: 1.7;
 }
+.page,
+.home-page,
+.cards-hub-link {
+  animation: page-enter 0.25s ease-out;
+}
+.home-page {
+  animation-timing-function: ease-in-out;
+}
 .page {
   padding: 45px 40px 60px;
   margin: 0 auto;
   width: 100%;
   max-width: 850px;
-  animation: page-in 0.22s ease-out;
 }
 .narrow-page {
   max-width: 540px;
@@ -1438,7 +1453,7 @@ legend {
   border: 1px solid var(--line);
   border-radius: 13px;
   padding: 24px 30px;
-  max-width: 760px;
+  max-width: var(--score-sheet-width);
   width: 100%;
   max-height: calc(100dvh - 50px);
   overflow-y: auto;
@@ -1889,17 +1904,6 @@ legend {
   flex-shrink: 0;
   animation: debt-card 0.35s ease;
 }
-.canceled-card > .card {
-  opacity: 0.5;
-}
-.canceled-card > span {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 40px;
-  color: var(--red);
-}
 .score-calculation {
   padding: 15px 18px;
   margin: 20px 0;
@@ -2030,6 +2034,16 @@ body {
   background: var(--surface);
   border-radius: 5px;
   line-height: 1.5;
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes page-in {
   from {
@@ -2601,22 +2615,7 @@ body {
   color: var(--button-text);
 }
 .book-tile.broken-book {
-  opacity: 0.6;
   border-style: dashed;
-}
-.card.spent {
-  opacity: 0.4;
-}
-.card.spent::after {
-  content: "×";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font:
-    38px Figtree,
-    sans-serif;
-  color: var(--red);
 }
 .debt-explanation summary {
   cursor: pointer;

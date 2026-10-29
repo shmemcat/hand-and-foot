@@ -1,0 +1,54 @@
+.turn-motion-preview > h1 {
+  font-size: 20px;
+  margin: 0 0 14px;
+}
+.motion-preview-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.motion-preview-tabs .button {
+  width: auto;
+  font-size: 12px;
+}
+.motion-review-bar {
+  margin-bottom: 8px;
+  gap: 14px;
+}
+.motion-review-bar > div {
+  margin-right: auto;
+}
+.motion-review-bar h2 {
+  font-size: 14px;
+  margin: 0;
+}
+.motion-review-bar .button {
+  width: auto;
+  font-size: 11px;
+}
+.motion-preview-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 24px;
+}
+.motion-preview-status .button {
+  width: auto;
+  font-size: 10px;
+  padding: 5px 12px;
+  min-height: 26px;
+}
+.motion-native-stage {
+  position: relative;
+}
+.motion-native-stage .game-page {
+  zoom: 0.82;
+}
+.motion-native-stage .individual-game .melds {
+  min-height: 430px;
+}
+.motion-native-stage .card:disabled {
+  opacity: 1;
+}

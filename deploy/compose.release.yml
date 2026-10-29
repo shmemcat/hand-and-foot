@@ -1,0 +1,49 @@
+# Overlay for Cards' disposable pinned-image PostgreSQL rehearsal.
+x-handandfoot-env: &handandfoot-env
+  HANDANDFOOT_DATABASE_URL: postgresql://handandfoot_runtime:split-handandfoot-local@db:5432/${SPLIT_DATABASE_NAME}${SPLIT_DATABASE_OPTIONS:-}
+  HANDANDFOOT_SECRET_KEY: ${SPLIT_HANDANDFOOT_SECRET:?}
+  CARDS_PUBLIC_URL: ${SPLIT_PUBLIC_URL:?}
+  CORS_ORIGINS: ${SPLIT_PUBLIC_URL:?}
+  CARDS_ACCOUNTS_URL: http://accounts:5001
+  CARDS_SERVICE_TOKEN: ${SPLIT_HANDANDFOOT_READ:?}
+  CARDS_GAME_ACCOUNT_TOKENS: '{"handandfoot":"${SPLIT_HANDANDFOOT_CALLBACK:?}"}'
+services:
+  db:
+    volumes:
+      - ${SPLIT_HANDANDFOOT_DIR}/roles.sql:/docker-entrypoint-initdb.d/02-handandfoot.sql:ro
+  accounts:
+    environment:
+      CARDS_INTERNAL_CLIENTS: >-
+        {"hearts-game":{"token":"${SPLIT_HEARTS_READ}","scopes":["sessions.validate","profiles.read"]},"euchre-game":{"token":"${SPLIT_EUCHRE_READ}","scopes":["sessions.validate","profiles.read"]},"golf-game":{"token":"${SPLIT_GOLF_READ}","scopes":["sessions.validate","profiles.read"]},"handandfoot-game":{"token":"${SPLIT_HANDANDFOOT_READ}","scopes":["sessions.validate","profiles.read"]}}
+      CARDS_GAME_SERVICES: >-
+        {"hearts":{"url":"http://hearts:5001","token":"${SPLIT_HEARTS_CALLBACK}"},"euchre":{"url":"http://euchre:5002","token":"${SPLIT_EUCHRE_CALLBACK}"},"golf":{"url":"http://golf:5003","token":"${SPLIT_GOLF_CALLBACK}"},"handandfoot":{"url":"http://handandfoot:5104","token":"${SPLIT_HANDANDFOOT_CALLBACK}"}}
+  handandfoot-migrate:
+    image: ${HANDANDFOOT_IMAGE:?}
+    environment:
+      <<: *handandfoot-env
+      HANDANDFOOT_DATABASE_URL: postgresql://migrator:split-migration-local@db:5432/${SPLIT_DATABASE_NAME}${SPLIT_DATABASE_OPTIONS:-}
+    command: [python, -m, handandfoot_server.schema, upgrade]
+    depends_on:
+      golf-grants: {condition: service_completed_successfully}
+  handandfoot-grants:
+    image: postgres:18-alpine
+    environment:
+      PGPASSWORD: split-migration-local
+      PGOPTIONS: ${SPLIT_PGOPTIONS:-}
+    volumes: ["${SPLIT_HANDANDFOOT_DIR}/grants.sql:/handandfoot-grants.sql:ro"]
+    command: [psql, -h, db, -U, migrator, -d, "${SPLIT_DATABASE_NAME}", -f, /handandfoot-grants.sql]
+    depends_on:
+      handandfoot-migrate: {condition: service_completed_successfully}
+  handandfoot:
+    image: ${HANDANDFOOT_IMAGE:?}
+    environment: *handandfoot-env
+    depends_on:
+      handandfoot-grants: {condition: service_completed_successfully}
+  handandfoot-web:
+    image: ${HANDANDFOOT_WEB_IMAGE:?}
+  gateway:
+    volumes:
+      - ${SPLIT_HANDANDFOOT_PROXY_FILE:?}:/etc/nginx/cards-proxy.conf:ro
+    depends_on:
+      handandfoot: {condition: service_healthy}
+      handandfoot-web: {condition: service_healthy}

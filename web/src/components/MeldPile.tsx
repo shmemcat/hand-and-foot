@@ -1,4 +1,4 @@
-import { useId, useState, type CSSProperties } from "react";
+import { useEffect, useId, useState, type CSSProperties } from "react";
 import type { Meld } from "../types";
 import { Card } from "./Card";
 
@@ -8,34 +8,52 @@ export function MeldPile({
   onTarget,
   staged,
   flyingIds,
+  cardPoints,
+  targetLabel,
 }: {
   meld: Meld;
   canTarget: boolean;
   onTarget: () => void;
   staged: number;
   flyingIds?: Set<string>;
+  cardPoints?: Record<string, number>;
+  targetLabel?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [inspectionMounted, setInspectionMounted] = useState(false);
   const inspectionId = useId();
+  useEffect(() => {
+    if (expanded || !inspectionMounted) return;
+    const timer = window.setTimeout(() => setInspectionMounted(false), 220);
+    return () => clearTimeout(timer);
+  }, [expanded, inspectionMounted]);
   const straight = meld.kind === "run";
-  const needsHandCard = !meld.complete && meld.cards.length === 6;
+  const needsHandCard =
+    !meld.complete && !meld.bonusLost && meld.cards.length === 6;
   const finishingHint =
     "Finish this pile with a card from your hand. You cannot take the discard to complete it.";
   const kind = straight ? "Straight" : meld.dirty ? "Dirty" : "Clean";
-  const label = meld.complete
-    ? straight
-      ? "Complete straight"
-      : `${kind} book`
-    : kind;
+  const label = meld.bonusLost
+    ? "Broken book"
+    : meld.complete
+      ? straight
+        ? "Complete straight"
+        : `${kind} book`
+      : kind;
   const title = straight ? `${meld.rank} straight` : `${meld.rank}’s`;
   const actionLabel = canTarget
-    ? `Add selected cards to ${title}`
-    : meld.complete
-      ? `Inspect ${title}, ${meld.bonusLost ? `book broken, ${meld.bonus} bonus lost` : `${kind.toLowerCase()}${straight ? "" : " book"}, ${meld.bonus} bonus points`}`
-      : `Inspect ${title}, ${meld.cards.length} cards`;
+    ? (targetLabel ?? `Add selected cards to ${title}`)
+    : meld.bonusLost
+      ? `Inspect ${title}, book broken`
+      : meld.complete
+        ? `Inspect ${title}, ${kind.toLowerCase()}${straight ? "" : " book"}, ${meld.bonus} bonus points`
+        : `Inspect ${title}, ${meld.cards.length} cards`;
   function activate() {
     if (canTarget) onTarget();
-    else setExpanded(!expanded);
+    else {
+      setInspectionMounted(true);
+      setExpanded(!expanded);
+    }
   }
   // Twos are natural in a pile of twos; other matching piles use their own rank.
   const natural = !straight
@@ -68,6 +86,7 @@ export function MeldPile({
       {meld.complete ? (
         <button
           className={`closed-card-stack ${meld.bonusLost ? "broken-book" : ""}`}
+          data-book-cover-id={cover?.id}
           onClick={activate}
           aria-label={actionLabel}
           aria-expanded={canTarget ? undefined : expanded}
@@ -107,7 +126,7 @@ export function MeldPile({
                 <Card
                   card={card}
                   indexed={index < cards.length - 1}
-                  spent={meld.spentCardIds?.includes(card.id)}
+                  pointsLeft={cardPoints?.[card.id]}
                 />
               </div>
             ))}
@@ -122,33 +141,33 @@ export function MeldPile({
       <span className="meld-count">
         {meld.cards.length}
         {staged > 0 && <span className="meld-staged-count"> +{staged}</span>}
-        {meld.complete ? " cards" : " / 7"}
+        {meld.complete || meld.bonusLost ? " cards" : " / 7"}
       </span>
-      {expanded && (
-        <>
-          {meld.complete && (
-            <span className="book-bonus">
-              {meld.bonusLost ? "Book broken · −" : "+"}
-              {meld.bonus} bonus
-            </span>
+      <div
+        className="meld-inspection"
+        id={inspectionId}
+        data-expanded={expanded}
+        aria-hidden={!expanded}
+      >
+        <div className="meld-inspection-inner">
+          {inspectionMounted && (
+            <>
+              {meld.complete && !meld.bonusLost && (
+                <span className="book-bonus">+{meld.bonus} bonus</span>
+              )}
+              <div
+                className="meld-inspection-cards"
+                role="group"
+                aria-label={`Cards in ${title}`}
+              >
+                {cards.map((card) => (
+                  <Card card={card} small key={card.id} />
+                ))}
+              </div>
+            </>
           )}
-          <div
-            className="meld-inspection-cards"
-            id={inspectionId}
-            role="group"
-            aria-label={`Cards in ${title}`}
-          >
-            {cards.map((card) => (
-              <Card
-                card={card}
-                small
-                spent={meld.spentCardIds?.includes(card.id)}
-                key={card.id}
-              />
-            ))}
-          </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

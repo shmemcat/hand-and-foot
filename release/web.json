@@ -1,0 +1,6 @@
+{
+  "component": "handandfoot-web",
+  "image": "ghcr.io/shmemcat/handandfoot-web",
+  "tagPrefix": "web-v",
+  "schemaRevision": null
+}

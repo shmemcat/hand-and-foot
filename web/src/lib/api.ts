@@ -43,6 +43,7 @@ export async function request<T>(path: string, body?: unknown): Promise<T> {
     headers: {
       "Content-Type": "application/json",
       "X-Handandfoot-CSRF": csrf!,
+      "X-Handandfoot-UTC-Offset": String(new Date().getTimezoneOffset()),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });

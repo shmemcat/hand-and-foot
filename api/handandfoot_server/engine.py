@@ -2,14 +2,17 @@
 import copy
 import random
 import uuid
-from .rules import FAMILY, RANKS, make_deck, meld_details, opening_for, rules_snapshot, draw_count
+from .rules import FAMILY, RANKS, make_deck, meld_details, opening_for, rules_snapshot, draw_count, validate_setup, validate_target_score
+from .achievement_events import record_foot_pickup
 
 
 def uid():
     return uuid.uuid4().hex
 
 
-def new_game(players, scoring_mode, *, seed=None, target_score=10000):
+def new_game(players, scoring_mode, *, seed=None, target_score=FAMILY.target_score):
+    validate_setup(scoring_mode, len(players), "practice")
+    validate_target_score(target_score)
     rng = random.Random(seed)
     side_count = len(players) // 2 if scoring_mode == "partnership" else len(players)
     game = {
@@ -18,6 +21,7 @@ def new_game(players, scoring_mode, *, seed=None, target_score=10000):
         "sides": [{"id": i, "score": 0, "opened": False, "melds": []} for i in range(side_count)],
         "round": 0, "dealer": rng.randrange(len(players)), "history": [], "winners": [],
         "phase": "choose", "token": uid(), "actor": 0, "message": "Choose your starting pile.",
+        "firstFootPlayerId": None,
     }
     return deal_round(game, rng=rng)
 
@@ -28,7 +32,7 @@ def deal_round(game, *, rng=None):
     game["cards"] = make_deck(len(game["players"]))
     stock = list(game["cards"])
     rng.shuffle(stock)
-    game.update(stock=stock, discard=[], replaced=[], phase="choose", token=uid(), dealId=uid(), ready=[], openingReady=[], openingComplete=False, pickupDrawPending=False,
+    game.update(stock=stock, discard=[], discardFaceDown=False, tableEvents=[], replaced=[], phase="choose", token=uid(), dealId=uid(), ready=[], openingReady=[], openingComplete=False, pickupDrawPending=False,
                 actor=(game["dealer"] + 1) % len(game["players"]), message="Choose the pile you’d like to play first.")
     for side in game["sides"]:
         side.update(opened=False, melds=[])
@@ -61,7 +65,15 @@ def can_go_out(game, player):
 def enter_foot(game, player):
     if not player["hand"] and not player["inFoot"]:
         player.update(hand=player["foot"], foot=[], inFoot=True)
+        record_foot_pickup(game, player)
         game["message"] = f'{player["name"]} picked up their foot.'
+
+
+def table_event(game, player, kind, *, count=1, card_id=None, face_down=False):
+    """Public motion cues: stock draws never disclose private card identities."""
+    event = {"id": uid(), "playerId": player["id"], "kind": kind, "count": count,
+             "faceDown": face_down, "card": copy.deepcopy(game["cards"][card_id]) if card_id and not face_down else None}
+    game["tableEvents"] = [*game.get("tableEvents", []), event][-32:]
 
 
 def apply_melds(game, player, groups, *, pickup_id=None):
@@ -82,6 +94,16 @@ def apply_melds(game, player, groups, *, pickup_id=None):
             raise ValueError("Select physical cards from your hand.")
         if len(set(ids)) != len(ids) or used.intersection(ids) or not set(ids).issubset(available):
             raise ValueError("A card can only be played once, from your own hand.")
+        if group.get("redThree"):
+            if group["redThree"] is not True or any(not game["cards"][card_id]["redThree"] for card_id in ids):
+                raise ValueError("Select red threes from your hand.")
+            if pickup_id:
+                raise ValueError("Draw your second card before laying down red threes.")
+            if not side["opened"]:
+                raise ValueError("Complete your opening meld before laying down red threes.")
+            player["redThrees"].extend(ids)
+            used.update(ids)
+            continue
         target_id = group.get("meldId")
         target = next((m for m in side["melds"] if m["id"] == target_id), None) if target_id else None
         if target_id and not target:
@@ -97,7 +119,7 @@ def apply_melds(game, player, groups, *, pickup_id=None):
                     raise ValueError("To start a pile with the discard, add two matching natural cards.")
         kind = target["kind"] if target else group.get("kind", "set")
         all_ids = [*target["cardIds"], *ids] if target else ids[:]
-        details = meld_details([game["cards"][i] for i in all_ids], kind)
+        details = meld_details([game["cards"][i] for i in all_ids], kind, existing=target)
         if kind == "run":
             all_ids.sort(key=lambda i: RANKS.index(game["cards"][i]["rank"]))
         if target:
@@ -236,6 +258,7 @@ def _apply(game, seat, command):
             finish_round(game, None, "The stack ran out.")
             return
         player["hand"].extend(game["stock"].pop() for _ in range(count))
+        table_event(game, player, "draw", count=count)
         game.update(phase="play", pickupDrawPending=False, message=(f'{player["name"]} drew their second card.' if followup else f'{player["name"]} drew {count} cards.' + (' Catch-up card included!' if count == 3 else '')))
         return
     if action == "pickup":
@@ -247,6 +270,7 @@ def _apply(game, seat, command):
             raise ValueError("A three or a wild card cannot be picked up from the discard.")
         apply_melds(game, player, command.get("groups"), pickup_id=top_id)
         game["discard"].pop()
+        table_event(game, player, "pickup", card_id=top_id)
         game.update(phase="draw", pickupDrawPending=True, openingComplete=True,
                     message=f'{player["name"]} played the top discard. Draw one card from the deck before discarding.')
         return
@@ -273,7 +297,9 @@ def _apply(game, seat, command):
             if expose:
                 player["redThrees"].append(card_id)
             else:
-                game["replaced"].append(card_id)
+                game["discard"].append(card_id)
+                game["discardFaceDown"] = False
+                table_event(game, player, "replace", card_id=card_id)
                 player["hand"].append(game["stock"].pop())
         if not player["hand"] and player["inFoot"]:
             raise ValueError("Keep a final card to discard.")
@@ -281,6 +307,8 @@ def _apply(game, seat, command):
             raise ValueError("Keep two cards until you have both book types. Replace this red three instead.")
         enter_foot(game, player)
         count = len(card_ids)
+        if not expose:
+            table_event(game, player, "draw", count=count)
         game["message"] = f'{player["name"]} {"laid down" if expose else "replaced"} {"a red three" if count == 1 else f"{count} red threes"}.'
         return
     if game["phase"] != "play":
@@ -296,6 +324,8 @@ def _apply(game, seat, command):
             raise ValueError("Going out needs at least one clean and one dirty book.")
         player["hand"].remove(card_id)
         game["discard"].append(card_id)
+        game["discardFaceDown"] = not player["hand"] and player["inFoot"]
+        table_event(game, player, "discard", card_id=card_id, face_down=game["discardFaceDown"])
         if not player["hand"] and player["inFoot"]:
             finish_round(game, player["team"], f'{player["name"]} went out first.')
             return
@@ -369,7 +399,11 @@ def project(game, viewer_id):
         "hand": [cards[i] for i in viewer["hand"]],
         "footPreview": [[cards[pile[0]], cards[pile[-1]]] for pile in viewer["piles"]] if not viewer["chosen"] else None,
         "footTop": cards[viewer["foot"][0]] if viewer["foot"] else None,
-        "discard": cards[game["discard"][-1]] if game["discard"] else None,
+        # Round settlement may show every private foot face to its owner only.
+        "scoringFoot": [cards[i] for i in viewer["foot"]] if game["phase"] == "scoring" else None,
+        "discard": cards[game["discard"][-1]] if game["discard"] and not game.get("discardFaceDown") else None,
+        "discardFaceDown": bool(game.get("discardFaceDown")),
+        "tableEvents": copy.deepcopy(game.get("tableEvents", [])),
         "discardCount": len(game["discard"]), "stockCount": len(game["stock"]),
         "history": copy.deepcopy(game["history"]), "winners": game["winners"][:],
         "scoring": project_review(game, viewer["team"]),

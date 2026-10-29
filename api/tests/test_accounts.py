@@ -69,16 +69,19 @@ def test_authoritative_identity_cross_device_and_account_isolation(app):
 def test_guest_lobby_transfers_host_but_played_games_do_not(app):
     http, headers = client(app)
     lobby = create(http, headers)
-    game = create(http, headers, playMode="practice")
+    guest, guest_headers = client(app)
+    game = create(guest, guest_headers, playMode="practice")
     sign_in(http)
     claimed = http.get(f'{ROOT}/rooms/{lobby["code"]}').json
     assert claimed["viewerId"] == lobby["viewerId"] == claimed["hostId"]
     assert claimed["players"][0]["name"] == "Player1"
-    assert http.get(f'{ROOT}/rooms/{game["code"]}').status_code == 403
+    sign_in(guest)
+    assert guest.get(f'{ROOT}/rooms/{game["code"]}').status_code == 403
     assert move(http, headers, claimed, "start").status_code == 200
     http.delete_cookie("cards_session")
     assert http.get(f'{ROOT}/rooms/{lobby["code"]}').status_code == 403
-    assert http.get(f'{ROOT}/rooms/{game["code"]}').status_code == 200
+    guest.delete_cookie("cards_session")
+    assert guest.get(f'{ROOT}/rooms/{game["code"]}').status_code == 200
 
 
 def test_duplicate_account_lobby_seats_merge_without_losing_host(app):

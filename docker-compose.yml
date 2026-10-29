@@ -3,6 +3,8 @@ services:
     build: ./api
     environment:
       HANDANDFOOT_DATABASE_URL: sqlite:////app/.local/handandfoot.sqlite
+      HANDANDFOOT_AUTO_CREATE_SCHEMA: "1"
+      HANDANDFOOT_REQUIRE_ACCOUNTS: "0"
     volumes:
       - handandfoot-data:/app/.local
     ports:

@@ -1,0 +1,50 @@
+.foot-transition[data-enabled="true"] > .game-page > .hand-dock {
+  min-height: 226px;
+}
+.foot-transition[data-enabled="true"] .empty-hand {
+  min-height: 134px;
+  margin: 0;
+}
+.foot-transition[data-gathering="true"] .hand-scroll {
+  overflow: visible;
+}
+.foot-transition[data-gathering="true"] .hand-card {
+  animation: foot-hand-gather var(--foot-flight-duration) var(--foot-delay) both;
+}
+.foot-transition[data-gathering="true"] .foot-status {
+  pointer-events: none;
+  animation: foot-source-out var(--foot-source-fade-duration)
+    var(--foot-source-fade-delay) both;
+}
+.discard-pickup[data-foot-discard-hidden="true"] .discard-face {
+  visibility: hidden;
+}
+.foot-transition[data-gathering="true"] .foot-preview {
+  display: none;
+}
+@keyframes foot-hand-gather {
+  from {
+    opacity: 0;
+    translate: var(--foot-x) var(--foot-y);
+    rotate: -7deg;
+  }
+  to {
+    opacity: 1;
+    translate: 0;
+    rotate: 0deg;
+  }
+}
+@keyframes foot-source-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foot-transition .hand-card,
+  .foot-transition .foot-status {
+    animation: none !important;
+  }
+}

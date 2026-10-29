@@ -5,6 +5,7 @@ import { SoundProvider, useSound } from "./SoundContext";
 import { writeStorage } from "../lib/storage";
 import type { HowlOptions } from "howler";
 import { installMusicLocks } from "../test/musicLocks";
+import { MUSIC_OFF_EVENT } from "../lib/achievementEvents";
 
 vi.mock("howler", () => ({
   Howl: class {
@@ -86,6 +87,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Music across tabs", () => {
+  it("reports an achievement event only when enabled music is turned off", () => {
+    const off = vi.fn();
+    window.addEventListener(MUSIC_OFF_EVENT, off);
+    const view = renderSound();
+    act(() => view.result.current.setMusic(false));
+    expect(off).not.toHaveBeenCalled();
+    act(() => view.result.current.setMusic(true));
+    act(() => view.result.current.setMusic(false));
+    act(() => view.result.current.setMusic(false));
+    expect(off).toHaveBeenCalledOnce();
+    window.removeEventListener(MUSIC_OFF_EVENT, off);
+  });
   it("plays in one tab and hands off when its music is disabled", async () => {
     writeStorage("handandfoot.music.v1", true);
     const first = renderSound();
@@ -133,6 +146,19 @@ describe("Music across tabs", () => {
 });
 
 describe("Independent audio controls", () => {
+  it("plays the red-three celebration at the effects volume and respects mute", () => {
+    const { result } = renderSound();
+    act(() => result.current.setVolume(0.4));
+    act(() => result.current.play("redThreeCelebration"));
+    expect(players).toHaveLength(1);
+    expect(players[0].src).toBe("/sounds/red-three-celebration.mp3");
+    expect(players[0].volume).toBe(0.4);
+    expect(players[0].play).toHaveBeenCalledOnce();
+    act(() => result.current.setMuted(true));
+    act(() => result.current.play("redThreeCelebration"));
+    expect(players).toHaveLength(1);
+  });
+
   it.each(["pop", "goingOut"] as const)(
     "plays %s from Golf's sound library at the effects volume and respects mute",
     (sound) => {

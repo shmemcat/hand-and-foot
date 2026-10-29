@@ -17,22 +17,32 @@ function Table({
   reduced = false,
   paused = false,
   speed = 1,
+  viewedTeam = 0,
 }: {
   snapshot: Snapshot;
   reduced?: boolean;
   paused?: boolean;
   speed?: number;
+  viewedTeam?: number;
 }) {
   const board = useRef<HTMLDivElement>(null);
-  const motion = useMeldMotion(snapshot, board, reduced, speed, paused);
+  const motion = useMeldMotion(
+    snapshot,
+    board,
+    reduced,
+    speed,
+    paused,
+    viewedTeam,
+  );
   const view = motion.snapshot!;
   return (
     <div ref={board}>
+      <header className="game-header" />
       <div className="discard-pickup">
         <Card card={view.discard ?? undefined} />
       </div>
       <div className="board-carousel">
-        {view.sides[0].melds.map((meld) => (
+        {view.sides[viewedTeam].melds.map((meld) => (
           <MeldPile
             key={meld.id}
             meld={meld}
@@ -82,6 +92,38 @@ beforeEach(() => {
   );
 });
 afterEach(() => vi.useRealTimers());
+
+it("flies newly public bot melds from the divider only when their board is visible", () => {
+  const [source, accepted] = pair("new");
+  const bot = source.players.find((player) => player.id !== source.viewerId)!;
+  const before = { ...source, actorId: bot.id };
+  const played = accepted.sides[0].melds;
+  const after = {
+    ...before,
+    token: "bot-meld",
+    phase: "play" as const,
+    sides: before.sides.map((side) =>
+      side.id === bot.team
+        ? {
+            ...side,
+            melds: played.map((meld) => ({ ...meld, creator: bot.id })),
+          }
+        : side,
+    ),
+  };
+  const view = render(<Table snapshot={before} viewedTeam={bot.team} />);
+  view.rerender(<Table snapshot={after} viewedTeam={bot.team} />);
+  expect(view.container.querySelectorAll(".meld-card-flight")).toHaveLength(3);
+  expect(view.container.querySelectorAll(".hand-card")).toHaveLength(
+    source.hand.length,
+  );
+  act(() => vi.advanceTimersByTime(MELD_FLIGHT_MS));
+  expect(view.container.querySelector(".meld-flight-layer")).toBeNull();
+  view.unmount();
+  const other = render(<Table snapshot={before} />);
+  other.rerender(<Table snapshot={after} />);
+  expect(other.container.querySelector(".meld-flight-layer")).toBeNull();
+});
 function pair(scenario: PickupScenario) {
   const beats = pickupBeats(scenario);
   return [

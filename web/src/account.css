@@ -1,0 +1,436 @@
+.account-body.account-dashboard {
+  width: min(574px, 100%);
+}
+.account-delete {
+  margin-top: 24px;
+}
+.button.danger {
+  background: hsl(0, 55%, 58%);
+  color: #fff;
+  box-shadow: inset -3px -3px 0 hsl(0 50% 40% / 40%);
+}
+.button.danger:not(:disabled):hover {
+  background: hsl(0, 60%, 48%);
+}
+.delete-account-dialog {
+  position: fixed;
+  margin: auto;
+  width: min(396px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: center;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 25%);
+  overflow-y: auto;
+}
+.delete-account-dialog[open],
+.delete-account-dialog form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.delete-account-dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+  backdrop-filter: blur(4px);
+}
+.delete-account-dialog h2,
+.delete-account-dialog p {
+  margin: 0;
+}
+.delete-account-dialog form {
+  width: 100%;
+}
+.delete-account-dialog input {
+  width: 100%;
+}
+.account-welcome {
+  font-size: 24px;
+  margin: 0 0 24px;
+  overflow-wrap: anywhere;
+}
+.account-tabs {
+  margin: 12px auto 18px;
+}
+.account-view-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px auto 18px;
+}
+.account-view-buttons .button {
+  width: auto;
+  min-width: 125px;
+  padding-inline: 20px;
+}
+.account-view-buttons .button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--primary) 88%, #000);
+  box-shadow: inset 3px 3px 0 var(--primary-shadow);
+  cursor: default;
+}
+.account-view-buttons .button[aria-pressed="true"]::before {
+  opacity: 0;
+}
+.account-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  padding: 22px 26px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-align: left;
+}
+.account-stats dl {
+  margin: 0;
+  min-width: 0;
+}
+.account-stats dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 14px;
+}
+.account-stats dt {
+  color: var(--muted);
+}
+.account-stats dd {
+  margin: 0;
+  color: var(--bold-text);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.account-status {
+  margin: 16px auto;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+}
+.account-load-error {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+.achievements-panel {
+  margin: 30px auto 0;
+}
+.achievements-panel > h2 {
+  font:
+    800 13px/1.4 Figtree,
+    Arial,
+    sans-serif;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+}
+.achievements-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px 14px;
+  margin-top: 22px;
+}
+.achievement-item {
+  position: relative;
+  display: flex;
+  flex: 0 0 calc((100% - 6 * 14px) / 7);
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.achievement-badge {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 9px;
+}
+.achievement-badge.locked {
+  border: 2px dashed color-mix(in srgb, var(--muted) 45%, transparent);
+  background: transparent;
+  color: var(--muted);
+}
+.achievement-badge.earned {
+  border: 2px solid var(--primary-shadow);
+  background: var(--primary);
+  color: var(--button-text);
+  box-shadow: inset -2px -2px 0 var(--primary-shadow);
+}
+.achievement-badge.earned::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffffff70;
+  transform: rotate(-25deg);
+}
+.achievement-sparkle {
+  position: absolute;
+  z-index: 3;
+  width: 14px;
+  height: 14px;
+  top: -3px;
+  left: -1px;
+  pointer-events: none;
+  transform: scale(0);
+  animation: achievement-badge-sparkle 4s 0.5s infinite both;
+}
+@keyframes achievement-badge-sparkle {
+  0%,
+  16%,
+  100% {
+    transform: scale(0) rotate(0deg);
+  }
+  8% {
+    transform: scale(1) rotate(15deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .achievement-sparkle {
+    animation: none;
+  }
+}
+.achievement-badge svg {
+  width: 100%;
+  height: 100%;
+}
+.achievement-badge > span {
+  font:
+    800 20px/1 Bitter,
+    Georgia,
+    serif;
+}
+.achievement-badge.bronze svg {
+  color: #845129;
+}
+.achievement-badge.silver svg {
+  color: #52636f;
+}
+.achievement-badge.gold svg {
+  color: #745209;
+}
+.achievement-label {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-transform: uppercase;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.achievement-label.locked {
+  color: var(--muted);
+}
+.achievement-tooltip {
+  position: absolute;
+  z-index: 30;
+  bottom: calc(100% + 10px);
+  width: 220px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--soft);
+  color: var(--text);
+  box-shadow: 0 6px 20px var(--shadow);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.achievement-tooltip strong {
+  font-size: 14px;
+}
+.achievement-tooltip small {
+  color: var(--muted);
+}
+.achievement-tooltip-tier {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.achievement-item:nth-child(7n + 1) .achievement-tooltip {
+  left: 0;
+}
+.achievement-item:nth-child(7n) .achievement-tooltip {
+  right: 0;
+}
+.preferences-body,
+.profile-body {
+  width: min(440px, 100%);
+  margin-inline: auto;
+  text-align: center;
+}
+.preferences-body > section + section {
+  margin-top: 32px;
+}
+.preferences-body h2,
+.profile-body h2 {
+  font-size: 22px;
+  margin-bottom: 18px;
+}
+.preference-hint {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.profile-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+.profile-preview-circle {
+  display: grid;
+  place-items: center;
+  width: 100px;
+  height: 100px;
+  padding: 24px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--line);
+}
+.profile-preview-circle:hover {
+  border-color: var(--primary-shadow);
+}
+.profile-preview-circle svg {
+  width: 100%;
+  height: 100%;
+}
+.profile-picker {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: left;
+}
+.profile-picker-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 16px;
+  padding: 4px;
+}
+.profile-picker section + section {
+  margin-top: 20px;
+}
+.profile-picker h3 {
+  margin: 0 0 10px;
+  font:
+    800 11px/1.4 Figtree,
+    Arial,
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--muted);
+}
+.profile-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 7px;
+}
+.profile-icon-grid button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 44px;
+  padding: 11px;
+  background: var(--soft);
+  border: 2px solid transparent;
+  border-radius: 8px;
+}
+.profile-icon-grid button[aria-pressed="true"] {
+  border-color: var(--primary-shadow);
+  background: var(--primary);
+  color: var(--button-text);
+}
+.profile-icon-grid button:hover {
+  border-color: var(--muted);
+}
+.profile-icon-grid svg {
+  width: 100%;
+  height: 100%;
+}
+.profile-email {
+  margin-top: 34px;
+}
+.profile-email-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.profile-email-row .button {
+  width: auto;
+  min-width: 80px;
+}
+.profile-verification {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.profile-verification svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.profile-verification.verified {
+  color: hsl(145, 55%, 42%);
+}
+.profile-verification.not-verified {
+  color: var(--secondary);
+}
+@media (max-width: 768px) {
+  .account-body.account-dashboard {
+    width: min(400px, 100%);
+  }
+  .account-stats {
+    gap: 18px;
+    padding: 16px;
+  }
+  .account-stats dl > div {
+    gap: 8px;
+    font-size: 12px;
+  }
+  .achievements-grid {
+    gap: 16px 12px;
+    max-width: 320px;
+    margin-inline: auto;
+  }
+  .achievement-item {
+    flex-basis: calc((100% - 3 * 12px) / 4);
+  }
+  .achievement-item:nth-child(n) .achievement-tooltip {
+    left: auto;
+    right: auto;
+  }
+  .achievement-item:nth-child(4n + 1) .achievement-tooltip {
+    left: 0;
+  }
+  .achievement-item:nth-child(4n) .achievement-tooltip {
+    right: 0;
+  }
+  .account-welcome {
+    font-size: 21px;
+  }
+  .preferences-body,
+  .profile-body {
+    width: min(360px, 100%);
+  }
+}

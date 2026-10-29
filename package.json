@@ -14,7 +14,8 @@
     "test": "node scripts/test-api.mjs",
     "test:web": "node scripts/test-web.mjs",
     "test:accounts": "node --test scripts/shared-accounts.test.mjs",
-    "format": "prettier --write web/src web/vite.config.ts web/tsconfig.json scripts/*.mjs package.json web/package.json"
+    "format": "prettier --write web/src web/vite.config.ts web/tsconfig.json scripts/*.mjs package.json web/package.json",
+    "test:release": "node --test scripts/component-release.test.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

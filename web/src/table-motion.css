@@ -1,0 +1,85 @@
+.table-flight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+.table-flight-layer[data-public="true"] {
+  bottom: auto;
+  height: var(--table-divider);
+  overflow: hidden;
+}
+.table-card-flight {
+  position: absolute;
+  transform-origin: 0 0;
+  perspective: 900px;
+  animation: table-card-travel var(--table-duration)
+    cubic-bezier(0.22, 0.68, 0.26, 1) var(--table-delay) both;
+}
+.table-card-flight[data-local="false"][data-event-kind="draw"],
+.table-card-flight[data-local="false"][data-event-kind="pickup"] {
+  animation-name: table-card-travel, table-card-away;
+}
+.table-card-flight[data-local="false"][data-event-kind="discard"] {
+  animation-name: table-card-travel, table-card-arrive;
+}
+.table-card-flight[data-replacement="true"] {
+  animation-name: table-card-travel;
+}
+.table-card-turn {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+.table-card-turn[data-turn="true"] {
+  animation: table-card-turn var(--table-flip-duration) var(--table-delay) both;
+}
+.table-card-front,
+.table-card-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.table-card-back {
+  transform: rotateY(180deg);
+}
+.table-card-flight .card {
+  width: 100%;
+  height: 100%;
+}
+@keyframes table-card-travel {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(var(--table-x), var(--table-y))
+      scale(var(--table-scale-x), var(--table-scale-y));
+  }
+}
+@keyframes table-card-away {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes table-card-arrive {
+  from {
+    opacity: 0;
+  }
+  60%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes table-card-turn {
+  from {
+    transform: rotateY(0);
+  }
+  to {
+    transform: rotateY(180deg);
+  }
+}

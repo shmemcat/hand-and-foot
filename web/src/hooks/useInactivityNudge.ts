@@ -1,10 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useSound } from "../context/SoundContext";
+import { useCallback, useEffect, useState } from "react";
 
 export function useInactivityNudge(canAct: boolean, decision: string) {
-  const { play } = useSound();
-  const sound = useRef(play);
-  sound.current = play;
   const [shaking, setShaking] = useState(false);
   const [activity, setActivity] = useState(0);
   const reset = useCallback(() => setActivity((value) => value + 1), []);
@@ -13,7 +9,6 @@ export function useInactivityNudge(canAct: boolean, decision: string) {
     if (!canAct) return;
     let end: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(() => {
-      sound.current("notification");
       setShaking(true);
       end = setTimeout(() => setShaking(false), 2000);
     }, 15000);

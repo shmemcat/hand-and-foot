@@ -89,10 +89,15 @@ it("restarts cleanly mid-flight and supports the three-card draw in slow motion"
     (
       view.container.querySelector(".draw-card-flight") as HTMLElement
     ).style.getPropertyValue("--draw-duration"),
-  ).toBe("1200ms");
+  ).toBe("1320ms");
+  expect(
+    (
+      view.container.querySelector(".draw-card-flight") as HTMLElement
+    ).style.getPropertyValue("--draw-flip-duration"),
+  ).toBe("1240ms");
   act(() => vi.advanceTimersByTime(800));
   expect(view.container.querySelector(".draw-flight-layer")).toBeTruthy();
-  act(() => vi.advanceTimersByTime(760));
+  act(() => vi.advanceTimersByTime(880));
   expect(view.container.querySelector(".draw-flight-layer")).toBeNull();
   expect(view.container.querySelectorAll(".hand-card")).toHaveLength(14);
 });
