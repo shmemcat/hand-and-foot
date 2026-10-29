@@ -355,7 +355,7 @@ def assert_conservation(game):
 
 
 def project(game, viewer_id):
-    """Explicit allowlist: only the viewer's hand and visible foot cards are private previews."""
+    """Expose counts and each chosen foot's public top card; hands stay private."""
     # Older saved tables receive the same cover arrangement as their next move.
     if game["phase"] in ("play", "draw"):
         game = copy.deepcopy(game)
@@ -368,13 +368,14 @@ def project(game, viewer_id):
         "chosen": p["chosen"], "inFoot": p["inFoot"],
         "handCount": len(p["hand"]) if p["chosen"] else 11,
         "footCount": len(p["foot"]) if p["chosen"] else 11,
+        "footTop": cards[p["foot"][0]] if p["chosen"] and p["foot"] else None,
         "redThrees": [cards[i] for i in p["redThrees"]],
         "ready": p["id"] in game["ready"], "away": p.get("away", False),
     } for p in game["players"]]
     sides = []
     for side in game["sides"]:
         melds = [{key: value for key, value in meld.items() if key != "cardIds"} | {"cards": [cards[i] for i in meld["cardIds"]]} for meld in side["melds"]]
-        if game["phase"] in ("scoring", "round_over", "finished") and game.get("scoring"):
+        if game["phase"] == "scoring" and game.get("scoring"):
             review = game["scoring"]["sides"][side["id"]]
             for meld in melds:
                 meld["bonusLost"] = meld["id"] in review["broken"]

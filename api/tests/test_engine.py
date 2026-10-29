@@ -857,10 +857,8 @@ def test_hidden_information_does_not_change_bot_decision():
     for player in swapped["players"]:
         if player["id"] != str(seat):
             player["hand"].reverse()
-            player["foot"].reverse()
-        else:
-            # The top foot card is visible to its owner; the rest stay hidden.
-            player["foot"][1:] = reversed(player["foot"][1:])
+        # Every top foot card is public; only the remaining foot cards are hidden.
+        player["foot"][1:] = reversed(player["foot"][1:])
     other_view = engine.project(swapped, str(seat)) | {"viewerId": str(seat)}
     assert view == other_view
     assert bots.decide(view) == bots.decide(other_view)

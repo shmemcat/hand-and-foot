@@ -1,10 +1,6 @@
 import type { CSSProperties } from "react";
-import { Fragment, useId } from "react";
+import { Fragment } from "react";
 import type { Player, Side } from "../types";
-import {
-  FOOT_SOURCE_FADE_DELAY_MS,
-  FOOT_SOURCE_FADE_MS,
-} from "../lib/footMotion";
 import { ProfileIcon } from "./ProfileIcon";
 import { AnimatedNumber } from "./ScoringReview";
 
@@ -19,8 +15,6 @@ export function PlayerBoardNav({
   profileIcon,
   onView,
   showLeader = true,
-  pendingFootPlayerIds = [],
-  footPickupPlayerId,
 }: {
   sides: Side[];
   players: Player[];
@@ -32,27 +26,7 @@ export function PlayerBoardNav({
   profileIcon?: string;
   onView: (id: number) => void;
   showLeader?: boolean;
-  pendingFootPlayerIds?: string[];
-  footPickupPlayerId?: string;
 }) {
-  const footId = useId();
-  const hasFoot = (player: Player) =>
-    (player.chosen && !player.inFoot && player.footCount > 0) ||
-    pendingFootPlayerIds.includes(player.id);
-  const footStatus = (player: Player) => (
-    <span
-      className="board-player-foot"
-      id={`${footId}-${player.id}`}
-      role="img"
-      aria-label="Foot not picked up"
-      aria-hidden={!hasFoot(player) || undefined}
-      title={hasFoot(player) ? "Foot not picked up" : undefined}
-      data-visible={hasFoot(player)}
-      data-pickup={player.id === footPickupPlayerId}
-    >
-      <span className="board-player-foot-icon" aria-hidden="true" />
-    </span>
-  );
   const partners = players.length > sides.length;
   const viewerTeam = players.find((player) => player.id === viewerId)?.team;
   const leadingScore = Math.max(...sides.map((side) => side.score));
@@ -60,13 +34,7 @@ export function PlayerBoardNav({
     <nav
       className={`player-board-nav${partners ? " team-board-nav" : ""}`}
       aria-label={partners ? "Team boards" : "Player boards"}
-      style={
-        {
-          "--player-count": sides.length,
-          "--board-foot-fade-delay": `${FOOT_SOURCE_FADE_DELAY_MS}ms`,
-          "--board-foot-fade-duration": `${FOOT_SOURCE_FADE_MS}ms`,
-        } as CSSProperties
-      }
+      style={{ "--player-count": sides.length } as CSSProperties}
     >
       {sides.map((side) => {
         const isYou = side.id === viewerTeam;
@@ -94,19 +62,12 @@ export function PlayerBoardNav({
             aria-pressed={side.id === viewed}
             aria-current={!partners && playing ? "step" : undefined}
             aria-label={`View ${destination}, ${side.score.toLocaleString()} points${turnLabel}${dealer ? ", dealer" : ""}`}
-            aria-describedby={
-              members
-                .filter(hasFoot)
-                .map((player) => `${footId}-${player.id}`)
-                .join(" ") || undefined
-            }
             title={`View ${destination}`}
             onClick={() => onView(side.id)}
           >
             {!partners && (
               <span className="board-player-turn" aria-hidden="true" />
             )}
-            {!partners && members[0] && footStatus(members[0])}
             <span
               className={
                 partners ? "board-player-pair" : "board-player-members"
@@ -135,7 +96,6 @@ export function PlayerBoardNav({
                     {partners && (
                       <span className="board-player-turn" aria-hidden="true" />
                     )}
-                    {partners && footStatus(player)}
                     <ProfileIcon
                       name={player.id === viewerId ? profileIcon : undefined}
                     />

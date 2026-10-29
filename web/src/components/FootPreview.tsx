@@ -6,9 +6,11 @@ import { Icon } from "./Icons";
 export function FootPreview({
   topCard,
   count,
+  owner = "Your",
 }: {
   topCard: Face | null;
   count: number;
+  owner?: string;
 }) {
   const tooltipId = useId();
   const [hovered, setHovered] = useState(false);
@@ -20,7 +22,7 @@ export function FootPreview({
     <span
       className="foot-status"
       role="group"
-      aria-label={`Your foot, ${count} cards`}
+      aria-label={`${owner} foot, ${count} cards`}
       aria-describedby={open ? tooltipId : undefined}
       tabIndex={topCard ? 0 : undefined}
       data-preview-open={open}

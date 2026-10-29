@@ -122,15 +122,21 @@ export function RoundScoreSheet({
         </h2>
       </div>
       <p className="muted">
-        {finished
-          ? totalsLanded
-            ? snapshot.winners.length === 1 &&
-              snapshot.winners[0] === viewer?.team
-              ? "You win!"
-              : `${snapshot.winners.map((id) => snapshot.sides[id].name).join(" & ")} ${snapshot.winners.length > 1 ? "share the win" : "wins"}!`
-            : "Adding the final round…"
-          : snapshot.history.at(-1)?.reason ||
-            "Your round totals will appear here."}
+        {finished ? (
+          totalsLanded ? (
+            snapshot.winners.length === 1 &&
+            snapshot.winners[0] === viewer?.team ? (
+              <span className="score-win-message">You win!</span>
+            ) : (
+              `${snapshot.winners.map((id) => snapshot.sides[id].name).join(" & ")} ${snapshot.winners.length > 1 ? "share the win" : "wins"}!`
+            )
+          ) : (
+            "Adding the final round…"
+          )
+        ) : (
+          snapshot.history.at(-1)?.reason ||
+          "Your round totals will appear here."
+        )}
       </p>
       <div className="score-details">
         {snapshot.sides.map((item) => {
@@ -281,7 +287,7 @@ export function RoundScoreSheet({
               disabled={busy || leavingScores}
               onClick={onLeave}
             >
-              Leave Lobby
+              {snapshot.playMode === "practice" ? "Home" : "Leave Lobby"}
             </button>
           )}
         </div>

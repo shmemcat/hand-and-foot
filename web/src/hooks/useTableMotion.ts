@@ -259,11 +259,42 @@ export function useTableMotion(
   // Use the queued action's player, even when a newer server update has arrived.
   const event = flight?.event ?? (!suspended ? pendingEvents[0] : undefined);
   const before = flight?.before ?? prior?.snapshot;
+  const waitingFeet = [
+    ...queue
+      .filter((item) => item.scope === scope)
+      .map((item) => ({ event: item.event, before: item.before })),
+    ...pendingEvents.map((event) => ({ event, before: prior?.snapshot })),
+  ].filter(
+    ({ event: queued }) => queued.kind === "foot" && queued.id !== event?.id,
+  );
+  const pickupOwner =
+    flight?.event.kind === "foot"
+      ? flight.before.players.find(
+          (player) => player.id === flight.event.playerId,
+        )
+      : undefined;
   const snapshot: Snapshot | null =
     presented && event && before
       ? {
           ...presented,
           actorId: event.playerId,
+          players: presented.players.map((player) => {
+            const pending = waitingFeet.find(
+              (item) => item.event.playerId === player.id,
+            );
+            const old = pending?.before?.players.find(
+              (seat) => seat.id === player.id,
+            );
+            return old
+              ? {
+                  ...player,
+                  handCount: old.handCount,
+                  footCount: old.footCount,
+                  inFoot: old.inFoot,
+                  footTop: old.footTop,
+                }
+              : player;
+          }),
           phase:
             event.kind === "draw" || event.kind === "pickup" ? "draw" : "play",
           message: holding
@@ -292,16 +323,16 @@ export function useTableMotion(
     snapshot,
     flight: holding || settled || flight?.event.kind === "foot" ? null : flight,
     pickup: flight?.event.kind === "foot" ? flight.event : null,
-    // Keep badges intact while preceding actions finish, even if the server
-    // already reports a later foot pickup in the same update.
-    pendingFootPlayerIds: [
-      ...queue,
-      ...pendingEvents.map((event) => ({ event })),
-    ]
-      .filter(
-        ({ event }) => event.kind === "foot" && event.id !== flight?.event.id,
-      )
-      .map(({ event }) => event.playerId),
+    pickupSource: pickupOwner
+      ? {
+          count: pickupOwner.footCount,
+          topCard:
+            pickupOwner.footTop ??
+            (pickupOwner.id === flight!.before.viewerId
+              ? flight!.before.footTop
+              : null),
+        }
+      : undefined,
     holding,
     blocking,
     cancel,

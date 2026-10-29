@@ -718,11 +718,23 @@ a {
 .page {
   max-width: 900px;
   width: 100%;
-  margin: 96px auto 0;
+  margin: 140px auto 0;
   padding: 0;
 }
+/* Match the inner-page title geometry used by the other card sites. */
+.page > .page-heading {
+  height: 130px;
+}
+.page > .page-heading > svg {
+  align-self: start;
+  margin-top: -95px;
+}
+.page > .page-heading h1 {
+  align-self: start;
+  margin-top: -36px;
+}
 .page-body {
-  margin-top: 28px;
+  margin-top: 24px;
 }
 .page-intro {
   font-size: 16px;
@@ -1313,12 +1325,18 @@ a {
   }
   .page {
     max-width: 100%;
-    margin-top: 45px;
+    margin-top: 28px;
     padding: 0;
     font-size: 16px;
   }
-  .page-heading {
+  .page-heading,
+  .page > .page-heading {
     height: 106px;
+  }
+  .page > .page-heading > svg,
+  .page > .page-heading h1 {
+    align-self: center;
+    margin-top: 0;
   }
   .page-heading > svg {
     width: 106px;

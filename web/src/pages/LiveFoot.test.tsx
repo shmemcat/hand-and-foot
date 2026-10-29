@@ -51,12 +51,6 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 const hand = () =>
   within(screen.getByRole("region", { name: "Your private hand" }));
-const footBadge = (playerId: string) => {
-  const name = document.querySelector(
-    `.player-board-nav [data-player-id="${playerId}"]`,
-  );
-  return name?.closest("button")?.querySelector(".board-player-foot");
-};
 const advance = async (time: number) =>
   act(async () => {
     vi.advanceTimersByTime(time);
@@ -171,6 +165,8 @@ it("animates a live final discard, holds Follow turn through the cascade, and wa
   expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
   await advance(footGatherDuration(11));
   expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Poppy’s hand" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /^View your board,/ }));
   expect(
     hand()
       .getAllByRole("button", { name: / of / })
@@ -254,6 +250,7 @@ it.each(["online", "reduced"] as const)(
       ).toBeTruthy();
       await advance(footGatherDuration(11));
     }
+    fireEvent.click(screen.getByRole("button", { name: /^View your board,/ }));
     expect(hand().getAllByRole("button", { name: / of / })).toHaveLength(11);
     expect(
       screen.queryByRole("group", { name: "Your foot, 11 cards" }),
@@ -315,6 +312,14 @@ it.each(["play", "discard"] as const)(
     expect(
       screen.queryByRole("group", { name: "Your foot, 11 cards" }),
     ).toBeNull();
+    if (entry === "discard") {
+      fireEvent.click(
+        screen.getByRole("button", { name: /^View your board,/ }),
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: /your foot.*open hand/i }),
+      );
+    }
     expect(
       screen
         .getByRole("button", { name: /your foot.*11 cards/i })
@@ -438,22 +443,20 @@ it("keeps the original hand and foot after a rejected last-card action", async (
   expect(document.querySelector(".meld-card-flight")).toBeNull();
 });
 
-it("uses the divider for a last-hand discard from another board before opening the foot", async () => {
+it("keeps another player's footer concealed during a remotely confirmed local foot pickup", async () => {
   const [before, after] = pair("discard");
   vi.mocked(command).mockResolvedValue(after);
   await show(before);
   fireEvent.click(
     screen.getByRole("button", { name: "View Hazel’s board, 0 points" }),
   );
-  await enter("discard");
-  expect(
-    document.querySelector('.meld-flight-layer[data-to-divider="true"]'),
-  ).toBeTruthy();
+  await refresh(after);
   await advance(MELD_FLIGHT_MS + FOOT_SETTLE_MS);
   expect(
     document.querySelector('.foot-transition[data-gathering="true"]'),
-  ).toBeTruthy();
-  expect(document.querySelectorAll(".hand-card")).toHaveLength(11);
+  ).toBeNull();
+  expect(screen.getByRole("region", { name: "Hazel’s hand" })).toBeTruthy();
+  expect(document.querySelector(".public-hand-cards .card-art")).toBeNull();
 });
 
 it.each(["play", "discard"] as const)(
@@ -463,31 +466,16 @@ it.each(["play", "discard"] as const)(
     before.playMode = after.playMode = "online";
     vi.mocked(command).mockResolvedValue(after);
     await show(before);
-    expect(footBadge(before.viewerId)?.getAttribute("data-visible")).toBe(
-      "true",
-    );
     await enter(entry);
     await advance(MELD_FLIGHT_MS);
-    expect(footBadge(before.viewerId)?.getAttribute("data-visible")).toBe(
-      "true",
-    );
     await advance(FOOT_SETTLE_MS);
     const notice = () => document.querySelector(".foot-pickup-notice");
     expect(notice()?.textContent).toBe("You picked up their foot!");
-    expect(footBadge(before.viewerId)?.getAttribute("data-visible")).toBe(
-      "false",
-    );
-    expect(footBadge(before.viewerId)?.getAttribute("data-pickup")).toBe(
-      "true",
-    );
     await advance(FOOT_GATHER_DELAY_MS);
     expect(
       sound.play.mock.calls.filter(([name]) => name === "deal"),
     ).toHaveLength(1);
     await refresh({ ...after, revision: 2, token: "newer-update" });
-    expect(footBadge(before.viewerId)?.getAttribute("data-visible")).toBe(
-      "false",
-    );
     await advance(footGatherDuration(11) - FOOT_GATHER_DELAY_MS - 1);
     expect(notice()).toBeTruthy();
     expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
@@ -553,21 +541,16 @@ it.each(["desktop", "mobile", "reduced"] as const)(
       ],
     };
     await show(before);
-    const playerId = before.players[1].id;
-    expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("true");
-    expect(footBadge(playerId)?.getAttribute("aria-label")).toBe(
-      "Foot not picked up",
-    );
+    expect(screen.getByRole("region", { name: "Poppy’s hand" })).toBeTruthy();
     await refresh(after);
     if (layout !== "reduced") {
       expect(document.querySelector(".foot-pickup-notice")).toBeNull();
-      expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("true");
+      expect(screen.getByRole("region", { name: "Poppy’s hand" })).toBeTruthy();
       await advance(DISCARD_FLIGHT_MS);
     }
     const notice = () => document.querySelector(".foot-pickup-notice");
     expect(notice()?.textContent).toBe("Poppy picked up their foot!");
-    expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("false");
-    expect(footBadge(playerId)?.getAttribute("data-pickup")).toBe("true");
+    expect(screen.getByRole("region", { name: "Poppy’s foot" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
     expect(document.querySelector(".mobile-foot-card")).toBeNull();
     await advance(FOOT_GATHER_DELAY_MS);
@@ -575,13 +558,11 @@ it.each(["desktop", "mobile", "reduced"] as const)(
       sound.play.mock.calls.filter(([name]) => name === "deal"),
     ).toHaveLength(1);
     await refresh({ ...after, revision: 3 });
-    expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("false");
     await advance(footGatherDuration(11) - FOOT_GATHER_DELAY_MS - 1);
     expect(notice()).toBeTruthy();
     expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
     await advance(1);
     expect(notice()).toBeNull();
-    expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("false");
     expect(screen.getByRole("region", { name: "Hazel’s board" })).toBeTruthy();
     await refresh({ ...after, revision: 4 });
     expect(notice()).toBeNull();

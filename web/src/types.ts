@@ -26,6 +26,7 @@ export type Player = {
   bot: boolean;
   handCount: number;
   footCount: number;
+  footTop?: Card | null;
   inFoot: boolean;
   chosen: boolean;
   redThrees: Card[];

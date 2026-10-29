@@ -88,6 +88,7 @@ export function footSnapshot(
             ...player,
             handCount: hand.length,
             footCount: inFoot ? 0 : FOOT_CARDS.length,
+            footTop: inFoot ? null : FOOT_CARDS[0],
             inFoot,
           }
         : player,

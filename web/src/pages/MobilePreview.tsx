@@ -320,6 +320,7 @@ function MobilePlaying({
         next.footTop = null;
         owner.inFoot = true;
         owner.footCount = 0;
+        owner.footTop = null;
         if (type === "discard") next.actorId = next.players[1].id;
       }
       owner.handCount = next.hand.length;

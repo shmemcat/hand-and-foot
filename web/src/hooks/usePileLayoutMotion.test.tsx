@@ -24,6 +24,8 @@ let moves: Move[];
 let resize: () => void;
 let observedElements: Element[];
 let pageTop: number;
+let tableauLeft: number;
+let contentLeft: number;
 const originalAnimate = Object.getOwnPropertyDescriptor(
   Element.prototype,
   "animate",
@@ -32,6 +34,8 @@ beforeEach(() => {
   moves = [];
   observedElements = [];
   pageTop = 0;
+  tableauLeft = 0;
+  contentLeft = 0;
   vi.mocked(window.matchMedia).mockImplementation(
     (query) =>
       ({
@@ -99,14 +103,17 @@ beforeEach(() => {
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
     function (this: Element) {
       const pile = this.closest<HTMLElement>(".meld-pile")!;
-      if (!pile) return new DOMRect(0, pageTop, 800, 600);
+      const inheritedLeft =
+        (this.closest(".tableau") ? tableauLeft : 0) +
+        (this.closest(".tableau-content") ? contentLeft : 0);
+      if (!pile) return new DOMRect(inheritedLeft, pageTop, 800, 600);
       const zoom = Number(pile?.dataset.zoom ?? 1);
       const move = moves
         .slice()
         .reverse()
         .find((item) => item.node === pile && item.playState !== "idle");
       return new DOMRect(
-        Number(pile?.dataset.left ?? 0) + (move?.x ?? 0) * zoom,
+        inheritedLeft + Number(pile?.dataset.left ?? 0) + (move?.x ?? 0) * zoom,
         pageTop + Number(pile.dataset.top ?? 300) + (move?.y ?? 0) * zoom,
         76 * zoom,
         106 * zoom,
@@ -154,16 +161,20 @@ function Board({
   return (
     <div ref={board}>
       <div className="board-carousel">
-        <div className={row === "closed" ? "closed-books" : "open-piles"}>
-          <div
-            className="meld-pile"
-            data-meld-id="tens"
-            data-left={left}
-            data-zoom={zoom}
-          >
-            <div className="meld-card-layers">Actual pile</div>
+        <section className="tableau">
+          <div className="tableau-content">
+            <div className={row === "closed" ? "closed-books" : "open-piles"}>
+              <div
+                className="meld-pile"
+                data-meld-id="tens"
+                data-left={left}
+                data-zoom={zoom}
+              >
+                <div className="meld-card-layers">Actual pile</div>
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -278,6 +289,37 @@ it("does not restart or cancel a pile slide when the page adjusts its scroll pos
   expect(moves).toHaveLength(1);
   expect(moves[0].cancel).not.toHaveBeenCalled();
 });
+
+it.each(["tableau", "tableau-content"])(
+  "does not add a second pile animation while %s swipes or settles",
+  (target) => {
+    const shift = (left: number) => {
+      if (target === "tableau") tableauLeft = left;
+      else contentLeft = left;
+    };
+    const view = render(<Board />);
+    shift(28);
+    act(() => resize());
+    expect(moves).toHaveLength(0);
+    shift(12);
+    view.rerender(<Board />);
+    expect(moves).toHaveLength(0);
+    shift(0);
+    act(() => resize());
+    expect(moves).toHaveLength(0);
+
+    // An actual grid change during a swipe still moves only the changed distance.
+    shift(20);
+    view.rerender(<Board left={200} />);
+    expect(moves).toHaveLength(1);
+    expect(moves[0].frames[0].transform).toBe("translate(-100px, 0px)");
+    moves[0].x = -50;
+    shift(0);
+    act(() => resize());
+    expect(moves).toHaveLength(1);
+    expect(moves[0].cancel).not.toHaveBeenCalled();
+  },
+);
 
 it("uses the preview speed, pauses with the book, and resumes its slide", () => {
   const view = render(<Board speed={0.5} />);

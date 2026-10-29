@@ -151,6 +151,8 @@ it("fades the viewer's own draw at the divider when browsing someone else's boar
   await act(async () => {
     vi.advanceTimersByTime(DRAW_FLIGHT_MS + DRAW_STAGGER_MS);
   });
+  expect(screen.getByRole("region", { name: "Hazel’s hand" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /^View your board,/ }));
   expect(document.querySelectorAll(".hand-card")).toHaveLength(6);
   expect(
     hand()
@@ -185,9 +187,9 @@ it("brings the viewer's discard in from the divider while browsing a different b
   fireEvent.click(
     screen.getByRole("button", { name: "View Hazel’s board, 0 points" }),
   );
-  fireEvent.click(hand().getByRole("button", { name: "4 of clubs" }));
+  vi.mocked(getRoom).mockResolvedValue(after);
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    vi.advanceTimersByTime(3000);
   });
   expect(
     document.querySelector('.table-flight-layer[data-public="true"]'),

@@ -1,6 +1,42 @@
 import pytest
 from handandfoot_server import engine, fixtures, scoring
-from test_engine import rig
+from test_engine import book, rig, take
+
+
+@pytest.mark.parametrize("mode", ["individual", "partnership"])
+@pytest.mark.parametrize("phase", ["round_over", "finished"])
+def test_completed_scoring_restores_every_board_for_every_viewer(mode, phase):
+    game = rig(mode=mode)
+    if phase == "finished":
+        for side in game["sides"]:
+            side["score"] = game["targetScore"] + 1000
+    for side, rank in zip(game["sides"], ["K", "Q", "J", "10", "9", "8"]):
+        owner = next(p for p in game["players"] if p["team"] == side["id"])
+        book(game, rank, team=side["id"], creator=owner["id"])
+        owner["redThrees"] = take(game, "3", 2, "hearts" if side["id"] % 2 else "diamonds")
+    for player in game["players"]:
+        player["hand"] = take(game, "A", 2)
+        player["foot"] = take(game, "4", 2)
+    engine.arrange_book_covers(game)
+    before = {p["id"]: engine.project(game, p["id"]) for p in game["players"]}
+    engine.finish_round(game, None, "The stack ran out.")
+    for side in game["sides"]:
+        seat = next(i for i, p in enumerate(game["players"]) if p["team"] == side["id"])
+        game = engine.apply(game, seat, {"type": "score_auto"})
+        scoring_view = engine.project(game, game["players"][seat]["id"])
+        assert any(meld["bonusLost"] for meld in scoring_view["sides"][side["id"]]["melds"])
+        game = engine.apply(game, seat, {"type": "score_confirm"})
+    assert game["phase"] == phase
+    assert all(score["broken"] and score["canceled"] for score in game["history"][-1]["scores"])
+    for player in game["players"]:
+        view = engine.project(game, player["id"])
+        original = before[player["id"]]
+        assert view["hand"] == original["hand"]
+        assert view["footTop"] == original["footTop"]
+        assert view["players"] == original["players"]
+        assert [side["melds"] for side in view["sides"]] == [side["melds"] for side in original["sides"]]
+        assert view["scoringFoot"] is None
+    engine.assert_conservation(game)
 
 
 def test_scoring_reveals_the_full_foot_only_to_its_owner():
@@ -15,7 +51,8 @@ def test_scoring_reveals_the_full_foot_only_to_its_owner():
     for player in game["players"][1:]:
         other = engine.project(game, player["id"])
         assert ids.isdisjoint(card["id"] for card in other["scoringFoot"])
-        assert not any(card_id in str(other) for card_id in ids)
+        assert next(p for p in other["players"] if p["id"] == own["id"])["footTop"] == view["footTop"]
+        assert not any(card_id in str(other) for card_id in own["foot"][1:])
 
 
 @pytest.mark.parametrize("fixture", fixtures.SCORING_FIXTURES)

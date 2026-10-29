@@ -1,9 +1,10 @@
 import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
+import { usePageSweep } from "../hooks/usePageSweep";
 import { Card } from "./Card";
 import { Icon } from "./Icons";
 import type { Card as Face } from "../types";
 
-/** The same private hand and actions, with a mobile-only disclosure. */
+/** The viewed player's cards, with a mobile-only disclosure. */
 export function HandDock({
   mobile,
   expanded,
@@ -13,18 +14,40 @@ export function HandDock({
   count,
   children,
   locked = false,
+  ariaLabel = "Your private hand",
+  foot,
+  playerPicker,
+  navigation,
 }: {
   mobile: boolean;
   expanded: boolean;
   onExpand: (expanded: boolean) => void;
   title: string;
-  cards: Face[];
+  cards: (Face | undefined)[];
   count: number;
   children: ReactNode;
   locked?: boolean;
+  ariaLabel?: string;
+  foot?: ReactNode;
+  playerPicker?: ReactNode;
+  navigation?: {
+    enabled: boolean;
+    page: number;
+    scope: string;
+    direction?: number;
+    duration: number;
+  };
 }) {
   const id = useId();
   const dock = useRef<HTMLElement>(null);
+  usePageSweep(
+    dock,
+    navigation?.enabled ?? false,
+    navigation?.page ?? 0,
+    navigation?.scope ?? "",
+    navigation?.direction,
+    navigation?.duration,
+  );
   const drag = useRef<number | null>(null);
   const dragged = useRef(false);
   const height = useRef<number | null>(null);
@@ -122,7 +145,7 @@ export function HandDock({
     <section
       ref={dock}
       className={`hand-dock${mobile ? " mobile-hand-drawer" : ""}`}
-      aria-label="Your private hand"
+      aria-label={ariaLabel}
       data-expanded={mobile ? expanded : undefined}
       onKeyDown={(event) => {
         if (mobile && expanded && event.key === "Escape") {
@@ -181,14 +204,15 @@ export function HandDock({
           </span>
         </button>
       )}
+      {playerPicker}
       {mobile && !expanded && (
         <div className="hand-drawer-peek">
-          {cards.slice(0, 4).map((card) => (
+          {cards.slice(0, 4).map((card, index) => (
             <button
               type="button"
-              key={card.id}
+              key={card?.id ?? index}
               className="hand-card"
-              data-card-id={card.id}
+              data-card-id={card?.id}
               aria-label={`Open ${title.toLowerCase()}`}
               onClick={() => onExpand(true)}
             >
@@ -206,9 +230,12 @@ export function HandDock({
             </button>
           )}
           {!cards.length && (
-            <span className="hand-peek-empty">Your hand is empty.</span>
+            <span className="hand-peek-empty">{title} is empty.</span>
           )}
         </div>
+      )}
+      {mobile && !expanded && foot && (
+        <div className="hand-drawer-foot">{foot}</div>
       )}
       {mobile ? (
         <div id={id} className="hand-drawer-content" hidden={!expanded}>

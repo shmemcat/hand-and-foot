@@ -98,9 +98,7 @@ it("keeps the requested round details and only shows the full round breakdown at
     name: "Round breakdown",
   });
   expect(within(breakdown).getAllByRole("row")).toHaveLength(7);
-  expect(
-    within(final).getByRole("button", { name: "Leave Lobby" }),
-  ).toBeTruthy();
+  expect(within(final).getByRole("button", { name: "Home" })).toBeTruthy();
 });
 
 it("previews the host tooltip, leave action, and hide/show eye", () => {

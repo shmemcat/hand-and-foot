@@ -290,9 +290,7 @@ it("moves the turn outline between individual partners without rearranging their
   expect(
     screen.getByRole("region", { name: "Maya & Sam’s board" }),
   ).toBeTruthy();
-  expect(
-    screen.getByRole("region", { name: "Your private hand" }),
-  ).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Maya’s hand" })).toBeTruthy();
   const after = { ...next, revision: 3, token: "sam-turn", actorId: "sam" };
   vi.mocked(getRoom).mockResolvedValue(after);
   await act(async () => vi.advanceTimersByTime(3000));
@@ -471,6 +469,28 @@ it("settles debt and opens round results after the count without scoring choices
   expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
   expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
   expect(command).toHaveBeenCalledTimes(2);
+  fireEvent.click(screen.getByRole("button", { name: "Hide results" }));
+  expect(screen.queryByRole("dialog", { name: "Score sheet" })).toBeNull();
+  expect(document.querySelector(".live-scoring")).toBeNull();
+  expect(
+    screen.queryByRole("group", { name: "Running round score" }),
+  ).toBeNull();
+  expect(document.querySelector(".turn-message")?.textContent).toBe(
+    "End of round board state",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "View your board" }));
+  expect(
+    screen
+      .getByRole("region", { name: "Your private hand" })
+      .querySelectorAll(".hand-card"),
+  ).toHaveLength(source.hand.length);
+  expect(
+    screen
+      .getByRole("button", { name: "Red threes, 3 cards" })
+      .classList.contains("indexed-stack"),
+  ).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Show results" }));
+  expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
   await act(async () => vi.advanceTimersByTime(6000));
   expect(command).toHaveBeenCalledTimes(2);
 });
@@ -938,7 +958,7 @@ it("keeps visual inactivity nudges for online games without repeating the turn s
   ).not.toBeNull();
 });
 
-it("browses individual boards while keeping the private hand and using a real follow checkbox", async () => {
+it("browses individual boards with their concealed hands and a real follow checkbox", async () => {
   openRoom();
   const ownBoard = await screen.findByRole("region", { name: "Your board" });
   expect(within(ownBoard).getByRole("heading", { name: "You" })).toBeTruthy();
@@ -950,10 +970,10 @@ it("browses individual boards while keeping the private hand and using a real fo
   expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
   expect(follow.checked).toBe(true);
   expect(
-    within(
-      screen.getByRole("region", { name: "Your private hand" }),
-    ).getAllByRole("button"),
-  ).toHaveLength(3);
+    screen
+      .getByRole("region", { name: "Poppy’s hand" })
+      .querySelectorAll(".public-hand-cards .card"),
+  ).toHaveLength(11);
   fireEvent.keyDown(screen.getByRole("region", { name: "Poppy’s board" }), {
     key: "ArrowLeft",
   });
@@ -993,11 +1013,14 @@ it("lists individual players in board order and keeps viewed, turn, and dealer m
   expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
   expect(poppy.getAttribute("aria-pressed")).toBe("true");
   expect(you.getAttribute("aria-current")).toBe("step");
+  expect(screen.getByRole("region", { name: "Poppy’s hand" })).toBeTruthy();
+  fireEvent.click(you);
   expect(
-    hand
+    within(screen.getByRole("region", { name: "Your private hand" }))
       .getByRole("button", { name: "A of clubs" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
+  fireEvent.click(poppy);
   expect(
     (screen.getByRole("checkbox", { name: "Follow turn" }) as HTMLInputElement)
       .checked,
@@ -1143,12 +1166,79 @@ it("keeps a live round's waiting button visible when hiding and restoring result
   expect(document.querySelector(".score-sheet-leaving")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Hide results" }));
   expect(screen.queryByRole("dialog", { name: "Score sheet" })).toBeNull();
+  expect(document.querySelector(".turn-message")?.textContent).toBe(
+    "End of round board state",
+  );
   fireEvent.click(screen.getByRole("button", { name: "Show results" }));
   expect(
     screen.getByRole("button", { name: "Waiting for players..." }),
   ).toBeTruthy();
   expect(command).toHaveBeenCalledTimes(1);
 });
+
+it.each(["game-win", "game-loss", "game-partners"])(
+  "plays the ending sound once for %s and leaves for the correct destination",
+  async (id) => {
+    vi.useFakeTimers();
+    const result = {
+      ...endingSnapshot(ENDING_EXAMPLES.find((example) => example.id === id)!),
+      code: "REVIEW",
+    };
+    vi.mocked(getRoom).mockResolvedValue(result);
+    await act(async () => {
+      render(
+        <MemoryRouter initialEntries={["/room/REVIEW"]}>
+          <Routes>
+            <Route path="/room/:code" element={<Room />} />
+            <Route path="/" element={<p>Home destination</p>} />
+            <Route path="/play" element={<p>Play destination</p>} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+    const endingCues = () =>
+      sound.play.mock.calls.filter(([cue]) => cue === "win");
+    expect(screen.getByRole("heading", { name: "FINAL SCORES" })).toBeTruthy();
+    expect(endingCues()).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Hide results" }));
+    expect(document.querySelector(".turn-message")?.textContent).toBe(
+      "End of round board state",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show results" }));
+    vi.mocked(getRoom).mockResolvedValue({ ...result, revision: 2 });
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(endingCues()).toHaveLength(1);
+
+    const nextGame = { ...fixture(), revision: 3 };
+    vi.mocked(getRoom).mockResolvedValue(nextGame);
+    vi.mocked(command).mockResolvedValue(nextGame);
+    fireEvent.click(screen.getByRole("button", { name: "Play Again" }));
+    await act(async () => vi.advanceTimersByTime(240));
+    expect(endingCues()).toHaveLength(1);
+    const nextResult = { ...result, revision: 4 };
+    vi.mocked(getRoom).mockResolvedValue(nextResult);
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(screen.getByRole("heading", { name: "FINAL SCORES" })).toBeTruthy();
+    expect(endingCues()).toHaveLength(2);
+
+    vi.mocked(command).mockResolvedValue(nextResult);
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: result.playMode === "practice" ? "Home" : "Leave Lobby",
+        }),
+      ),
+    );
+    expect(command).toHaveBeenLastCalledWith(nextResult, "leave", {});
+    expect(
+      screen.getByText(
+        result.playMode === "practice"
+          ? "Home destination"
+          : "Play destination",
+      ),
+    ).toBeTruthy();
+  },
+);
 
 it("removes the separate foot indicator once those cards become the active hand", async () => {
   const snapshot = fixture();
@@ -1266,6 +1356,7 @@ it.each([2, 3])(
     expect(
       document.querySelectorAll('.hand-card[data-draw-hidden="true"]'),
     ).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: /^View your board,/ }));
     const hand = within(
       screen.getByRole("region", { name: "Your private hand" }),
     );
@@ -1785,6 +1876,8 @@ it("keeps the Stage meld label when existing piles match and stages a separate m
   expect(
     screen.queryByRole("button", { name: /^Add selected cards to/ }),
   ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Stage meld" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
   fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
   fireEvent.click(screen.getByRole("button", { name: "Play draft" }));
   await waitFor(() =>

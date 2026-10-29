@@ -23,12 +23,7 @@ export function useLiveScoring(
   const [step, setStep] = useState(0);
   const [hidden, setHidden] = useState(document.hidden);
   const review = useRef<Snapshot["scoring"]>(null);
-  const eligible =
-    enabled &&
-    Boolean(
-      incoming &&
-        ["scoring", "round_over", "finished"].includes(incoming.phase),
-    );
+  const eligible = enabled && incoming?.phase === "scoring";
   const active = eligible && origin?.scope === scope;
   if (active && incoming?.scoring) review.current = incoming.scoring;
   useLayoutEffect(() => {
@@ -126,7 +121,7 @@ export function useLiveScoring(
     };
   }
   return {
-    enabled: eligible && (incoming?.phase === "scoring" || active),
+    enabled: eligible,
     active,
     snapshot,
     beat,

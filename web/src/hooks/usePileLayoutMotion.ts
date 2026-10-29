@@ -55,7 +55,11 @@ export function usePileLayoutMotion(
       window.matchMedia("(min-width: 769px)").matches;
     const sameBoard = scope.current === settings.scope;
     const next = new Map<string, Pile>();
-    const origin = board.current?.getBoundingClientRect();
+    const origin = (
+      board.current?.querySelector(".tableau-content") ??
+      board.current?.querySelector(".board-carousel > .tableau") ??
+      board.current
+    )?.getBoundingClientRect();
     for (const node of board.current?.querySelectorAll<HTMLElement>(
       ".board-carousel .meld-pile, .board-carousel .red-three-pile",
     ) ?? []) {
@@ -69,8 +73,8 @@ export function usePileLayoutMotion(
       const delta = offset(node);
       const measured = anchor.getBoundingClientRect();
       const zoom = anchor.offsetWidth ? measured.width / anchor.offsetWidth : 1;
-      // Recover the grid position within the board. Page scroll anchoring is
-      // viewport movement, not another pile reflow.
+      // Measure inside the moving content so board swipes and page scrolling
+      // cannot be mistaken for another pile reflow.
       const box = {
         left: measured.left - (origin?.left ?? 0) - delta.x * zoom,
         top: measured.top - (origin?.top ?? 0) - delta.y * zoom,

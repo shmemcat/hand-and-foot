@@ -3,6 +3,11 @@
   width: 100%;
   max-width: var(--score-sheet-width);
 }
+.round-score-sheet .score-win-message {
+  font-family: Bitter, Georgia, serif;
+  font-size: 17px;
+  font-weight: 700;
+}
 .score-player-name {
   display: flex;
   align-items: center;

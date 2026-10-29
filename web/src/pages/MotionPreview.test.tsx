@@ -243,10 +243,11 @@ it.each([
       ).toBeTruthy();
     }
     expect(
-      [...view.container.querySelectorAll<HTMLElement>(".hand-card")].map(
-        (node) => node.dataset.cardId,
-      ),
-    ).toEqual(handIds);
+      view.container.querySelectorAll(".public-hand-cards .card"),
+    ).toHaveLength(handIds.length - count);
+    expect(
+      view.container.querySelector(".public-hand-cards .card-art"),
+    ).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(
       document.querySelector(".meld-flight-layer,.book-closing-layer"),
@@ -259,7 +260,9 @@ it("switches previews cleanly while cards are in flight", () => {
   fireEvent.click(screen.getByRole("button", { name: "Bot melds" }));
   expect(document.querySelector(".draw-flight-layer")).toBeNull();
   expect(screen.getByText("Ready when you are.")).toBeTruthy();
-  expect(view.container.querySelectorAll(".hand-card")).toHaveLength(12);
+  expect(
+    view.container.querySelectorAll(".public-hand-cards .card"),
+  ).toHaveLength(9);
   play();
   view.unmount();
   expect(

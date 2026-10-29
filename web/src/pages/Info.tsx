@@ -49,9 +49,10 @@ export function Rules() {
               Each player receives two piles of 11 cards. Inspect the top and
               bottom card of each, then choose which pile to play first. That is
               your <strong>hand</strong>; the other pile is your{" "}
-              <strong>foot</strong>. You can see its top card and hover over the
-              foot to preview it. The remaining cards stay face-down until you
-              finish your hand. Everyone else’s cards remain private.
+              <strong>foot</strong>. Everyone can see each foot’s top card and
+              hover over the foot to preview it. Browse another player’s board
+              to see their card count and face-down hand. The remaining cards
+              stay private until played.
             </p>
             <RulesDealExample />
             <p>

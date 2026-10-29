@@ -231,11 +231,11 @@ it("preserves selected cards across hand pages and board browsing", async () => 
   );
   expect(within(hand).getByText("11–20 of 45 cards")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Next board" }));
-  fireEvent.click(
-    within(hand).getByRole("button", { name: "Previous hand cards" }),
-  );
+  expect(screen.getByRole("region", { name: "Maya’s hand" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
+  expand();
   expect(
-    within(hand)
+    within(screen.getByRole("region", { name: "Your private hand" }))
       .getAllByRole("button", { name: "A of hearts" })[0]
       .getAttribute("aria-pressed"),
   ).toBe("true");
@@ -247,12 +247,20 @@ it("stages a legal existing pile through the drawer and sends the normal game co
   const hand = screen.getByRole("region", { name: "Your private hand" });
   fireEvent.click(within(hand).getByRole("button", { name: "A of hearts" }));
   fireEvent.click(screen.getByRole("button", { name: "Next board" }));
-  const targets = within(hand).getByRole("group", {
+  expect(
+    screen.queryByRole("group", { name: "Add selected cards to a pile" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
+  expand();
+  const ownHand = within(
+    screen.getByRole("region", { name: "Your private hand" }),
+  );
+  const targets = ownHand.getByRole("group", {
     name: "Add selected cards to a pile",
   });
   expect(targets.closest(".draft-summary-slot")).toBeTruthy();
   fireEvent.click(within(targets).getAllByRole("button", { name: /^A / })[0]);
-  fireEvent.click(within(hand).getByRole("button", { name: "Play draft" }));
+  fireEvent.click(ownHand.getByRole("button", { name: "Play draft" }));
   await waitFor(() =>
     expect(command).toHaveBeenCalledWith(snapshot, "meld", {
       groups: [{ cardIds: ["mobile-hand-0"], meldId: "mobile-0-meld-0" }],
@@ -447,76 +455,125 @@ it("keeps red-three replacement on its own draw flight without an overlapping mo
   expect(screen.getByRole("button", { name: "K of diamonds" })).toBeTruthy();
 });
 
-it("keeps the mobile count in the drawer and opens results automatically with reduced motion", async () => {
-  vi.useFakeTimers();
-  vi.mocked(window.matchMedia).mockImplementation(
-    (query) =>
-      ({
-        matches:
-          query === "(max-width: 768px)" ||
-          query === "(prefers-reduced-motion: reduce)",
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      }) as unknown as MediaQueryList,
-  );
-  const source = mobileCountingSnapshot();
-  vi.mocked(getRoom).mockResolvedValue(source);
-  vi.mocked(command).mockResolvedValue({
-    ...source,
-    revision: source.revision + 1,
-    phase: "round_over",
-    scoring: null,
-    history: [
-      {
-        round: source.round,
-        reason: source.scoring!.reason,
-        scores: [source.scoring!.score],
-      },
-    ],
-  });
-  render(
-    <MemoryRouter initialEntries={["/room/SCORE-REHEARSAL"]}>
-      <Shell>
-        <Routes>
-          <Route path="/room/:code" element={<Room />} />
-        </Routes>
-      </Shell>
-    </MemoryRouter>,
-  );
-  await act(async () => {});
-  const counter = screen.getByRole("group", {
-    name: "Running round score",
-  });
-  expect(counter.closest(".mobile-hand-drawer")).toBeTruthy();
-  expect(
-    screen.getAllByRole("group", { name: "Running round score" }),
-  ).toHaveLength(1);
-  expect(
-    screen
-      .getByRole("group", { name: "Reconciled: 0 points" })
-      .closest(".mobile-hand-drawer"),
-  ).toBeTruthy();
-  expect(
-    screen
-      .getByRole("button", { name: /your hand.*cards/i })
-      .hasAttribute("disabled"),
-  ).toBe(true);
-  expect(command).not.toHaveBeenCalled();
-  expect(
-    screen.queryByRole("button", {
-      name: /Pause count|Skip animation|Confirm score/,
-    }),
-  ).toBeNull();
-  for (
-    let step = 0;
-    step < 100 && !document.querySelector(".round-score-sheet");
-    step++
-  )
-    await act(async () => vi.advanceTimersByTime(100));
-  expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
-  expect(command).toHaveBeenCalledExactlyOnceWith(source, "score_confirm", {});
-  expect(counter.textContent).toContain("2,485");
-  expect(
-    screen.getByRole("navigation", { name: "Main navigation" }),
-  ).toBeTruthy();
-}, 30000);
+it.each(["round_over", "finished"] as const)(
+  "keeps the mobile count in the drawer and restores its controls after %s results are hidden",
+  async (phase) => {
+    vi.useFakeTimers();
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) =>
+        ({
+          matches:
+            query === "(max-width: 768px)" ||
+            query === "(prefers-reduced-motion: reduce)",
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
+    const source = mobileCountingSnapshot();
+    vi.mocked(getRoom).mockResolvedValue(source);
+    vi.mocked(command).mockResolvedValue({
+      ...source,
+      revision: source.revision + 1,
+      phase,
+      scoring: null,
+      history: [
+        {
+          round: source.round,
+          reason: source.scoring!.reason,
+          scores: [source.scoring!.score],
+        },
+      ],
+    });
+    render(
+      <MemoryRouter initialEntries={["/room/SCORE-REHEARSAL"]}>
+        <Shell>
+          <Routes>
+            <Route path="/room/:code" element={<Room />} />
+          </Routes>
+        </Shell>
+      </MemoryRouter>,
+    );
+    await act(async () => {});
+    const counter = screen.getByRole("group", {
+      name: "Running round score",
+    });
+    expect(counter.closest(".mobile-hand-drawer")).toBeTruthy();
+    expect(
+      screen.getAllByRole("group", { name: "Running round score" }),
+    ).toHaveLength(1);
+    expect(
+      screen
+        .getByRole("group", { name: "Reconciled: 0 points" })
+        .closest(".mobile-hand-drawer"),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: /your hand.*cards/i })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(command).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", {
+        name: /Pause count|Skip animation|Confirm score/,
+      }),
+    ).toBeNull();
+    for (
+      let step = 0;
+      step < 100 && !document.querySelector(".round-score-sheet");
+      step++
+    )
+      await act(async () => vi.advanceTimersByTime(100));
+    expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
+    expect(command).toHaveBeenCalledExactlyOnceWith(
+      source,
+      "score_confirm",
+      {},
+    );
+    expect(counter.textContent).toContain("2,485");
+    expect(
+      screen.getByRole("navigation", { name: "Main navigation" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hide results" }));
+    expect(screen.queryByRole("dialog", { name: "Score sheet" })).toBeNull();
+    expect(document.querySelector(".live-scoring")).toBeNull();
+    expect(document.querySelector(".turn-message")?.textContent).toBe(
+      "End of round board state",
+    );
+    const toggle = screen.getByRole("button", {
+      name: /your hand.*(?:table|open hand)/i,
+    });
+    expect(toggle.hasAttribute("disabled")).toBe(false);
+    expect(
+      screen.queryByRole("group", { name: "Running round score" }),
+    ).toBeNull();
+    if (toggle.getAttribute("aria-expanded") === "false")
+      fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const hand = screen.getByRole("region", { name: "Your private hand" });
+    expect(hand.querySelector(".hand-info")?.textContent).toContain(
+      `${source.hand.length} cards`,
+    );
+    expect(
+      within(hand).getByRole("group", {
+        name: `Your foot, ${source.players[0].footCount} cards`,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("group", { name: "Running round score" }),
+    ).toBeNull();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(
+      screen.getByRole("button", { name: /your hand.*open hand/i }),
+    );
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Show results" }));
+    expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
+    expect(command).toHaveBeenCalledExactlyOnceWith(
+      source,
+      "score_confirm",
+      {},
+    );
+  },
+  30000,
+);

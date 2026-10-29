@@ -105,10 +105,8 @@
     margin: 0;
   }
   .game-page .melds {
-    min-height: max(
-      var(--table-piles-height),
-      calc(285px + var(--max-pile-cards, 7) * 25px)
-    );
+    /* Completed books stay compact regardless of how many cards they contain. */
+    min-height: var(--table-piles-height);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -655,6 +653,12 @@
   border-radius: 0;
   background: transparent;
 }
+.board-carousel .tableau-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .board-carousel .tableau-heading {
   flex-direction: column;
   flex-shrink: 0;
@@ -701,11 +705,11 @@
 .board-player {
   position: relative;
   isolation: isolate;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px 0;
+  gap: 2px;
   min-width: 0;
   padding: 5px 10px;
   border-radius: 12px;
@@ -714,6 +718,30 @@
 }
 .board-player:hover {
   background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+.hand-owner-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.hand-owner-picker select {
+  max-width: 100%;
+  min-height: 36px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--text);
+  font: inherit;
+}
+.public-hand-heading .hand-info {
+  white-space: normal;
+}
+.public-hand-cards .hand-card {
+  flex-shrink: 0;
 }
 .board-player-turn {
   position: absolute;
@@ -731,7 +759,6 @@
   opacity: 1;
 }
 .board-player-members {
-  grid-column: 2;
   width: 100%;
   min-width: 0;
 }
@@ -741,11 +768,9 @@
   max-width: calc(var(--player-count) * 260px - 24px);
 }
 .team-board-nav .board-player {
-  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .board-player-pair {
-  grid-column: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -812,7 +837,6 @@
   pointer-events: none;
 }
 .board-player-score {
-  grid-column: 2;
   font:
     500 13px/1.35 Bitter,
     Georgia,
@@ -822,55 +846,6 @@
 .board-player-score > small {
   font-size: 11px;
   color: var(--muted);
-}
-.team-board-nav .board-player-score {
-  grid-column: 1;
-}
-.board-player-foot {
-  display: block;
-  flex-shrink: 0;
-  width: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition:
-    width var(--board-foot-fade-duration) cubic-bezier(0.22, 0.68, 0.26, 1),
-    opacity var(--board-foot-fade-duration) ease-in-out;
-}
-.board-player > .board-player-foot {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-}
-.board-partner > .board-player-foot {
-  /* Cancel the name row's flex gap once the icon's own space has collapsed. */
-  margin-right: -6px;
-}
-.board-player-foot[data-visible="true"] {
-  width: 26px;
-  opacity: 1;
-}
-.board-player-foot[data-visible="false"][data-pickup="true"] {
-  transition-delay: var(--board-foot-fade-delay);
-}
-.board-player-foot-icon {
-  position: relative;
-  display: block;
-  width: 18px;
-  height: 22px;
-}
-.board-player-foot-icon::before,
-.board-player-foot-icon::after {
-  content: "";
-  position: absolute;
-  border: 1px solid var(--muted);
-  border-radius: 2px;
-  background: var(--primary);
-}
-.board-player-foot-icon::before {
-  inset: 1px 1px 2px 4px;
-  transform: rotate(8deg);
-}
-.board-player-foot-icon::after {
-  inset: 3px 4px 0 1px;
 }
 .dealer-marker {
   display: inline-grid;
@@ -1473,8 +1448,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .board-player-turn,
-  .board-player-foot {
+  .board-player-turn {
     transition: none;
   }
   .turn-message.inactivity-shake > p {

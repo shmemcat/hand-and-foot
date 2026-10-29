@@ -51,7 +51,7 @@ export const OPENING_BEATS = [
     short: "Gather",
     duration: 2000,
     description:
-      "Your chosen pile opens into your private hand. The other becomes your foot, with its top card visible to you.",
+      "Your chosen pile opens into your private hand. The other becomes your foot, with its top card visible to the table.",
     motion:
       "Both pile previews and their controls fade away. Cards cascade from the chosen deck into your hand, and Foot fades into place.",
     sound: "A card fan for the hand and a placement for the foot.",
@@ -303,6 +303,12 @@ export function openingSnapshot({
       bot: i !== 0,
       handCount: chosen ? 11 : 0,
       footCount: chosen ? 11 : 0,
+      footTop: chosen
+        ? {
+            ...piles[1 - (state.choice ?? 0)][0],
+            id: `opening-public-foot-${i}`,
+          }
+        : null,
       inFoot: false,
       chosen,
       redThrees: [],
@@ -327,7 +333,7 @@ export function openingSnapshot({
     `Shuffling ${count + 1} decks, including ${(count + 1) * 2} Jokers.`,
     "Dealing two piles of eleven cards to each player.",
     "Choose a pile for your hand. The other becomes your foot.",
-    "Your hand is ready. The top card of your foot stays visible to you.",
+    "Your hand is ready. Each foot’s top card is visible to the table.",
     "Waiting for the other players to choose their hands.",
     first === 0
       ? "Your turn. Draw 2 cards, or play the top discard."

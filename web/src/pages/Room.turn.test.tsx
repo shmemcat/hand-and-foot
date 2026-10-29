@@ -80,7 +80,16 @@ async function refresh(snapshot: Snapshot) {
 }
 
 describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
+  function sweepTarget() {
+    return document.querySelector(
+      layout === "mobile" ? ".tableau" : ".tableau-content",
+    )!;
+  }
+
   function expectSweep(direction: number) {
+    expect(animate.mock.contexts).toContain(
+      document.querySelector(".hand-dock"),
+    );
     expect(animate.mock.lastCall).toEqual([
       [
         { transform: `translateX(${direction * 28}px)`, opacity: 0.45 },
@@ -91,9 +100,10 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
         easing: "cubic-bezier(.22,.68,.26,1)",
       },
     ]);
-    expect(animate.mock.contexts.at(-1)).toBe(
-      document.querySelector(".tableau"),
-    );
+    expect(animate.mock.contexts.at(-1)).toBe(sweepTarget());
+    expect(
+      sweepTarget().contains(document.querySelector(".player-board-nav")),
+    ).toBe(layout === "mobile");
   }
 
   function media(reduced = false) {
@@ -154,6 +164,7 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
       snapshot.actorId = snapshot.players[seat].id;
       await open(snapshot);
       expectTurn(snapshot, seat);
+      animate.mockClear();
 
       const nextSeat = (seat + 1) % snapshot.players.length;
       const card = {
@@ -207,6 +218,9 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
 
       await act(async () => vi.advanceTimersByTime(1));
       expectTurn(snapshot, nextSeat);
+      expect(
+        animate.mock.contexts.filter((node) => node === sweepTarget()),
+      ).toHaveLength(1);
       expect(
         document.querySelector(
           ".table-flight-layer, .mobile-play-flight-layer",
@@ -333,7 +347,7 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
       expect(
         document.querySelector(".tableau")?.getAttribute("data-side-id"),
       ).toBe("1");
-      expect(animate).toHaveBeenCalledTimes(1);
+      expect(animate).toHaveBeenCalledTimes(2);
       expectSweep(1);
 
       // A repeated snapshot or another action during this turn must not replay it.
@@ -344,7 +358,7 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
         token: "same-turn",
         phase: "play",
       });
-      expect(animate).toHaveBeenCalledTimes(1);
+      expect(animate).toHaveBeenCalledTimes(2);
 
       const lastTeam = snapshot.sides.length - 1;
       await refresh({
@@ -360,7 +374,7 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
         token: "first-turn",
       });
       expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
-      expect(animate).toHaveBeenCalledTimes(3);
+      expect(animate).toHaveBeenCalledTimes(6);
       expectSweep(1);
     },
   );
@@ -537,7 +551,7 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
       actorId: snapshot.players[1].id,
     };
     await refresh(next);
-    expect(animate).toHaveBeenCalledTimes(3);
+    expect(animate).toHaveBeenCalledTimes(6);
     expect(
       document.querySelector(".tableau")?.getAttribute("data-side-id"),
     ).toBe("5");
@@ -555,7 +569,7 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
       actorId: snapshot.players[2].id,
     });
     expectSweep(1);
-    expect(animate).toHaveBeenCalledTimes(5);
+    expect(animate).toHaveBeenCalledTimes(10);
   });
 
   it("changes boards immediately with reduced motion for followed turns and side arrows", async () => {
@@ -597,17 +611,17 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
     expect(
       document.querySelector(".tableau")?.getAttribute("data-side-id"),
     ).toBe("2");
-    expect(animate).toHaveBeenCalledTimes(1);
+    expect(animate).toHaveBeenCalledTimes(2);
     expect(running.cancel).toHaveBeenCalled();
     fireEvent.click(
       portraits.getByRole("button", { name: /^View your board/ }),
     );
     expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
-    expect(animate).toHaveBeenCalledTimes(1);
+    expect(animate).toHaveBeenCalledTimes(2);
 
     fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
     expectSweep(-1);
-    expect(animate).toHaveBeenCalledTimes(2);
+    expect(animate).toHaveBeenCalledTimes(4);
     expect(
       screen.getByRole<HTMLInputElement>("checkbox", { name: "Follow turn" })
         .checked,

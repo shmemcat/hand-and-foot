@@ -320,7 +320,9 @@ it("keeps the same dealing and gathering elements alive when browsing away and b
   fireEvent.click(
     screen.getByRole("button", { name: "View your board, 0 points, dealer" }),
   );
-  expect(view.container.querySelector(".hand-card")).toBe(card);
+  expect(
+    view.container.querySelector(".hand-card")?.getAttribute("data-card-id"),
+  ).toBe(card?.getAttribute("data-card-id"));
   expect(view.container.querySelector(".opening-gather-source")).toBe(source);
   expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
 });

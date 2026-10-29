@@ -26,6 +26,7 @@ import {
 import { goingOutRequirement, hasGoingOutBooks } from "../lib/goingOut";
 import { Card } from "../components/Card";
 import { HandDock } from "../components/HandDock";
+import { PublicHand } from "../components/PublicHand";
 import { useMobileLayout } from "../hooks/useMobileLayout";
 import { usePageSweep } from "../hooks/usePageSweep";
 import { useSwipePages } from "../hooks/useSwipePages";
@@ -146,12 +147,30 @@ export type RoomRehearsal = {
   };
 };
 
+function handOwner(
+  snapshot: Snapshot | null,
+  viewed: number,
+  requested: string | null,
+  follow: boolean,
+) {
+  const team = snapshot?.sides[viewed]?.id ?? snapshot?.sides[0]?.id;
+  const members =
+    snapshot?.players.filter((player) => player.team === team) ?? [];
+  return (
+    members.find((player) => player.id === requested) ??
+    members.find((player) => follow && player.id === snapshot?.actorId) ??
+    members.find((player) => player.id === snapshot?.viewerId) ??
+    members[0]
+  );
+}
+
 export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const mobile = useMobileLayout();
   const [handExpanded, setHandExpanded] = useState(false);
   const [handPage, setHandPage] = useState(0);
   const boardSweepDirection = useRef<number | null>(null);
   const boardSweepRef = useRef<HTMLElement>(null);
+  const boardContentRef = useRef<HTMLDivElement>(null);
   const revealAfterDraw = useRef(false);
   const { code = "" } = useParams();
   const navigate = useNavigate();
@@ -184,6 +203,9 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   // Keep manual browsing through your actions, then resume on the next turn.
   const browsingOwnTurn = useRef(false);
   const [viewed, setViewed] = useState(rehearsal?.viewedTeam ?? 0);
+  const [viewedHandPlayerId, setViewedHandPlayerId] = useState<string | null>(
+    null,
+  );
   const [scoresOpen, setScoresOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(rehearsal?.recordOpen ?? false);
   const [resultsHidden, setResultsHidden] = useState(false);
@@ -211,11 +233,18 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   }, []);
   const opening = useGameOpening(isRehearsal ? null : roomSnapshot, accept);
   const incomingSnapshot = rehearsal?.snapshot ?? opening.snapshot;
+  const incomingHandOwner = handOwner(
+    incomingSnapshot,
+    viewed,
+    viewedHandPlayerId,
+    follow,
+  );
+  const privateFooter = incomingHandOwner?.id === incomingSnapshot?.viewerId;
   const boardRef = useRef<HTMLDivElement>(null);
   const mobileMotion = useMobilePlayMotion(
     incomingSnapshot,
     boardRef,
-    mobile && rehearsal?.meldAnimate !== false,
+    mobile && privateFooter && rehearsal?.meldAnimate !== false,
     opening.reduced,
   );
   useLayoutEffect(() => {
@@ -247,10 +276,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     opening.reduced,
     playingMeld,
     isRehearsal,
-    viewed ===
-      incomingSnapshot?.players.find(
-        (player) => player.id === incomingSnapshot.viewerId,
-      )?.team,
+    privateFooter,
     mobile,
     Boolean(rehearsal?.footAnimate),
   );
@@ -273,6 +299,20 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     opening.reduced,
   );
   const snapshot = scoring.snapshot;
+  const footerPlayer =
+    scoring.enabled && !scoring.done
+      ? snapshot?.players.find((player) => player.id === snapshot.viewerId)
+      : handOwner(snapshot, viewed, viewedHandPlayerId, follow);
+  const viewingOwnHand = footerPlayer?.id === snapshot?.viewerId;
+  const footerMembers =
+    snapshot?.players.filter((player) => player.team === footerPlayer?.team) ??
+    [];
+  const footerTitle = `${viewingOwnHand ? "Your" : `${footerPlayer?.name}’s`} ${footerPlayer?.inFoot ? "foot" : "hand"}`;
+  const gatheringViewedFoot =
+    (viewingOwnHand && footMotion.gathering) ||
+    Boolean(
+      !viewingOwnHand && tableMotion.pickup?.playerId === footerPlayer?.id,
+    );
   const footPickup = footMotion.pickup ?? tableMotion.pickup;
   const cardPoints = rehearsal?.cardPoints ?? scoring.beat?.pointsLeft;
   const redThreeBonusLost =
@@ -331,6 +371,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     `${snapshot?.code}:${snapshot?.round}:${snapshot?.viewerId}`,
     opening.reduced ||
       mobile ||
+      !viewingOwnHand ||
       Boolean(opening.state) ||
       drawMotion.active ||
       playingMeld ||
@@ -358,6 +399,26 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     );
     return () => clearTimeout(timer);
   }, [snapshot?.code, snapshot?.round, snapshot?.phase, opening.reduced]);
+  const endingSound = useRef<string | null>(null);
+  useEffect(() => {
+    if (snapshot?.phase !== "finished") {
+      endingSound.current = null;
+      return;
+    }
+    if (recordOpen || (resultsHidden && !scoresOpen)) return;
+    const key = `${snapshot.code}:${snapshot.round}`;
+    if (endingSound.current === key) return;
+    endingSound.current = key;
+    sound.play("win");
+  }, [
+    snapshot?.code,
+    snapshot?.round,
+    snapshot?.phase,
+    recordOpen,
+    resultsHidden,
+    scoresOpen,
+    sound.play,
+  ]);
   const lastDrawReplay = useRef(0);
   const lastDrawReview = useRef("");
   useLayoutEffect(() => {
@@ -401,12 +462,15 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   }, [rehearsal?.drawReplay]);
   const setup =
     rehearsal?.setup ?? Boolean(opening.state && opening.state.step <= 4);
+  const scoringInProgress = scoring.enabled && !scoring.done;
   const mobileGame =
     mobile &&
     !setup &&
     Boolean(
       snapshot &&
-        (["choose", "draw", "play"].includes(snapshot.phase) ||
+        (["choose", "draw", "play", "round_over", "finished"].includes(
+          snapshot.phase,
+        ) ||
           scoring.enabled),
     );
   const handScope = `${snapshot?.code}:${snapshot?.round}:${snapshot?.viewerId}`;
@@ -415,7 +479,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     const ids = new Set(snapshot?.hand.map((card) => card.id) ?? []);
     const old = previousHand.current;
     previousHand.current = { scope: handScope, ids };
-    if (!mobileGame) return;
+    if (!mobileGame || !viewingOwnHand) return;
     if (old?.scope !== handScope) {
       setHandPage(0);
       setHandExpanded(false);
@@ -439,19 +503,37 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       setHandPage((page) =>
         Math.min(page, Math.max(0, Math.ceil(ids.size / 10) - 1)),
       );
-  }, [mobileGame, handScope, snapshot?.hand.map((card) => card.id).join(",")]);
+  }, [
+    mobileGame,
+    viewingOwnHand,
+    handScope,
+    snapshot?.hand.map((card) => card.id).join(","),
+  ]);
+  useLayoutEffect(() => {
+    setHandPage(0);
+    setHandExpanded(false);
+  }, [footerPlayer?.id, handScope]);
   useEffect(() => {
-    if (mobileGame && !drawMotion.active && revealAfterDraw.current) {
+    if (mobileGame && scoringInProgress) setHandExpanded(true);
+  }, [mobileGame, scoringInProgress]);
+  useEffect(() => {
+    if (
+      mobileGame &&
+      viewingOwnHand &&
+      !drawMotion.active &&
+      revealAfterDraw.current
+    ) {
       revealAfterDraw.current = false;
       setHandExpanded(true);
     }
-  }, [mobileGame, drawMotion.active]);
+  }, [mobileGame, viewingOwnHand, drawMotion.active]);
   useEffect(() => {
-    if (mobileGame && (pickup || error)) setHandExpanded(true);
-  }, [mobileGame, pickup, error]);
+    if (mobileGame && viewingOwnHand && (pickup || error))
+      setHandExpanded(true);
+  }, [mobileGame, viewingOwnHand, pickup, error]);
   const handScrollRef = useHorizontalWheel(
     Boolean(snapshot?.hand.length),
-    rehearsal?.animationKey ?? opening.state?.replay,
+    `${footerPlayer?.id}:${rehearsal?.animationKey ?? opening.state?.replay}`,
   );
   usePageSweep(
     handScrollRef,
@@ -463,7 +545,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     handScope,
   );
   usePageSweep(
-    boardSweepRef,
+    mobile ? boardSweepRef : boardContentRef,
     boardSweepDirection.current !== null &&
       !setup &&
       !playingMeld &&
@@ -642,6 +724,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       // Turn order always advances forward, including the last-to-first board.
       boardSweepDirection.current = 1;
       setViewed(actor.team);
+      setViewedHandPlayerId(null);
     }
   }, [
     snapshot?.token,
@@ -755,7 +838,12 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       const next = await command(roomSnapshot, type, payload);
       if (type === "leave") {
         removeStorage("handandfoot.room.v1");
-        navigate("/play");
+        navigate(
+          roomSnapshot.playMode === "practice" &&
+            roomSnapshot.phase === "finished"
+            ? "/"
+            : "/play",
+        );
         return;
       }
       accept(next);
@@ -864,6 +952,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     bookClosing.cancel();
     tableMotion.cancel();
     boardSweepDirection.current = delta;
+    setViewedHandPlayerId(null);
     setViewed(
       (old) => (old + delta + snapshot.sides.length) % snapshot.sides.length,
     );
@@ -876,6 +965,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     bookClosing.cancel();
     tableMotion.cancel();
     boardSweepDirection.current = null;
+    setViewedHandPlayerId(null);
     setViewed(id);
     if (myTurn) browsingOwnTurn.current = true;
     else setFollow(false);
@@ -1036,6 +1126,23 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     setError("");
   }
   const ownSide = snapshot.sides[viewer!.team];
+  const footerFootSource = viewingOwnHand
+    ? footSource
+    : tableMotion.pickup?.playerId === footerPlayer?.id
+      ? tableMotion.pickupSource
+      : undefined;
+  const footerFoot =
+    footerPlayer && (!footerPlayer.inFoot || footerFootSource) ? (
+      <FootPreview
+        topCard={
+          footerFootSource?.topCard ??
+          (viewingOwnHand ? snapshot.footTop : footerPlayer.footTop) ??
+          null
+        }
+        count={footerFootSource?.count ?? footerPlayer.footCount}
+        owner={viewingOwnHand ? "Your" : `${footerPlayer.name}’s`}
+      />
+    ) : null;
   const canGoOut = Boolean(
     viewer?.inFoot &&
       snapshot.hand.length === 1 &&
@@ -1357,7 +1464,9 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
           aria-atomic="true"
         >
           <p>
-            {scoring.enabled ? (
+            {review ? (
+              "End of round board state"
+            ) : scoring.enabled ? (
               scoring.beat?.kind === "ready" &&
               /stack ran out/i.test(snapshot.scoring?.reason ?? "") ? (
                 "The deck is exhausted. Settle the cards left in play."
@@ -1410,8 +1519,6 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
               ) : (
                 "Choose a pile for your hand. The other becomes your foot."
               )
-            ) : review ? (
-              snapshot.message
             ) : myTurn ? (
               snapshot.phase === "draw" ? (
                 `Your turn. Draw ${snapshot.drawCount || 2} cards, or play the top discard.`
@@ -1498,28 +1605,28 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                 profileIcon={user?.profile_icon}
                 onView={viewBoard}
                 showLeader={!review || totalsLanded}
-                pendingFootPlayerIds={tableMotion.pendingFootPlayerIds}
-                footPickupPlayerId={footPickup?.playerId}
               />
             </div>
-            {openingTableau ? (
-              <div className="opening-tableau-stage">
-                <div
-                  className="opening-tableau-content"
-                  aria-hidden={!ownBoard || undefined}
-                  style={{ visibility: ownBoard ? "visible" : "hidden" }}
-                >
-                  {openingTableau}
+            <div ref={boardContentRef} className="tableau-content">
+              {openingTableau ? (
+                <div className="opening-tableau-stage">
+                  <div
+                    className="opening-tableau-content"
+                    aria-hidden={!ownBoard || undefined}
+                    style={{ visibility: ownBoard ? "visible" : "hidden" }}
+                  >
+                    {openingTableau}
+                  </div>
+                  {!ownBoard && (
+                    <div className="opening-public-tableau">{publicPiles}</div>
+                  )}
                 </div>
-                {!ownBoard && (
-                  <div className="opening-public-tableau">{publicPiles}</div>
-                )}
-              </div>
-            ) : snapshot.phase === "choose" && !viewer?.chosen && ownBoard ? (
-              startingPiles
-            ) : (
-              publicPiles
-            )}
+              ) : snapshot.phase === "choose" && !viewer?.chosen && ownBoard ? (
+                startingPiles
+              ) : (
+                publicPiles
+              )}
+            </div>
           </section>
           {!setup && (
             <button
@@ -1589,7 +1696,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                 <span>Follow turn</span>
               </label>
             )}
-            {myTurn && viewed !== viewer?.team && (
+            {myTurn && !viewingOwnHand && (
               <button
                 className="text-button return-board"
                 onClick={() => viewBoard(viewer!.team)}
@@ -1603,401 +1710,474 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
           <HandDock
             mobile={mobileGame}
             expanded={
-              scoring.enabled ||
+              scoringInProgress ||
               handExpanded ||
-              (mobileGame && footMotion.active)
+              (viewingOwnHand && mobileGame && footMotion.active)
             }
             onExpand={setHandExpanded}
-            locked={scoring.enabled || (mobileGame && footMotion.active)}
-            title={`Your ${viewer?.inFoot ? "foot" : "hand"}`}
-            cards={hand.filter(
-              (card) =>
-                !drawMotion.hiddenIds.has(card.id) &&
-                !mobileMotion.handHiddenIds.has(card.id),
-            )}
-            count={snapshot.hand.length - drawMotion.hiddenIds.size}
-          >
-            <div className="hand-heading">
-              <div className="hand-info">
-                <span className="eyebrow">
-                  {rehearsal?.handCaption ??
-                    (scoring.beat?.gathered && snapshot.scoringFoot?.length
-                      ? "HAND + FOOT"
-                      : undefined) ??
-                    `YOUR ${viewer?.inFoot ? "FOOT" : "HAND"}`}
-                </span>
-                <span>
-                  {snapshot.hand.length - drawMotion.hiddenIds.size}{" "}
-                  {snapshot.hand.length - drawMotion.hiddenIds.size === 1
-                    ? "card"
-                    : "cards"}
-                </span>
-              </div>
-              <div
-                className="draft-summary-slot"
-                role="status"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                {mobileGame && scoring.beat ? (
-                  <ScoreCount beat={scoring.beat} beatKey={scoring.key} />
-                ) : mobileGame && footMotion.active ? (
-                  <span className="mobile-target-hint">
-                    Picking up your foot…
-                  </span>
-                ) : mobileGame && canStage && stageIds.length > 0 ? (
-                  <div
-                    className="mobile-meld-targets"
-                    role="group"
-                    aria-label="Add selected cards to a pile"
+            locked={
+              viewingOwnHand &&
+              (scoringInProgress || (mobileGame && footMotion.active))
+            }
+            title={footerTitle}
+            ariaLabel={viewingOwnHand ? "Your private hand" : footerTitle}
+            foot={footerFoot}
+            playerPicker={
+              footerMembers.length > 1 && (
+                <label className="hand-owner-picker">
+                  <span>Cards</span>
+                  <select
+                    aria-label="Player hand to view"
+                    value={footerPlayer?.id}
+                    onChange={(event) => {
+                      boardSweepDirection.current = null;
+                      setViewedHandPlayerId(event.target.value);
+                      if (myTurn) browsingOwnTurn.current = true;
+                      else setFollow(false);
+                    }}
                   >
-                    <span className="mobile-target-label">Your piles</span>
-                    {ownSide.melds.filter(canAddToMeld).map((meld) => (
-                      <button
-                        key={meld.id}
-                        type="button"
-                        className="mobile-target-button"
-                        onClick={() => stage(meld.id)}
-                        aria-label={`${meld.rank} ${meld.complete ? (meld.dirty ? "dirty book" : "clean book") : meld.kind === "run" ? "run" : "pile"}, ${meld.cards.length}${meld.complete ? " cards" : "/7"}`}
-                      >
-                        <span className="mobile-target-rank">
-                          {meld.rank}
-                          {meld.complete && <Book />}
-                        </span>
-                        <small>
-                          {meld.cards.length}
-                          {meld.complete ? " cards" : "/7"}
-                        </small>
-                      </button>
+                    {footerMembers.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.id === viewer?.id
+                          ? "Your cards"
+                          : `${player.name}’s cards`}
+                      </option>
                     ))}
-                    {stageKind && (
-                      <button
-                        type="button"
-                        className="mobile-target-button mobile-target-new"
-                        onClick={() => stage()}
+                  </select>
+                </label>
+              )
+            }
+            navigation={{
+              enabled:
+                boardSweepDirection.current !== null &&
+                !setup &&
+                !playingMeld &&
+                !footMotion.active,
+              page: snapshot.players.findIndex(
+                (player) => player.id === footerPlayer?.id,
+              ),
+              scope: handScope,
+              direction: boardSweepDirection.current ?? undefined,
+              duration: mobile ? 180 : 200,
+            }}
+            cards={
+              viewingOwnHand
+                ? hand.filter(
+                    (card) =>
+                      !drawMotion.hiddenIds.has(card.id) &&
+                      !mobileMotion.handHiddenIds.has(card.id),
+                  )
+                : Array.from(
+                    { length: footerPlayer?.handCount ?? 0 },
+                    () => undefined,
+                  )
+            }
+            count={
+              viewingOwnHand
+                ? snapshot.hand.length - drawMotion.hiddenIds.size
+                : (footerPlayer?.handCount ?? 0)
+            }
+          >
+            {viewingOwnHand ? (
+              <>
+                <div className="hand-heading">
+                  <div className="hand-info">
+                    <span className="eyebrow">
+                      {rehearsal?.handCaption ??
+                        (scoring.beat?.gathered && snapshot.scoringFoot?.length
+                          ? "HAND + FOOT"
+                          : undefined) ??
+                        `YOUR ${viewer?.inFoot ? "FOOT" : "HAND"}`}
+                    </span>
+                    <span>
+                      {snapshot.hand.length - drawMotion.hiddenIds.size}{" "}
+                      {snapshot.hand.length - drawMotion.hiddenIds.size === 1
+                        ? "card"
+                        : "cards"}
+                    </span>
+                  </div>
+                  <div
+                    className="draft-summary-slot"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
+                    {mobileGame && scoring.beat ? (
+                      <ScoreCount beat={scoring.beat} beatKey={scoring.key} />
+                    ) : mobileGame && footMotion.active ? (
+                      <span className="mobile-target-hint">
+                        Picking up your foot…
+                      </span>
+                    ) : mobileGame && canStage && stageIds.length > 0 ? (
+                      <div
+                        className="mobile-meld-targets"
+                        role="group"
+                        aria-label="Add selected cards to a pile"
                       >
-                        + New<span>meld</span>
-                      </button>
-                    )}
-                    {canStageRedThrees && (
-                      <button
-                        type="button"
-                        className="mobile-target-button"
-                        onClick={stageRedThrees}
+                        <span className="mobile-target-label">Your piles</span>
+                        {ownSide.melds.filter(canAddToMeld).map((meld) => (
+                          <button
+                            key={meld.id}
+                            type="button"
+                            className="mobile-target-button"
+                            onClick={() => stage(meld.id)}
+                            aria-label={`${meld.rank} ${meld.complete ? (meld.dirty ? "dirty book" : "clean book") : meld.kind === "run" ? "run" : "pile"}, ${meld.cards.length}${meld.complete ? " cards" : "/7"}`}
+                          >
+                            <span className="mobile-target-rank">
+                              {meld.rank}
+                              {meld.complete && <Book />}
+                            </span>
+                            <small>
+                              {meld.cards.length}
+                              {meld.complete ? " cards" : "/7"}
+                            </small>
+                          </button>
+                        ))}
+                        {stageKind && (
+                          <button
+                            type="button"
+                            className="mobile-target-button mobile-target-new"
+                            onClick={() => stage()}
+                          >
+                            + New<span>meld</span>
+                          </button>
+                        )}
+                        {canStageRedThrees && (
+                          <button
+                            type="button"
+                            className="mobile-target-button"
+                            onClick={stageRedThrees}
+                          >
+                            <span className="mobile-target-rank">
+                              3 <Icon name="heart" />
+                            </span>
+                            <small>Red threes</small>
+                          </button>
+                        )}
+                        {!stageKind &&
+                          !canStageRedThrees &&
+                          !ownSide.melds.some(canAddToMeld) && (
+                            <span className="mobile-target-hint">
+                              Select matching cards
+                            </span>
+                          )}
+                      </div>
+                    ) : canStage && drafts.length > 0 ? (
+                      <div
+                        className="draft-summary"
+                        role="group"
+                        aria-label="Staged draft"
                       >
-                        <span className="mobile-target-rank">
-                          3 <Icon name="heart" />
-                        </span>
-                        <small>Red threes</small>
-                      </button>
-                    )}
-                    {!stageKind &&
-                      !canStageRedThrees &&
-                      !ownSide.melds.some(canAddToMeld) && (
-                        <span className="mobile-target-hint">
-                          Select matching cards
-                        </span>
+                        <span>{draftSummaryLabel}</span>
+                        {drafts.some((draft) => !draft.redThree) && (
+                          <>
+                            <span
+                              className="draft-summary-dot"
+                              aria-hidden="true"
+                            />
+                            <strong
+                              aria-label={
+                                ownSide.opened
+                                  ? `${draftTotal} points`
+                                  : `${draftTotal} points, ${ownSide.opening} points to open`
+                              }
+                            >
+                              {draftTotal}
+                              {!ownSide.opened && (
+                                <span className="draft-opening">
+                                  {" "}
+                                  / {ownSide.opening}
+                                </span>
+                              )}{" "}
+                              pts
+                            </strong>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          className="draft-clear"
+                          aria-label="Clear draft"
+                          title="Clear draft"
+                          onClick={() => {
+                            setDrafts([]);
+                            setSelected([]);
+                          }}
+                        >
+                          <Icon name="close" />
+                        </button>
+                      </div>
+                    ) : mobileGame ? (
+                      <span className="mobile-target-hint">
+                        Select cards to choose a pile
+                      </span>
+                    ) : null}
+                  </div>
+                  {footerFoot}
+                </div>
+                {mobileGame && scoring.beat && (
+                  <SettlementPiles beat={scoring.beat} />
+                )}
+                {snapshot.hand.length || (mobileGame && footMotion.active) ? (
+                  <div
+                    {...handSwipe}
+                    className="hand-scroll"
+                    aria-label="Select cards to play"
+                    ref={handScrollRef}
+                  >
+                    {visibleHand.map((card) => (
+                      <div
+                        className={
+                          stagedIds.has(card.id)
+                            ? "hand-card staged-card"
+                            : "hand-card"
+                        }
+                        key={card.id}
+                        data-card-id={card.id}
+                        data-draw-hidden={drawMotion.hiddenIds.has(card.id)}
+                        data-foot-hidden={mobileGame && footMotion.gathering}
+                        data-meld-hidden={
+                          meldMotion.hiddenIds.has(card.id) ||
+                          mobileMotion.handHiddenIds.has(card.id)
+                        }
+                        data-pickup-blocked={Boolean(
+                          pickupPlayableIds &&
+                            !selected.includes(card.id) &&
+                            !pickupPlayableIds.has(card.id),
+                        )}
+                      >
+                        <Card
+                          card={card}
+                          selected={selected.includes(card.id)}
+                          pointsLeft={cardPoints?.[card.id]}
+                          disabled={
+                            !canStage ||
+                            stagedIds.has(card.id) ||
+                            Boolean(
+                              pickupPlayableIds &&
+                                !selected.includes(card.id) &&
+                                !pickupPlayableIds.has(card.id),
+                            )
+                          }
+                          onClick={() => {
+                            setSelected((old) =>
+                              old.includes(card.id)
+                                ? old.filter((id) => id !== card.id)
+                                : [...old, card.id],
+                            );
+                            sound.play("select");
+                          }}
+                        />
+                        {stagedIds.has(card.id) && (
+                          <span className="staged-label">STAGED</span>
+                        )}
+                      </div>
+                    ))}
+                    {mobileGame &&
+                      Array.from(
+                        { length: 10 - visibleHand.length },
+                        (_, index) => (
+                          <span
+                            className="hand-card-placeholder"
+                            aria-hidden="true"
+                            key={`empty-${index}`}
+                          />
+                        ),
                       )}
                   </div>
-                ) : canStage && drafts.length > 0 ? (
-                  <div
-                    className="draft-summary"
-                    role="group"
-                    aria-label="Staged draft"
-                  >
-                    <span>{draftSummaryLabel}</span>
-                    {drafts.some((draft) => !draft.redThree) && (
-                      <>
-                        <span
-                          className="draft-summary-dot"
-                          aria-hidden="true"
-                        />
-                        <strong
-                          aria-label={
-                            ownSide.opened
-                              ? `${draftTotal} points`
-                              : `${draftTotal} points, ${ownSide.opening} points to open`
+                ) : (
+                  <p className="empty-hand">
+                    {rehearsal?.emptyHandMessage ??
+                      (scoring.beat
+                        ? scoring.beat.hand.length
+                          ? "Your remaining card is above the settlement piles."
+                          : "All hand cards settled."
+                        : snapshot.phase === "choose"
+                          ? "Your chosen cards will appear here."
+                          : review
+                            ? "A well-played hand."
+                            : "Your hand is empty.")}
+                  </p>
+                )}
+                {mobileGame &&
+                  (hand.length > 0 || scoring.enabled || footMotion.active) && (
+                    <div
+                      className="mobile-hand-pagination"
+                      aria-label="Hand pages"
+                    >
+                      <button
+                        type="button"
+                        className="icon-button previous"
+                        aria-label="Previous hand cards"
+                        disabled={handPage === 0}
+                        onClick={() =>
+                          setHandPage((page) => Math.max(0, page - 1))
+                        }
+                      >
+                        <Icon name="arrow" />
+                      </button>
+                      <span>
+                        {hand.length ? (
+                          <>
+                            {Math.min(
+                              handPage,
+                              Math.ceil(hand.length / 10) - 1,
+                            ) *
+                              10 +
+                              1}
+                            –{Math.min((handPage + 1) * 10, hand.length)} of{" "}
+                            {hand.length} cards
+                          </>
+                        ) : footMotion.active ? (
+                          "Picking up your foot…"
+                        ) : (
+                          "All hand cards settled"
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label="Next hand cards"
+                        disabled={(handPage + 1) * 10 >= hand.length}
+                        onClick={() => setHandPage((page) => page + 1)}
+                      >
+                        <Icon name="arrow" />
+                      </button>
+                    </div>
+                  )}
+                {(showHandActions || (mobileGame && myTurn)) && (
+                  <>
+                    <div className="hand-actions">
+                      <span className="selection-count">
+                        {selected.length ? (
+                          <>
+                            {selected.length} selected
+                            <span aria-hidden="true"> · </span>
+                            <button
+                              type="button"
+                              className="clear-selection"
+                              onClick={() => setSelected([])}
+                            >
+                              clear selection
+                            </button>
+                          </>
+                        ) : mobileGame && footMotion.active ? (
+                          "Cards are arriving…"
+                        ) : mobileGame &&
+                          (snapshot.phase === "draw" || drawMotion.active) ? (
+                          "Draw cards before playing"
+                        ) : (
+                          "Select cards to play"
+                        )}
+                      </span>
+                      <button
+                        className="button small"
+                        disabled={
+                          !canStage || (!stageKind && !canStageRedThrees)
+                        }
+                        onClick={() =>
+                          canStageRedThrees ? stageRedThrees() : stage()
+                        }
+                      >
+                        Stage meld
+                      </button>
+                      <PlayDraftButton
+                        count={drafts.length}
+                        total={draftTotal}
+                        minimum={ownSide.opened ? null : ownSide.opening}
+                        blocked={!canStage || (pickup && !discardIsStaged)}
+                        blockedReason={draftRequirement}
+                        showRequirement={
+                          rehearsal?.draftReview?.showOpeningRequirement
+                        }
+                        onPlay={() =>
+                          void act(pickup ? "pickup" : "meld", {
+                            groups: drafts,
+                          })
+                        }
+                      />
+                      <DrawFirstHint
+                        blocked={needsSecondDraw || pickup}
+                        label={discardLabel}
+                      >
+                        <button
+                          className="button small secondary"
+                          disabled={
+                            !canStage ||
+                            selected.length !== 1 ||
+                            pickup ||
+                            needsSecondDraw ||
+                            snapshot.phase !== "play" ||
+                            (drafts.length > 0 && (!singleRed || canGoOut))
+                          }
+                          onClick={() =>
+                            void act(
+                              singleRed && !canGoOut ? "red_three" : "discard",
+                              singleRed && !canGoOut
+                                ? { cardIds: selected, expose: false }
+                                : { cardId: selected[0] },
+                            )
                           }
                         >
-                          {draftTotal}
+                          {canGoOut
+                            ? discardLabel
+                            : singleRed
+                              ? "Replace"
+                              : "Discard"}
+                        </button>
+                      </DrawFirstHint>
+                    </div>
+                    {selectedRed &&
+                      !pickup &&
+                      (selected.length > 1 || !ownSide.opened) && (
+                        <div className="red-three-actions">
+                          {selected.length > 1 && (
+                            <>
+                              <span>Red threes:</span>
+                              <button
+                                className="text-button"
+                                disabled={!canStage}
+                                onClick={() =>
+                                  void act("red_three", {
+                                    cardIds: selected,
+                                    expose: false,
+                                  })
+                                }
+                              >
+                                Replace from stack
+                              </button>
+                            </>
+                          )}
                           {!ownSide.opened && (
-                            <span className="draft-opening">
-                              {" "}
-                              / {ownSide.opening}
+                            <span>
+                              Complete your side’s opening meld to lay down red
+                              threes.
                             </span>
-                          )}{" "}
-                          pts
-                        </strong>
-                      </>
-                    )}
+                          )}
+                        </div>
+                      )}
+                  </>
+                )}
+                {error && (
+                  <div className="error inline-error" role="alert">
+                    <span>{error}</span>
                     <button
-                      type="button"
-                      className="draft-clear"
-                      aria-label="Clear draft"
-                      title="Clear draft"
-                      onClick={() => {
-                        setDrafts([]);
-                        setSelected([]);
-                      }}
+                      className="icon-button"
+                      aria-label="Dismiss message"
+                      onClick={() => setError("")}
                     >
                       <Icon name="close" />
                     </button>
                   </div>
-                ) : mobileGame ? (
-                  <span className="mobile-target-hint">
-                    Select cards to choose a pile
-                  </span>
-                ) : null}
-              </div>
-              {(!viewer?.inFoot || footSource) && (
-                <FootPreview
-                  topCard={footSource?.topCard ?? snapshot.footTop ?? null}
-                  count={footSource?.count ?? viewer?.footCount ?? 0}
-                />
-              )}
-            </div>
-            {mobileGame && scoring.beat && (
-              <SettlementPiles beat={scoring.beat} />
-            )}
-            {snapshot.hand.length || (mobileGame && footMotion.active) ? (
-              <div
-                {...handSwipe}
-                className="hand-scroll"
-                aria-label="Select cards to play"
-                ref={handScrollRef}
-              >
-                {visibleHand.map((card) => (
-                  <div
-                    className={
-                      stagedIds.has(card.id)
-                        ? "hand-card staged-card"
-                        : "hand-card"
-                    }
-                    key={card.id}
-                    data-card-id={card.id}
-                    data-draw-hidden={drawMotion.hiddenIds.has(card.id)}
-                    data-foot-hidden={mobileGame && footMotion.gathering}
-                    data-meld-hidden={
-                      meldMotion.hiddenIds.has(card.id) ||
-                      mobileMotion.handHiddenIds.has(card.id)
-                    }
-                    data-pickup-blocked={Boolean(
-                      pickupPlayableIds &&
-                        !selected.includes(card.id) &&
-                        !pickupPlayableIds.has(card.id),
-                    )}
-                  >
-                    <Card
-                      card={card}
-                      selected={selected.includes(card.id)}
-                      pointsLeft={cardPoints?.[card.id]}
-                      disabled={
-                        !canStage ||
-                        stagedIds.has(card.id) ||
-                        Boolean(
-                          pickupPlayableIds &&
-                            !selected.includes(card.id) &&
-                            !pickupPlayableIds.has(card.id),
-                        )
-                      }
-                      onClick={() => {
-                        setSelected((old) =>
-                          old.includes(card.id)
-                            ? old.filter((id) => id !== card.id)
-                            : [...old, card.id],
-                        );
-                        sound.play("select");
-                      }}
-                    />
-                    {stagedIds.has(card.id) && (
-                      <span className="staged-label">STAGED</span>
-                    )}
-                  </div>
-                ))}
-                {mobileGame &&
-                  Array.from(
-                    { length: 10 - visibleHand.length },
-                    (_, index) => (
-                      <span
-                        className="hand-card-placeholder"
-                        aria-hidden="true"
-                        key={`empty-${index}`}
-                      />
-                    ),
-                  )}
-              </div>
-            ) : (
-              <p className="empty-hand">
-                {rehearsal?.emptyHandMessage ??
-                  (scoring.beat
-                    ? scoring.beat.hand.length
-                      ? "Your remaining card is above the settlement piles."
-                      : "All hand cards settled."
-                    : snapshot.phase === "choose"
-                      ? "Your chosen cards will appear here."
-                      : review
-                        ? "A well-played hand."
-                        : "Your hand is empty.")}
-              </p>
-            )}
-            {mobileGame &&
-              (hand.length > 0 || scoring.enabled || footMotion.active) && (
-                <div className="mobile-hand-pagination" aria-label="Hand pages">
-                  <button
-                    type="button"
-                    className="icon-button previous"
-                    aria-label="Previous hand cards"
-                    disabled={handPage === 0}
-                    onClick={() => setHandPage((page) => Math.max(0, page - 1))}
-                  >
-                    <Icon name="arrow" />
-                  </button>
-                  <span>
-                    {hand.length ? (
-                      <>
-                        {Math.min(handPage, Math.ceil(hand.length / 10) - 1) *
-                          10 +
-                          1}
-                        –{Math.min((handPage + 1) * 10, hand.length)} of{" "}
-                        {hand.length} cards
-                      </>
-                    ) : footMotion.active ? (
-                      "Picking up your foot…"
-                    ) : (
-                      "All hand cards settled"
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    aria-label="Next hand cards"
-                    disabled={(handPage + 1) * 10 >= hand.length}
-                    onClick={() => setHandPage((page) => page + 1)}
-                  >
-                    <Icon name="arrow" />
-                  </button>
-                </div>
-              )}
-            {(showHandActions || (mobileGame && myTurn)) && (
-              <>
-                <div className="hand-actions">
-                  <span className="selection-count">
-                    {selected.length ? (
-                      <>
-                        {selected.length} selected
-                        <span aria-hidden="true"> · </span>
-                        <button
-                          type="button"
-                          className="clear-selection"
-                          onClick={() => setSelected([])}
-                        >
-                          clear selection
-                        </button>
-                      </>
-                    ) : mobileGame && footMotion.active ? (
-                      "Cards are arriving…"
-                    ) : mobileGame &&
-                      (snapshot.phase === "draw" || drawMotion.active) ? (
-                      "Draw cards before playing"
-                    ) : (
-                      "Select cards to play"
-                    )}
-                  </span>
-                  <button
-                    className="button small"
-                    disabled={!canStage || (!stageKind && !canStageRedThrees)}
-                    onClick={() =>
-                      canStageRedThrees ? stageRedThrees() : stage()
-                    }
-                  >
-                    Stage meld
-                  </button>
-                  <PlayDraftButton
-                    count={drafts.length}
-                    total={draftTotal}
-                    minimum={ownSide.opened ? null : ownSide.opening}
-                    blocked={!canStage || (pickup && !discardIsStaged)}
-                    blockedReason={draftRequirement}
-                    showRequirement={
-                      rehearsal?.draftReview?.showOpeningRequirement
-                    }
-                    onPlay={() =>
-                      void act(pickup ? "pickup" : "meld", { groups: drafts })
-                    }
-                  />
-                  <DrawFirstHint
-                    blocked={needsSecondDraw || pickup}
-                    label={discardLabel}
-                  >
-                    <button
-                      className="button small secondary"
-                      disabled={
-                        !canStage ||
-                        selected.length !== 1 ||
-                        pickup ||
-                        needsSecondDraw ||
-                        snapshot.phase !== "play" ||
-                        (drafts.length > 0 && (!singleRed || canGoOut))
-                      }
-                      onClick={() =>
-                        void act(
-                          singleRed && !canGoOut ? "red_three" : "discard",
-                          singleRed && !canGoOut
-                            ? { cardIds: selected, expose: false }
-                            : { cardId: selected[0] },
-                        )
-                      }
-                    >
-                      {canGoOut
-                        ? discardLabel
-                        : singleRed
-                          ? "Replace"
-                          : "Discard"}
-                    </button>
-                  </DrawFirstHint>
-                </div>
-                {selectedRed &&
-                  !pickup &&
-                  (selected.length > 1 || !ownSide.opened) && (
-                    <div className="red-three-actions">
-                      {selected.length > 1 && (
-                        <>
-                          <span>Red threes:</span>
-                          <button
-                            className="text-button"
-                            disabled={!canStage}
-                            onClick={() =>
-                              void act("red_three", {
-                                cardIds: selected,
-                                expose: false,
-                              })
-                            }
-                          >
-                            Replace from stack
-                          </button>
-                        </>
-                      )}
-                      {!ownSide.opened && (
-                        <span>
-                          Complete your side’s opening meld to lay down red
-                          threes.
-                        </span>
-                      )}
-                    </div>
-                  )}
+                )}
               </>
-            )}
-            {error && (
-              <div className="error inline-error" role="alert">
-                <span>{error}</span>
-                <button
-                  className="icon-button"
-                  aria-label="Dismiss message"
-                  onClick={() => setError("")}
-                >
-                  <Icon name="close" />
-                </button>
-              </div>
+            ) : (
+              <PublicHand
+                playerId={footerPlayer!.id}
+                title={footerTitle}
+                count={footerPlayer!.handCount}
+                mobile={mobileGame}
+                foot={footerFoot}
+              />
             )}
           </HandDock>
         )}
@@ -2024,9 +2204,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                     <p className="win-stats-notice">
                       {snapshot.developmentFixture
                         ? "Preview games do not count toward account wins. "
-                        : user
-                          ? "Your result is saved. "
-                          : "Guest games do not count toward account wins. "}
+                        : !user &&
+                          "Guest games do not count toward account wins. "}
                       <Link
                         className="text-link"
                         to={`/leaderboard?mode=${snapshot.playMode}`}
@@ -2087,8 +2266,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
               request={drawMotion.request}
               cards={drawMotion.cards}
               board={boardRef}
-              toDivider={!mobileGame && !isRehearsal && viewed !== viewer?.team}
-              toHandDrawer={mobileGame}
+              toDivider={!viewingOwnHand}
+              toHandDrawer={mobileGame && viewingOwnHand}
             />,
           )}
         {meldMotion.flight &&
@@ -2136,6 +2315,7 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
           <MeldCards flight={footMotion.discardFlight} paused={false} />
         )}
         {mobileGame &&
+          viewingOwnHand &&
           footMotion.gathering &&
           motionLayer(
             <MobileFootCards
@@ -2229,7 +2409,7 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
         table
       ) : (
         <FootGather
-          gathering={footMotion.gathering}
+          gathering={gatheringViewedFoot}
           speed={1}
           enabled={footMotion.enabled}
           mobile={mobile}
@@ -2536,14 +2716,6 @@ function BoardPiles({
       aria-label={`${players.map((player) => player.name).join(" & ")}’s public piles`}
       data-player-lane-id={players.length === 1 ? players[0].id : undefined}
       data-team-lane-id={players[0]?.team}
-      style={
-        {
-          "--max-pile-cards": Math.max(
-            7,
-            ...melds.map((meld) => meld.cards.length),
-          ),
-        } as React.CSSProperties
-      }
     >
       <div className="melds">
         {!mobile && piles(closed, "Completed books", closedRedThrees)}

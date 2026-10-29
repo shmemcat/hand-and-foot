@@ -55,6 +55,52 @@ function round(): Snapshot {
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
+it.each(["round_over", "finished"] as const)(
+  "restores the full round board and removes counting presentation when %s arrives",
+  (phase) => {
+    const scenario = SCORING_SCENARIOS[0];
+    const source = scoringSnapshot(scenario, scoringSequence(scenario)[0], 0);
+    source.scoringFoot = scenario.foot;
+    source.scoring = {
+      ...round().scoring!,
+      debt: 195,
+      remaining: 0,
+      revision: 1,
+      usedPiles: ["tens", "fives", "nines", "queens"],
+      options: [],
+    };
+    const view = renderHook(
+      ({ snapshot }) => useLiveScoring(snapshot, true, false),
+      { initialProps: { snapshot: source } },
+    );
+    for (let step = 0; step < 100 && !view.result.current.done; step++)
+      act(() => vi.advanceTimersByTime(view.result.current.beat!.duration));
+    expect(view.result.current.done).toBe(true);
+    expect(view.result.current.snapshot?.hand).toHaveLength(0);
+    expect(view.result.current.snapshot?.sides[0].melds).toHaveLength(0);
+    const result: Snapshot = {
+      ...source,
+      phase,
+      scoring: null,
+      scoringFoot: null,
+      sides: source.sides.map((side) => ({ ...side, score: side.score + 100 })),
+      players: source.players.map((player) => ({ ...player, ready: true })),
+    };
+    view.rerender({ snapshot: result });
+    expect(view.result.current.snapshot).toBe(result);
+    expect(view.result.current.snapshot?.hand).toEqual(scenario.hand);
+    expect(view.result.current.snapshot?.footTop).toEqual(scenario.foot[0]);
+    expect(view.result.current.snapshot?.players[0].redThrees).toEqual(
+      scenario.reds,
+    );
+    expect(view.result.current.snapshot?.sides[0].melds).toHaveLength(
+      scenario.melds.length,
+    );
+    expect(view.result.current.enabled).toBe(false);
+    expect(view.result.current.beat).toBeUndefined();
+  },
+);
+
 it("waits for an accepted payment, opens qualified reds and counts to minus five", () => {
   const source = round();
   const view = renderHook(
