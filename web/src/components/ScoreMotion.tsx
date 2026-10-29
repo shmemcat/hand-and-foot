@@ -76,10 +76,63 @@ export function ScoreMotion({
   const [flights, setFlights] = useState<Flight[]>([]);
   const [opening, setOpening] = useState<BookClosingFlight | null>(null);
   const serial = useRef(0);
+  const layer = useRef<HTMLDivElement>(null);
+  const [origin, setOrigin] = useState({ left: 0, top: 0 });
+  useLayoutEffect(() => {
+    const bounds = layer.current?.getBoundingClientRect();
+    if (bounds) setOrigin({ left: bounds.left, top: bounds.top });
+  }, [beatKey]);
   useLayoutEffect(() => {
     const root = board.current;
     if (!root) return;
     const old = prior.current;
+    const mobile = root.classList.contains("mobile-game");
+    let scrollDelta = 0;
+    if (mobile && old?.key !== beatKey && beat.activePile) {
+      const pile = root.querySelector(
+        beat.activePile === "reds"
+          ? ".red-three-pile"
+          : `[data-meld-id="${beat.activePile}"]`,
+      );
+      const main = root.closest("main");
+      if (pile && main) {
+        const view = main.getBoundingClientRect(),
+          target = pile.getBoundingClientRect(),
+          before = main.scrollTop;
+        if (target.top < view.top + 10)
+          main.scrollTop += target.top - view.top - 10;
+        else if (target.bottom > view.bottom - 10)
+          main.scrollTop += target.bottom - view.bottom + 10;
+        scrollDelta = main.scrollTop - before;
+      }
+    }
+    const sourcePosition = (id: string, source: string): Box | undefined => {
+      const saved = old?.positions.get(id);
+      if (saved)
+        return source === "table"
+          ? { ...saved, top: saved.top - scrollDelta }
+          : saved;
+      if (!mobile) return undefined;
+      const fallback =
+        source === "hand" || source === "holding"
+          ? (root.querySelector(".hand-scroll .card") ??
+            root.querySelector(".hand-drawer-toggle"))
+          : root.querySelector(
+              beat.activePile === "reds"
+                ? ".red-three-pile .card"
+                : `[data-meld-id="${beat.activePile}"] .card`,
+            );
+      if (!fallback) return undefined;
+      const bounds = rect(fallback);
+      return fallback.classList.contains("hand-drawer-toggle")
+        ? {
+            left: bounds.left + bounds.width / 2 - 25,
+            top: bounds.top,
+            width: 50,
+            height: 70,
+          }
+        : bounds;
+    };
     if (old?.key !== beatKey) {
       setFlights([]);
       setOpening(null);
@@ -95,7 +148,7 @@ export function ScoreMotion({
           if (stack) {
             const landing = rect(stack);
             for (const move of beat.transfers) {
-              const from = old.positions.get(move.card.id),
+              const from = sourcePosition(move.card.id, "table"),
                 target = findCard(root, move.card.id, beat);
               if (from && target)
                 cards.push({
@@ -130,7 +183,7 @@ export function ScoreMotion({
           const meeting = parkedNode
             ? rect(parkedNode)
             : parked
-              ? old.positions.get(parked.card.id)
+              ? sourcePosition(parked.card.id, parked.source)
               : undefined;
           const join = root.querySelector("[data-score-meet]");
           const meet = meeting ?? (join ? rect(join) : undefined);
@@ -145,9 +198,10 @@ export function ScoreMotion({
             const source =
               transfer.source === "foot"
                 ? old.foot
-                : old.positions.get(transfer.card.id);
+                : sourcePosition(transfer.card.id, transfer.source);
             const destination = ["hand", "table"].includes(transfer.target)
-              ? findCard(root, transfer.card.id, beat)
+              ? (findCard(root, transfer.card.id, beat) ??
+                (mobile ? root.querySelector(".hand-scroll .card") : null))
               : root.querySelector(
                   transfer.target === "count"
                     ? '[data-score-target="count"] strong'
@@ -248,12 +302,14 @@ export function ScoreMotion({
             40,
     );
     window.addEventListener("resize", clear);
-    window.addEventListener("scroll", clear, true);
+    window.addEventListener("wheel", clear, { passive: true });
+    window.addEventListener("touchstart", clear, { passive: true });
     document.addEventListener("visibilitychange", visibility);
     return () => {
       clearTimeout(timer);
       window.removeEventListener("resize", clear);
-      window.removeEventListener("scroll", clear, true);
+      window.removeEventListener("wheel", clear);
+      window.removeEventListener("touchstart", clear);
       document.removeEventListener("visibilitychange", visibility);
     };
   }, [flights, opening]);
@@ -268,7 +324,7 @@ export function ScoreMotion({
     ...(opening?.cards.map(({ card }) => card) ?? []),
   ];
   return (
-    <>
+    <div ref={layer} className="score-motion-layer">
       {moving.length > 0 && (
         <style>
           {moving
@@ -290,8 +346,8 @@ export function ScoreMotion({
       {!opening && beat.activePile && beat.kind === "bonus" && (
         <style>
           {beat.activePile === "reds"
-            ? ".game-page .red-three-stack {outline:2px solid var(--secondary);outline-offset:7px;}"
-            : `.game-page [data-meld-id="${beat.activePile}"] > button {outline:2px solid var(--secondary);outline-offset:7px;}`}
+            ? ".game-page .red-three-stack {--score-pile-outline:var(--secondary);}"
+            : `.game-page [data-meld-id="${beat.activePile}"] > button {--score-pile-outline:var(--secondary);}`}
         </style>
       )}
       {flights.map((flight) => (
@@ -302,8 +358,8 @@ export function ScoreMotion({
           key={`${beatKey}-${flight.transfer.card.id}`}
           style={
             {
-              left: flight.from.left,
-              top: flight.from.top,
+              left: flight.from.left - origin.left,
+              top: flight.from.top - origin.top,
               width: flight.from.width,
               height: flight.from.height,
               "--score-mid-x": `${flight.midX}px`,
@@ -324,6 +380,6 @@ export function ScoreMotion({
           />
         </div>
       ))}
-    </>
+    </div>
   );
 }

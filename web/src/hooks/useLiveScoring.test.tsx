@@ -86,7 +86,8 @@ it("waits for an accepted payment, opens qualified reds and counts to minus five
   view.rerender({ snapshot: paid });
   expect(view.result.current.beat?.kind).toBe("break");
   expect(view.result.current.beat?.redsBroken).toBe(true);
-  act(() => view.result.current.skip());
+  for (let step = 0; step < 100 && !view.result.current.done; step++)
+    act(() => vi.advanceTimersByTime(view.result.current.beat!.duration));
   expect(view.result.current.done).toBe(true);
   expect(
     view.result.current.beat!.base + view.result.current.beat!.cardValue,
@@ -94,17 +95,19 @@ it("waits for an accepted payment, opens qualified reds and counts to minus five
   expect(view.result.current.snapshot?.hand).toHaveLength(0);
   expect(paid.scoring.confirmed).toBe(false);
 });
-it("pauses and resumes without paying, confirming or changing the accepted score", () => {
+it("pauses while hidden and resumes without changing the accepted score", () => {
   const source = round();
   const view = renderHook(() => useLiveScoring(source, true, false));
-  act(() => view.result.current.toggle());
+  const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+  act(() => document.dispatchEvent(new Event("visibilitychange")));
   act(() => vi.advanceTimersByTime(10000));
   expect(view.result.current.beat?.kind).toBe("ready");
   expect(source.scoring?.revision).toBe(0);
-  act(() => view.result.current.toggle());
+  hidden.mockReturnValue(false);
+  act(() => document.dispatchEvent(new Event("visibilitychange")));
   act(() => vi.advanceTimersByTime(1200));
   expect(view.result.current.waiting).toBe(true);
-  act(() => view.result.current.skip());
+  act(() => vi.advanceTimersByTime(10000));
   expect(view.result.current.waiting).toBe(true);
 });
 it("gathers every private foot face before permitting settlement and resets next deal", () => {

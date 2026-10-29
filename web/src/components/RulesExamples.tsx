@@ -134,14 +134,14 @@ export function RulesPickupExample() {
   return (
     <figure
       className="rules-card-example"
-      aria-label="Legal discard pickup with two matching natural cards"
+      aria-label="Legal discard pickup with one matching natural card and a joker"
     >
       <div className="rules-example-equation">
         <div>
           <CardRow
             cards={faces("pickup-hand", [
               ["7", "clubs"],
-              ["7", "spades"],
+              ["Joker", "joker"],
             ])}
           />
           <span>From your hand</span>
@@ -155,10 +155,11 @@ export function RulesPickupExample() {
         </div>
       </div>
       <figcaption>
-        <strong>Two natural sevens + the discard = a new meld</strong>
+        <strong>One seven + a joker + the discard = a valid dirty meld</strong>
         <span>
-          Once your side is open, play all three together, then draw one card
-          from the deck before continuing.
+          The two natural sevens outnumber the wild. Play all three together,
+          meet any opening minimum, then draw one card from the deck before
+          continuing.
         </span>
       </figcaption>
     </figure>

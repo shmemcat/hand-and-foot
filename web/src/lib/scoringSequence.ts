@@ -279,6 +279,45 @@ export function scoringSequence(
         cards: meld.cards.filter((face) => !ids.has(face.id)),
       }))
       .filter((meld) => meld.cards.length);
+  const automaticBonusPile = () => {
+    const choices = state.melds
+      .filter((meld) => meld.complete)
+      .map((meld) => ({
+        id: meld.id,
+        points: meld.cards.reduce((sum, face) => sum + tableValue(face), 0),
+        bonus: meld.bonus,
+      }));
+    if (state.reds.length)
+      choices.push({
+        id: "reds",
+        points: state.reds.length * 5,
+        bonus: state.redsQualified ? scenario.reds.length * 300 : 0,
+      });
+    const target = Math.min(
+      state.remaining,
+      choices.reduce((sum, choice) => sum + choice.points, 0),
+    );
+    const plans = new Map<number, { cost: number; ids: string[] }>([
+      [0, { cost: 0, ids: [] }],
+    ]);
+    for (const choice of choices)
+      for (const [covered, plan] of [...plans]) {
+        const next = Math.min(target, covered + choice.points);
+        const candidate = {
+          cost: plan.cost + choice.bonus,
+          ids: [...plan.ids, choice.id],
+        };
+        const previous = plans.get(next);
+        if (
+          !previous ||
+          candidate.cost < previous.cost ||
+          (candidate.cost === previous.cost &&
+            candidate.ids.length < previous.ids.length)
+        )
+          plans.set(next, candidate);
+      }
+    return plans.get(target)?.ids[0];
+  };
   if (scenario.foot.length)
     add({
       kind: "gather",
@@ -312,14 +351,15 @@ export function scoringSequence(
                 pile: acceptedBook.id,
               }))
             : [];
+      else if ((!state.redsQualified || state.redsBroken) && state.reds.length)
+        available = state.reds.map((face) => ({ face, pile: "reds" }));
       if (!available.length) {
+        const automaticPile = settlement ? undefined : automaticBonusPile();
         const book = settlement
           ? acceptedBook?.complete
             ? acceptedBook
             : undefined
-          : state.melds
-              .filter((meld) => meld.complete)
-              .sort((a, b) => a.bonus - b.bonus || a.id.localeCompare(b.id))[0];
+          : state.melds.find((meld) => meld.id === automaticPile);
         if (book) {
           add({
             kind: "break",
@@ -350,7 +390,7 @@ export function scoringSequence(
         if (settlement && !settlement.complete) {
           add({
             kind: "wait",
-            title: `Choose a pile to cover ${state.remaining} points, or cover automatically.`,
+            title: "Settling your remaining cards automatically.",
             duration: 0,
           });
           return beats;

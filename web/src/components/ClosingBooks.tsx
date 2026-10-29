@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Card } from "./Card";
 import { BOOK_CLOSE_MS, type BookClosingFlight } from "../hooks/useBookClosing";
 
@@ -13,6 +13,12 @@ export function ClosingBooks({
   paused: boolean;
   direction?: "close" | "open";
 }) {
+  const layer = useRef<HTMLDivElement>(null);
+  const [origin, setOrigin] = useState({ left: 0, top: 0 });
+  useLayoutEffect(() => {
+    const rect = layer.current?.getBoundingClientRect();
+    if (rect) setOrigin({ left: rect.left, top: rect.top });
+  }, [flight.key]);
   const openingPiles =
     direction === "open"
       ? [
@@ -27,6 +33,7 @@ export function ClosingBooks({
       : [];
   return (
     <div
+      ref={layer}
       className={`book-closing-layer${direction === "open" ? " book-opening-layer" : ""}`}
       aria-hidden="true"
     >
@@ -48,8 +55,8 @@ export function ClosingBooks({
           data-opening-card-id={direction === "open" ? card.id : undefined}
           style={
             {
-              left: from.left,
-              top: from.top,
+              left: from.left - origin.left,
+              top: from.top - origin.top,
               width: from.width,
               height: from.height,
               "--book-cover-layer": cover ? 1 : 0,

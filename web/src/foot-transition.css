@@ -1,15 +1,69 @@
-.foot-transition[data-enabled="true"] > .game-page > .hand-dock {
-  min-height: 226px;
+.foot-transition[data-enabled="true"]:not([data-mobile="true"])
+  > .game-page
+  > .hand-dock {
+  min-height: var(--table-hand-height, 226px);
 }
-.foot-transition[data-enabled="true"] .empty-hand {
+.foot-transition[data-enabled="true"]:not([data-mobile="true"]) .empty-hand {
   min-height: 134px;
   margin: 0;
 }
 .foot-transition[data-gathering="true"] .hand-scroll {
   overflow: visible;
 }
-.foot-transition[data-gathering="true"] .hand-card {
+.foot-transition[data-gathering="true"]:not([data-mobile="true"]) .hand-card {
   animation: foot-hand-gather var(--foot-flight-duration) var(--foot-delay) both;
+}
+.mobile-foot-flight-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+.mobile-foot-card {
+  position: absolute;
+  pointer-events: none;
+  animation: mobile-foot-gather 500ms cubic-bezier(0.22, 0.68, 0.26, 1) both;
+}
+.mobile-foot-card > .card {
+  width: 100%;
+  height: 100%;
+}
+.mobile-foot-card[data-overflow="true"] {
+  animation-name: mobile-foot-gather-overflow;
+}
+.hand-card[data-foot-hidden="true"] {
+  visibility: hidden;
+}
+@keyframes mobile-foot-gather {
+  from {
+    opacity: 0;
+    transform: scale(var(--foot-source-scale-x), var(--foot-source-scale-y))
+      rotate(-7deg);
+  }
+  15% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translate(var(--foot-end-x), var(--foot-end-y)) scale(1)
+      rotate(0);
+  }
+}
+@keyframes mobile-foot-gather-overflow {
+  from {
+    opacity: 0;
+    transform: scale(var(--foot-source-scale-x), var(--foot-source-scale-y))
+      rotate(-7deg);
+  }
+  15%,
+  80% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--foot-end-x), var(--foot-end-y)) scale(0.8)
+      rotate(0);
+  }
 }
 .foot-transition[data-gathering="true"] .foot-status {
   pointer-events: none;
@@ -45,6 +99,9 @@
 @media (prefers-reduced-motion: reduce) {
   .foot-transition .hand-card,
   .foot-transition .foot-status {
+    animation: none !important;
+  }
+  .mobile-foot-card {
     animation: none !important;
   }
 }

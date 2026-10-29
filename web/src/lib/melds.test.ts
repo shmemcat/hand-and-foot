@@ -117,9 +117,29 @@ it("allows matching naturals and usable wilds while excluding unrelated cards an
   );
 });
 
-it("does not substitute a wild for either of the two matching hand cards required for a new pile", () => {
+it.each(["4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"])(
+  "allows a discarded %s with one matching hand card and either wild, in either selection order",
+  (rank) => {
+    for (const wild of ["Joker", "2"]) {
+      const hand = cards(rank, wild);
+      const top = { ...discard, rank };
+      for (const selected of [[], [hand[0].id], [hand[1].id]])
+        expect([...pickupPlayableCards(hand, top, [], selected)]).toEqual(
+          hand.map((card) => card.id),
+        );
+    }
+  },
+);
+
+it("requires a complete valid meld and preserves the natural majority during pickup", () => {
+  for (const hand of [cards("8"), cards("Joker", "2"), cards("K", "Joker")])
+    expect([...pickupPlayableCards(hand, discard, [])]).toEqual([]);
+  const hand = cards("8", "Joker", "2");
+  expect([...pickupPlayableCards(hand, discard, [])]).toEqual(
+    hand.map((card) => card.id),
+  );
   expect([
-    ...pickupPlayableCards(cards("8", "Joker", "2"), discard, []),
+    ...pickupPlayableCards(hand, discard, [], [hand[1].id, hand[2].id]),
   ]).toEqual([]);
 });
 
@@ -133,7 +153,7 @@ it("finds straight-flush completions, excludes gaps, wrong suits and duplicate r
   );
 });
 
-it("lets hand cards join a legal existing pickup but excludes six-card targets", () => {
+it("allows existing or new pickup piles while excluding six-card targets", () => {
   const hand = cards("8", "Joker", "Q").map((card) => ({
     ...card,
     id: `hand-${card.id}`,
@@ -142,8 +162,13 @@ it("lets hand cards join a legal existing pickup but excludes six-card targets",
     ...pickupPlayableCards(hand, discard, [pickupPile(["8", "8", "8"])]),
   ]).toEqual(hand.slice(0, 2).map((card) => card.id));
   expect([
-    ...pickupPlayableCards(hand, discard, [pickupPile(Array(6).fill("8"))]),
+    ...pickupPlayableCards(hand.slice(1), discard, [
+      pickupPile(Array(6).fill("8")),
+    ]),
   ]).toEqual([]);
+  expect([
+    ...pickupPlayableCards(hand, discard, [pickupPile(Array(6).fill("8"))]),
+  ]).toEqual(hand.slice(0, 2).map((card) => card.id));
 });
 
 it("keeps a natural majority when suggesting additional wild cards", () => {
@@ -192,24 +217,19 @@ it("allows a wild to close an open clean pile, and only extends a dirty book wit
   ).toBe(false);
 });
 
-it("only suggests naturals for pickup onto a completed clean book without blocking a separate dirty pile", () => {
+it("preserves a completed clean book while allowing pickup into a separate dirty pile", () => {
   const hand = cards("8", "Joker").map((card) => ({
     ...card,
     id: `hand-${card.id}`,
   }));
   const clean = pickupPile(Array(7).fill("8"));
-  expect([...pickupPlayableCards(hand, discard, [clean])]).toEqual([
-    hand[0].id,
-  ]);
+  expect([...pickupPlayableCards(hand, discard, [clean])]).toEqual(
+    hand.map((card) => card.id),
+  );
   expect([
     ...pickupPlayableCards(hand, discard, [clean], [hand[1].id]),
-  ]).toEqual([]);
-  const extraNatural = { ...hand[0], id: "second-natural" };
-  expect(
-    pickupPlayableCards([...hand, extraNatural], discard, [clean]).has(
-      hand[1].id,
-    ),
-  ).toBe(true);
+  ]).toEqual(hand.map((card) => card.id));
+  expect(canExtendMeld(clean, [discard, ...hand])).toBe(false);
 });
 
 it("rejects pickup guidance for a three or a wild discard", () => {

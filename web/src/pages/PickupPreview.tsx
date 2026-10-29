@@ -155,7 +155,7 @@ export function PickupPreview() {
         <span className="pickup-sound">
           Sound:{" "}
           {beat.sound === "select"
-            ? "card selection"
+            ? "single card placement"
             : beat.sound === "slide"
               ? "card slide"
               : beat.sound === "deal"

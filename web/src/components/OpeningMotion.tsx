@@ -185,7 +185,12 @@ export function OpeningMotion({
   useLayoutEffect(() => {
     if (state.step !== 5 || !root.current) return;
     const board = root.current;
-    const cards = [...board.querySelectorAll<HTMLElement>(".hand-card")];
+    const cards = [...board.querySelectorAll<HTMLElement>(".hand-card")].filter(
+      (card) => {
+        const bounds = card.getBoundingClientRect();
+        return bounds.width > 0 && bounds.height > 0;
+      },
+    );
     cards.forEach((card) => {
       card.style.animation = "none";
     });

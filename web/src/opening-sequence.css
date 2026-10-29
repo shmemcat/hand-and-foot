@@ -12,22 +12,21 @@
   min-height: 390px;
 }
 .game-page.round-opened > .hand-dock {
-  min-height: 214px;
+  min-height: var(--table-hand-height, 214px);
 }
-/* Reserve the full Choose board and hand area before their contents appear. */
+/* Reserve the gameplay board, navigation and hand before they appear. */
 .opening-board > .game-page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "header"
     "hint"
     "table"
     "navigation"
     "hand";
-  grid-template-rows: auto 52px minmax(390px, auto) 51px 155px;
-}
-.opening-board > .game-page.round-opened {
-  /* Include the eventual turn controls before those controls are enabled. */
-  grid-template-rows: auto 52px minmax(390px, auto) 51px 214px;
+  grid-template-rows:
+    auto 52px minmax(390px, auto) 72px
+    var(--table-hand-height, 214px);
 }
 .opening-board > .game-page > .game-header {
   grid-area: header;

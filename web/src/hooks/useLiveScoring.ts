@@ -21,7 +21,6 @@ export function useLiveScoring(
     scenario: ScoringScenario;
   } | null>(null);
   const [step, setStep] = useState(0);
-  const [paused, setPaused] = useState(false);
   const [hidden, setHidden] = useState(document.hidden);
   const review = useRef<Snapshot["scoring"]>(null);
   const eligible =
@@ -61,7 +60,6 @@ export function useLiveScoring(
       },
     });
     setStep(0);
-    setPaused(false);
   }, [eligible, scope, incoming?.scoring, origin?.scope]);
   const accepted = active ? review.current : null;
   const beats = useMemo(
@@ -86,14 +84,13 @@ export function useLiveScoring(
     return () => document.removeEventListener("visibilitychange", visibility);
   }, []);
   useEffect(() => {
-    if (!beat || paused || hidden || ["wait", "total"].includes(beat.kind))
-      return;
+    if (!beat || hidden || ["wait", "total"].includes(beat.kind)) return;
     const timer = window.setTimeout(
       () => setStep(index + 1),
       reduced ? 100 : beat.duration,
     );
     return () => clearTimeout(timer);
-  }, [key, paused, hidden, reduced]);
+  }, [key, hidden, reduced]);
   let snapshot = incoming;
   if (active && incoming && beat && origin) {
     const team = origin.snapshot.scoring!.team;
@@ -134,17 +131,8 @@ export function useLiveScoring(
     snapshot,
     beat,
     key,
-    paused: paused || hidden,
+    paused: hidden,
     waiting: beat?.kind === "wait",
     done: beat?.kind === "total",
-    toggle: () => setPaused((value) => !value),
-    skip: () => {
-      setStep(Math.max(0, beats.length - 1));
-      setPaused(false);
-    },
-    replay: () => {
-      setStep(0);
-      setPaused(false);
-    },
   };
 }

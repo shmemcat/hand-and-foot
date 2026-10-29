@@ -62,3 +62,26 @@ def test_event_history_is_bounded():
         engine.table_event(game, game["players"][0], "draw", count=2)
     assert len(game["tableEvents"]) == 32
     assert len({event["id"] for event in game["tableEvents"]}) == 32
+
+
+@pytest.mark.parametrize("action", ["discard", "meld"])
+def test_foot_pickup_announcements_reach_every_viewer_without_private_cards(action):
+    game = rig()
+    player = game["players"][0]
+    player.update(hand=take(game, "A", 1 if action == "discard" else 3), foot=take(game, "8", 11))
+    private = list(player["foot"])
+    game["sides"][0]["opened"] = True
+    move = {"type": action}
+    if action == "discard":
+        move["cardId"] = player["hand"][0]
+    else:
+        move["groups"] = [{"cardIds": list(player["hand"])}]
+    game = engine.apply(game, 0, move)
+    for viewer in game["players"]:
+        event = engine.project(game, viewer["id"])["tableEvents"][-1]
+        assert event["kind"] == "foot" and event["playerId"] == "0"
+        assert event["count"] == 11 and event["card"] is None
+        assert not any(card_id in str(event) for card_id in private)
+    engine.enter_foot(game, game["players"][0])
+    assert sum(event["kind"] == "foot" for event in game["tableEvents"]) == 1
+    engine.assert_conservation(game)

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Snapshot } from "../types";
 
 export function GameMenu({
@@ -6,11 +6,13 @@ export function GameMenu({
   onView,
   onScores,
   onLeave,
+  children,
 }: {
   snapshot: Snapshot;
   onView: (side: number) => void;
   onScores: () => void;
   onLeave: () => void;
+  children?: ReactNode;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
   const close = (restoreFocus = false) => {
@@ -55,6 +57,7 @@ export function GameMenu({
         </svg>
       </summary>
       <div className="game-menu-panel">
+        {children}
         <h2>Scores</h2>
         <p>
           Round {snapshot.round} · Play to{" "}

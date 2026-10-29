@@ -579,8 +579,8 @@ export function ScoringPreview() {
         ["bonus", "break"].includes(beat.kind) && (
           <style>
             {beat.activePile === "reds"
-              ? ".score-native-stage .red-three-stack {outline:2px solid var(--secondary);outline-offset:7px;}"
-              : `.score-native-stage [data-meld-id="${beat.activePile}"] > button {outline:2px solid var(--secondary);outline-offset:7px;}`}
+              ? ".score-native-stage .red-three-stack {--score-pile-outline:var(--secondary);}"
+              : `.score-native-stage [data-meld-id="${beat.activePile}"] > button {--score-pile-outline:var(--secondary);}`}
           </style>
         )}
       {flights.map((flight) => (

@@ -53,7 +53,7 @@ function Table({
         </div>
       </header>
       <h2>Your board</h2>
-      <output>{view.phase}</output>
+      <output data-actor={view.actorId}>{view.phase}</output>
       {view.hand.map((card) => (
         <div className="hand-card" data-card-id={card.id} key={card.id}>
           <Card card={card} />
@@ -221,6 +221,58 @@ it("plays batched draw and discard cues in order without replaying polling snaps
   view.unmount();
   const joined = render(<Table snapshot={after} />);
   expect(joined.container.querySelector(".table-flight-layer")).toBeNull();
+});
+
+it("does not cut an unfinished discard short when another player goes out", () => {
+  const source = before();
+  const view = render(<Table snapshot={source} />);
+  const after: Snapshot = {
+    ...source,
+    phase: "draw",
+    actorId: "opening-seat-2",
+    discard: discard.card,
+    discardCount: source.discardCount + 1,
+    tableEvents: [discard],
+  };
+  view.rerender(<Table snapshot={after} />);
+  act(() => vi.advanceTimersByTime(200));
+  const ending: TableEvent = {
+    ...discard,
+    id: "next-player-out",
+    playerId: "opening-seat-2",
+    faceDown: true,
+    card: null,
+  };
+  view.rerender(
+    <Table
+      snapshot={{
+        ...after,
+        phase: "scoring",
+        actorId: null,
+        discard: null,
+        discardFaceDown: true,
+        tableEvents: [discard, ending],
+      }}
+    />,
+  );
+  act(() => vi.advanceTimersByTime(DISCARD_FLIGHT_MS - 201));
+  expect(
+    view.container.querySelector("output")?.getAttribute("data-actor"),
+  ).toBe(discard.playerId);
+  expect(
+    view.container.querySelector('.table-card-flight[data-face-down="false"]'),
+  ).toBeTruthy();
+  act(() => vi.advanceTimersByTime(1));
+  expect(
+    view.container.querySelector("output")?.getAttribute("data-actor"),
+  ).toBe(ending.playerId);
+  expect(
+    view.container.querySelector('.table-card-flight[data-face-down="true"]'),
+  ).toBeTruthy();
+  act(() => vi.advanceTimersByTime(DISCARD_FLIGHT_MS));
+  expect(view.container.querySelector("output")?.textContent).toBe("play");
+  act(() => vi.advanceTimersByTime(GOING_OUT_PAUSE_MS));
+  expect(view.container.querySelector("output")?.textContent).toBe("scoring");
 });
 
 it("shows another player's going-out discard as a back and waits for it to land before scoring", () => {

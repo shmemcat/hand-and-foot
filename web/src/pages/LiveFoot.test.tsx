@@ -4,8 +4,15 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Room } from "./Room";
 import { command, getRoom } from "../lib/api";
 import { footSnapshot, type FootEntry } from "../lib/footSequence";
-import { FOOT_SETTLE_MS, footGatherDuration } from "../lib/footMotion";
+import {
+  FOOT_GATHER_DELAY_MS,
+  FOOT_SETTLE_MS,
+  footGatherDuration,
+} from "../lib/footMotion";
+import { DISCARD_FLIGHT_MS } from "../hooks/useTableMotion";
 import { MELD_FLIGHT_MS } from "../hooks/useMeldMotion";
+import { MOBILE_PLAY_MS } from "../hooks/useMobilePlayMotion";
+import { BOOK_CLOSE_MS } from "../hooks/useBookClosing";
 import type { Snapshot } from "../types";
 
 const sound = vi.hoisted(() => ({ play: vi.fn() }));
@@ -44,6 +51,12 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 const hand = () =>
   within(screen.getByRole("region", { name: "Your private hand" }));
+const footBadge = (playerId: string) => {
+  const name = document.querySelector(
+    `.player-board-nav [data-player-id="${playerId}"]`,
+  );
+  return name?.closest("button")?.querySelector(".board-player-foot");
+};
 const advance = async (time: number) =>
   act(async () => {
     vi.advanceTimersByTime(time);
@@ -213,8 +226,8 @@ it("retains newer bot updates when the human's next turn arrives during the casc
   ).toBe(true);
 });
 
-it.each(["mobile", "online", "reduced"] as const)(
-  "keeps the existing immediate foot update for %s",
+it.each(["online", "reduced"] as const)(
+  "finishes the foot pickup correctly for %s",
   async (mode) => {
     const [before, after] = pair("discard");
     if (mode === "online") {
@@ -225,7 +238,7 @@ it.each(["mobile", "online", "reduced"] as const)(
       vi.mocked(window.matchMedia).mockImplementation(
         (query) =>
           ({
-            matches: mode === "reduced",
+            matches: mode === "reduced" && query !== "(max-width: 768px)",
             addEventListener: vi.fn(),
             removeEventListener: vi.fn(),
           }) as unknown as MediaQueryList,
@@ -233,6 +246,14 @@ it.each(["mobile", "online", "reduced"] as const)(
     vi.mocked(command).mockResolvedValue(after);
     await show(before);
     await enter("discard");
+    if (mode === "online") {
+      expect(document.querySelector(".meld-card-flight")).toBeTruthy();
+      await advance(MELD_FLIGHT_MS + FOOT_SETTLE_MS);
+      expect(
+        document.querySelector('.foot-transition[data-gathering="true"]'),
+      ).toBeTruthy();
+      await advance(footGatherDuration(11));
+    }
     expect(hand().getAllByRole("button", { name: / of / })).toHaveLength(11);
     expect(
       screen.queryByRole("group", { name: "Your foot, 11 cards" }),
@@ -243,6 +264,136 @@ it.each(["mobile", "online", "reduced"] as const)(
     ).toBeNull();
   },
 );
+
+function mobile(reduced = false) {
+  vi.mocked(window.matchMedia).mockImplementation(
+    (query) =>
+      ({
+        matches:
+          query === "(max-width: 768px)" ||
+          (reduced && query === "(prefers-reduced-motion: reduce)"),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }) as unknown as MediaQueryList,
+  );
+}
+it.each(["play", "discard"] as const)(
+  "cascades every mobile foot card after the final %s lands",
+  async (entry) => {
+    mobile();
+    const [before, after] = pair(entry);
+    before.playMode = after.playMode = "online";
+    vi.mocked(command).mockResolvedValue(after);
+    await show(before);
+    fireEvent.click(
+      screen.getByRole("button", { name: /your hand.*open hand/i }),
+    );
+    await enter(entry);
+    expect(document.querySelectorAll(".mobile-play-card")).toHaveLength(1);
+    expect(document.querySelector(".mobile-foot-card")).toBeNull();
+    expect(document.querySelector(".meld-card-flight")).toBeNull();
+    await advance(MOBILE_PLAY_MS);
+    expect(document.querySelector(".mobile-foot-card")).toBeNull();
+    await advance(FOOT_SETTLE_MS);
+    expect(document.querySelectorAll(".mobile-foot-card")).toHaveLength(11);
+    expect(
+      document.querySelectorAll('.hand-card[data-foot-hidden="true"]'),
+    ).toHaveLength(10);
+    expect(
+      screen
+        .getByRole("button", { name: /your foot.*11 cards/i })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(
+      screen.getByRole("group", { name: "Your foot, 11 cards" }),
+    ).toBeTruthy();
+    await advance(footGatherDuration(11));
+    expect(document.querySelector(".mobile-foot-card")).toBeNull();
+    expect(
+      document.querySelector('.hand-card[data-foot-hidden="true"]'),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Your foot, 11 cards" }),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: /your foot.*11 cards/i })
+        .hasAttribute("disabled"),
+    ).toBe(false);
+    expect(
+      hand().getByRole("button", { name: "Next hand cards" }),
+    ).toBeTruthy();
+    expect(
+      document.querySelector(".hand-scroll .card")?.hasAttribute("disabled"),
+    ).toBe(entry === "discard");
+    await refresh({ ...after, revision: 2 });
+    expect(document.querySelector(".mobile-foot-card")).toBeNull();
+    expect(
+      sound.play.mock.calls.filter(([name]) => name === "deal"),
+    ).toHaveLength(1);
+  },
+);
+
+it("settles a mobile foot pickup immediately with reduced motion", async () => {
+  mobile(true);
+  const [before, after] = pair("play");
+  vi.mocked(command).mockResolvedValue(after);
+  await show(before);
+  fireEvent.click(
+    screen.getByRole("button", { name: /your hand.*open hand/i }),
+  );
+  await enter("play");
+  expect(document.querySelector(".mobile-foot-card")).toBeNull();
+  expect(
+    screen.queryByRole("group", { name: "Your foot, 11 cards" }),
+  ).toBeNull();
+});
+
+it("finishes a mobile book before cascading the foot picked up by that same meld", async () => {
+  mobile();
+  const [before, after] = pair("play");
+  const extras = Array.from({ length: 3 }, (_, i) => ({
+    ...before.sides[0].melds[0].cards[0],
+    id: `book-extra-${i}`,
+  }));
+  before.sides[0].melds[0].cards.push(...extras);
+  after.sides[0].melds[0].cards.push(...extras);
+  after.sides[0].melds[0].complete = true;
+  vi.mocked(command).mockResolvedValue(after);
+  await show(before);
+  fireEvent.click(
+    screen.getByRole("button", { name: /your hand.*open hand/i }),
+  );
+  await enter("play");
+  await advance(MOBILE_PLAY_MS);
+  expect(document.querySelectorAll(".book-closing-card")).toHaveLength(7);
+  expect(document.querySelector(".mobile-foot-card")).toBeNull();
+  await advance(BOOK_CLOSE_MS);
+  await advance(FOOT_SETTLE_MS);
+  expect(document.querySelectorAll(".mobile-foot-card")).toHaveLength(11);
+  await advance(footGatherDuration(11));
+  expect(document.querySelector(".mobile-foot-card")).toBeNull();
+});
+
+it("settles a mobile foot pickup to the current hand when interrupted", async () => {
+  mobile();
+  const [before, after] = pair("play");
+  vi.mocked(command).mockResolvedValue(after);
+  await show(before);
+  fireEvent.click(
+    screen.getByRole("button", { name: /your hand.*open hand/i }),
+  );
+  await enter("play");
+  await advance(MOBILE_PLAY_MS);
+  await advance(FOOT_SETTLE_MS);
+  expect(document.querySelectorAll(".mobile-foot-card")).toHaveLength(11);
+  await act(async () => window.dispatchEvent(new Event("resize")));
+  expect(document.querySelector(".mobile-foot-card")).toBeNull();
+  expect(
+    document.querySelector('.hand-card[data-foot-hidden="true"]'),
+  ).toBeNull();
+  expect(document.querySelectorAll(".hand-scroll .hand-card")).toHaveLength(10);
+});
 
 it("does not replay foot entry on rejoining and cancels to the current state when resized", async () => {
   const [before, after] = pair("play");
@@ -303,4 +454,157 @@ it("uses the divider for a last-hand discard from another board before opening t
     document.querySelector('.foot-transition[data-gathering="true"]'),
   ).toBeTruthy();
   expect(document.querySelectorAll(".hand-card")).toHaveLength(11);
+});
+
+it.each(["play", "discard"] as const)(
+  "announces your %s pickup for the entire deal with one card fan sound",
+  async (entry) => {
+    const [before, after] = pair(entry);
+    before.playMode = after.playMode = "online";
+    vi.mocked(command).mockResolvedValue(after);
+    await show(before);
+    expect(footBadge(before.viewerId)?.getAttribute("data-visible")).toBe(
+      "true",
+    );
+    await enter(entry);
+    await advance(MELD_FLIGHT_MS);
+    expect(footBadge(before.viewerId)?.getAttribute("data-visible")).toBe(
+      "true",
+    );
+    await advance(FOOT_SETTLE_MS);
+    const notice = () => document.querySelector(".foot-pickup-notice");
+    expect(notice()?.textContent).toBe("You picked up their foot!");
+    expect(footBadge(before.viewerId)?.getAttribute("data-visible")).toBe(
+      "false",
+    );
+    expect(footBadge(before.viewerId)?.getAttribute("data-pickup")).toBe(
+      "true",
+    );
+    await advance(FOOT_GATHER_DELAY_MS);
+    expect(
+      sound.play.mock.calls.filter(([name]) => name === "deal"),
+    ).toHaveLength(1);
+    await refresh({ ...after, revision: 2, token: "newer-update" });
+    expect(footBadge(before.viewerId)?.getAttribute("data-visible")).toBe(
+      "false",
+    );
+    await advance(footGatherDuration(11) - FOOT_GATHER_DELAY_MS - 1);
+    expect(notice()).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
+    await advance(1);
+    expect(notice()).toBeNull();
+    expect(
+      screen.getByRole("region", {
+        name: entry === "discard" ? "Poppy’s board" : "Your board",
+      }),
+    ).toBeTruthy();
+    expect(
+      sound.play.mock.calls.filter(([name]) => name === "deal"),
+    ).toHaveLength(1);
+  },
+);
+
+it.each(["desktop", "mobile", "reduced"] as const)(
+  "announces another player's pickup on %s and follows the next board after the popup",
+  async (layout) => {
+    if (layout === "mobile") mobile();
+    if (layout === "reduced")
+      vi.mocked(window.matchMedia).mockImplementation(
+        (query) =>
+          ({
+            matches: query !== "(max-width: 768px)",
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+          }) as unknown as MediaQueryList,
+      );
+    const [before] = pair("play");
+    before.playMode = "online";
+    before.actorId = before.players[1].id;
+    const after: Snapshot = {
+      ...before,
+      revision: 2,
+      token: "other-foot",
+      phase: "draw",
+      actorId: before.players[2].id,
+      players: before.players.map((player, index) =>
+        index === 1
+          ? { ...player, inFoot: true, footCount: 0, handCount: 11 }
+          : player,
+      ),
+      discard: { ...before.hand[0], id: "other-discard" },
+      discardCount: before.discardCount + 1,
+      tableEvents: [
+        {
+          id: "other-discard",
+          kind: "discard",
+          playerId: before.players[1].id,
+          count: 1,
+          card: { ...before.hand[0], id: "other-discard" },
+          faceDown: false,
+        },
+        {
+          id: "other-foot",
+          kind: "foot",
+          playerId: before.players[1].id,
+          count: 11,
+          card: null,
+          faceDown: false,
+        },
+      ],
+    };
+    await show(before);
+    const playerId = before.players[1].id;
+    expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("true");
+    expect(footBadge(playerId)?.getAttribute("aria-label")).toBe(
+      "Foot not picked up",
+    );
+    await refresh(after);
+    if (layout !== "reduced") {
+      expect(document.querySelector(".foot-pickup-notice")).toBeNull();
+      expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("true");
+      await advance(DISCARD_FLIGHT_MS);
+    }
+    const notice = () => document.querySelector(".foot-pickup-notice");
+    expect(notice()?.textContent).toBe("Poppy picked up their foot!");
+    expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("false");
+    expect(footBadge(playerId)?.getAttribute("data-pickup")).toBe("true");
+    expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
+    expect(document.querySelector(".mobile-foot-card")).toBeNull();
+    await advance(FOOT_GATHER_DELAY_MS);
+    expect(
+      sound.play.mock.calls.filter(([name]) => name === "deal"),
+    ).toHaveLength(1);
+    await refresh({ ...after, revision: 3 });
+    expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("false");
+    await advance(footGatherDuration(11) - FOOT_GATHER_DELAY_MS - 1);
+    expect(notice()).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
+    await advance(1);
+    expect(notice()).toBeNull();
+    expect(footBadge(playerId)?.getAttribute("data-visible")).toBe("false");
+    expect(screen.getByRole("region", { name: "Hazel’s board" })).toBeTruthy();
+    await refresh({ ...after, revision: 4 });
+    expect(notice()).toBeNull();
+    expect(
+      sound.play.mock.calls.filter(([name]) => name === "deal"),
+    ).toHaveLength(1);
+  },
+);
+
+it("does not replay an old pickup announcement or sound on rejoining", async () => {
+  const [, after] = pair("discard");
+  after.tableEvents = [
+    {
+      id: "old-foot",
+      kind: "foot",
+      playerId: after.players[1].id,
+      count: 11,
+      card: null,
+      faceDown: false,
+    },
+  ];
+  await show(after);
+  await advance(footGatherDuration(11));
+  expect(document.querySelector(".foot-pickup-notice")).toBeNull();
+  expect(sound.play).not.toHaveBeenCalledWith("deal");
 });

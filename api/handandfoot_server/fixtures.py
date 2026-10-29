@@ -1,4 +1,4 @@
-"""Development-only table, hand, and interactive scoring fixtures."""
+"""Development-only table, hand, and scoring fixtures."""
 from . import engine
 from .rules import RANKS, meld_details
 
@@ -199,7 +199,7 @@ def populate(game, fixture):
         game["players"][0]["hand"] = take("3", 1, "clubs") + take("A")
         partner = next(p for p in game["players"] if p["team"] == 0 and p["id"] != game["players"][0]["id"])
         partner["hand"] = take("4")
-        engine.finish_round(game, None, "The round is over. Choose which books cover your debt.")
+        engine.finish_round(game, None, "The round is over. Covering your debt automatically.")
     elif fixture == "catchup":
         game["sides"][0]["score"] = -6000
         game["phase"] = "draw"

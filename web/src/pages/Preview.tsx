@@ -28,6 +28,9 @@ export function Preview() {
         Available only on the local development server.
       </p>
       <div className="setup-form">
+        <Link className="button secondary" to="/preview/mobile">
+          Mobile table · hand drawer & long hands
+        </Link>
         <Link className="button secondary" to="/preview/endings">
           End of round & game · all result screens
         </Link>
@@ -85,7 +88,7 @@ export function Preview() {
           ["open-13", "Thirteen open melds · full-width row"],
           ["open-14", "Fourteen open melds · overflow row"],
           ["six-card", "Six-card reminder · spacious board"],
-          ["scoring", "Interactive scoring review"],
+          ["scoring", "Automatic scoring review"],
           ["score-choreography", "Live scoring · foot, debt & broken book"],
           ["score-reds", "Live scoring · ace vs three red 3s"],
           ["score-exhausted", "Live scoring · deck exhausted"],

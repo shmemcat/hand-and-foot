@@ -11,7 +11,11 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { command, getRoom } from "../lib/api";
 import type { Snapshot } from "../types";
 import { Room } from "./Room";
-import { DRAW_FLIGHT_MS, DRAW_STAGGER_MS } from "../hooks/useDrawMotion";
+import {
+  DRAW_FLIGHT_MS,
+  DRAW_STAGGER_MS,
+  RED_REPLACEMENT_MS,
+} from "../hooks/useDrawMotion";
 import { MELD_FLIGHT_MS } from "../hooks/useMeldMotion";
 import party from "party-js";
 import { ENDING_EXAMPLES, endingSnapshot } from "../lib/endingExamples";
@@ -346,7 +350,8 @@ it("lands a partner's red-three play in the team's combined pile", async () => {
   expect(reds.querySelectorAll(".card")).toHaveLength(3);
 });
 
-it("runs live scoring on the board, accepts a pile choice and confirms only after the count", async () => {
+it("settles debt and opens round results after the count without scoring choices, even while browsing", async () => {
+  vi.useFakeTimers();
   const source = fixture();
   source.phase = "scoring";
   source.actorId = "bot";
@@ -419,33 +424,201 @@ it("runs live scoring on the board, accepts a pile choice and confirms only afte
       },
     },
   };
-  vi.mocked(command).mockResolvedValue(paid);
+  const result: Snapshot = {
+    ...paid,
+    revision: 3,
+    phase: "round_over",
+    scoring: null,
+    history: [
+      {
+        round: source.round,
+        reason: source.scoring.reason,
+        scores: [paid.scoring.score],
+      },
+    ],
+    sides: paid.sides.map((side) => ({
+      ...side,
+      score: side.score + (side.id === 0 ? paid.scoring.score.total : 0),
+    })),
+  };
+  vi.mocked(command).mockResolvedValueOnce(paid).mockResolvedValue(result);
   openRoom();
-  await screen.findByRole("group", { name: "Running round score" });
-  expect(screen.queryByRole("dialog")).toBeNull();
-  expect(screen.queryByRole("button", { name: "Confirm score" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Skip animation" }));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Use red threes to cover debt" }),
-  );
-  await waitFor(() =>
-    expect(command).toHaveBeenCalledWith(source, "score_pay", {
-      pileId: "reds:0",
-    }),
-  );
-  await screen.findByText(
-    "Red threes open for reconciliation. Each is worth 5 points.",
-  );
-  expect(screen.queryByRole("button", { name: "Confirm score" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Skip animation" }));
+  await act(async () => {});
   expect(
-    screen.getByRole("group", { name: "Running round score" }).textContent,
-  ).toContain("5");
-  fireEvent.click(screen.getByRole("button", { name: "Confirm score" }));
-  await waitFor(() =>
-    expect(command).toHaveBeenCalledWith(paid, "score_confirm", {}),
-  );
+    screen.getByRole("group", { name: "Running round score" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen.queryByRole("button", {
+      name: /Pause count|Skip animation|Confirm score|Cover automatically|cover debt|Use this pile/,
+    }),
+  ).toBeNull();
+  expect(command).toHaveBeenCalledExactlyOnceWith(source, "score_auto", {});
+  await act(async () => vi.advanceTimersByTime(1200));
+  expect(
+    screen.getByText(
+      "Red threes open for reconciliation. Each is worth 5 points.",
+    ),
+  ).toBeTruthy();
+  expect(command).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Next board" }));
+  for (
+    let step = 0;
+    step < 40 && !screen.queryByRole("dialog", { name: "Score sheet" });
+    step++
+  )
+    await act(async () => vi.advanceTimersByTime(2000));
+  expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
+  expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
+  expect(command).toHaveBeenCalledTimes(2);
+  await act(async () => vi.advanceTimersByTime(6000));
+  expect(command).toHaveBeenCalledTimes(2);
 });
+
+it.each(["individual", "partnership"] as const)(
+  "automatically retries debt settlement for online %s scoring without showing choices",
+  async (scoringMode) => {
+    vi.useFakeTimers();
+    const source = fixture();
+    source.playMode = "online";
+    source.scoringMode = scoringMode;
+    source.phase = "scoring";
+    const score = {
+      team: 0,
+      cards: 60,
+      debt: 20,
+      redThrees: 0,
+      redCredit: 0,
+      books: 0,
+      goingOut: 0,
+      total: 40,
+      canceled: [],
+      lostBooks: 0,
+      broken: [],
+      uncovered: 20,
+    };
+    source.scoring = {
+      team: 0,
+      debt: 20,
+      remaining: 20,
+      canceled: [],
+      usedPiles: [],
+      broken: [],
+      confirmed: false,
+      revision: 0,
+      reason: "The stack ran out.",
+      confirmedSides: [],
+      debtBreakdown: [],
+      score,
+      options: [
+        {
+          id: "open-aces",
+          label: "Aces",
+          points: 60,
+          bonusAtRisk: 0,
+          cardIds: source.hand.map((card) => card.id),
+          redThree: false,
+        },
+      ],
+    };
+    const paid = {
+      ...source,
+      revision: 2,
+      scoring: {
+        ...source.scoring,
+        revision: 1,
+        remaining: 0,
+        options: [],
+        usedPiles: ["open-aces"],
+      },
+    };
+    const result: Snapshot = {
+      ...paid,
+      revision: 3,
+      phase: "round_over",
+      scoring: null,
+      history: [
+        { round: source.round, reason: source.scoring.reason, scores: [score] },
+      ],
+    };
+    vi.mocked(getRoom).mockResolvedValue(source);
+    vi.mocked(command)
+      .mockRejectedValueOnce(new Error("Reconnecting to the table…"))
+      .mockResolvedValueOnce(paid)
+      .mockResolvedValue(result);
+    openRoom();
+    await act(async () => {});
+    expect(command).toHaveBeenCalledExactlyOnceWith(source, "score_auto", {});
+    expect(
+      screen.queryByRole("button", {
+        name: /Cover automatically|Use this pile|cover debt|confirm.*score/i,
+      }),
+    ).toBeNull();
+    expect(
+      within(
+        screen.getByRole("dialog", { name: "Settle your side’s score" }),
+      ).getByRole("status").textContent,
+    ).toContain("Covering leftover cards automatically");
+    await act(async () => vi.advanceTimersByTime(1499));
+    expect(command).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(command).toHaveBeenCalledTimes(3);
+    expect(command).toHaveBeenNthCalledWith(2, source, "score_auto", {});
+    expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
+    expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
+  },
+);
+
+it.each(["round-partners", "game-partners"])(
+  "automatically submits a settled %s score and retries a failed request",
+  async (id) => {
+    vi.useFakeTimers();
+    const result = endingSnapshot(
+      ENDING_EXAMPLES.find((item) => item.id === id)!,
+    );
+    result.code = "REVIEW";
+    const score = result.history.at(-1)!.scores[0];
+    const source: Snapshot = {
+      ...result,
+      phase: "scoring",
+      scoring: {
+        team: 0,
+        debt: 0,
+        remaining: 0,
+        canceled: [],
+        usedPiles: [],
+        broken: [],
+        confirmed: false,
+        revision: 0,
+        reason: result.message,
+        confirmedSides: [],
+        debtBreakdown: [],
+        options: [],
+        score,
+      },
+    };
+    vi.mocked(getRoom).mockResolvedValue(source);
+    vi.mocked(command)
+      .mockRejectedValueOnce(new Error("Reconnecting to the table…"))
+      .mockResolvedValue(result);
+    openRoom();
+    await act(async () => {});
+    expect(command).toHaveBeenCalledExactlyOnceWith(
+      source,
+      "score_confirm",
+      {},
+    );
+    expect(
+      screen.queryByRole("button", { name: /confirm.*score/i }),
+    ).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Score sheet" })).toBeNull();
+    await act(async () => vi.advanceTimersByTime(1499));
+    expect(command).toHaveBeenCalledTimes(1);
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(command).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
+  },
+);
 
 it.each([
   [50, 0, "9", 3, "4", 4],
@@ -775,7 +948,7 @@ it("browses individual boards while keeping the private hand and using a real fo
   expect(follow.checked).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Next board" }));
   expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
-  expect(follow.checked).toBe(false);
+  expect(follow.checked).toBe(true);
   expect(
     within(
       screen.getByRole("region", { name: "Your private hand" }),
@@ -786,6 +959,8 @@ it("browses individual boards while keeping the private hand and using a real fo
   });
   expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Next board" }));
+  fireEvent.click(follow);
+  expect(follow.checked).toBe(false);
   fireEvent.click(follow);
   expect(follow.checked).toBe(true);
   expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
@@ -826,7 +1001,7 @@ it("lists individual players in board order and keeps viewed, turn, and dealer m
   expect(
     (screen.getByRole("checkbox", { name: "Follow turn" }) as HTMLInputElement)
       .checked,
-  ).toBe(false);
+  ).toBe(true);
   const next = { ...snapshot, revision: 2, token: "turn-2", actorId: "bot" };
   vi.mocked(getRoom).mockResolvedValue(next);
   await act(async () => vi.advanceTimersByTime(3000));
@@ -1102,7 +1277,7 @@ it.each([2, 3])(
     vi.mocked(getRoom).mockResolvedValue(drawn);
     await act(async () => vi.advanceTimersByTime(3000));
     expect(document.querySelector(".draw-flight-layer")).toBeNull();
-    expect(sound.play).toHaveBeenCalledExactlyOnceWith("deal");
+    expect(sound.play).toHaveBeenCalledExactlyOnceWith("select");
   },
 );
 
@@ -1164,6 +1339,7 @@ it.each([false, true])(
     for (const card of hand.getAllByRole("button", { name: /^A of/ }))
       fireEvent.click(card);
     fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
+    sound.play.mockClear();
     await act(async () =>
       fireEvent.click(
         screen.getByRole("button", {
@@ -1190,6 +1366,7 @@ it.each([false, true])(
     expect(document.querySelector(".meld-flight-layer")).toBeNull();
     expect(document.querySelectorAll(".hand-card")).toHaveLength(1);
     expect(document.querySelector('[data-meld-hidden="true"]')).toBeNull();
+    expect(sound.play).toHaveBeenCalledExactlyOnceWith("select");
   },
 );
 
@@ -1687,6 +1864,77 @@ it("includes the top discard when detecting a staged matching pile", async () =>
   );
 });
 
+it.each(
+  ["Joker", "2"].flatMap((wild) =>
+    [false, true].map((wildFirst) => ({ wild, wildFirst })),
+  ),
+)(
+  "stages and submits the discarded king with one king and $wild (wild first: $wildFirst)",
+  async ({ wild, wildFirst }) => {
+    const snapshot = fixture();
+    snapshot.sides[0].opened = true;
+    const king = { ...snapshot.hand[0], id: "hand-king", rank: "K", value: 10 };
+    const wildCard = {
+      ...king,
+      id: "hand-wild",
+      rank: wild,
+      suit: wild === "Joker" ? "joker" : "clubs",
+      value: wild === "Joker" ? 50 : 20,
+      wild: true,
+    };
+    snapshot.hand = [king, wildCard, { ...king, id: "ten", rank: "10" }];
+    snapshot.discard = { ...king, id: "discard-king", suit: "hearts" };
+    vi.mocked(getRoom).mockResolvedValue(snapshot);
+    vi.mocked(command).mockResolvedValue({ ...snapshot, revision: 2 });
+    openRoom();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Pick up and immediately play the top discard",
+      }),
+    );
+    const hand = within(
+      screen.getByRole("region", { name: "Your private hand" }),
+    );
+    const kingButton = hand.getByRole<HTMLButtonElement>("button", {
+      name: "K of clubs",
+    });
+    const wildButton = hand.getByRole<HTMLButtonElement>("button", {
+      name: wild === "Joker" ? "Joker, 50 points" : "2 of clubs",
+    });
+    expect(kingButton.disabled).toBe(false);
+    expect(wildButton.disabled).toBe(false);
+    expect(
+      hand.getByRole<HTMLButtonElement>("button", { name: "10 of clubs" })
+        .disabled,
+    ).toBe(true);
+    const stage = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Stage meld",
+    });
+    const buttons = wildFirst
+      ? [wildButton, kingButton]
+      : [kingButton, wildButton];
+    fireEvent.click(buttons[0]);
+    expect(stage.disabled).toBe(true);
+    fireEvent.click(buttons[1]);
+    expect(stage.disabled).toBe(false);
+    fireEvent.click(stage);
+    fireEvent.click(screen.getByRole("button", { name: "Play draft" }));
+    await waitFor(() =>
+      expect(command).toHaveBeenCalledWith(snapshot, "pickup", {
+        groups: [
+          {
+            cardIds: [
+              ...(wildFirst ? [wildCard.id, king.id] : [king.id, wildCard.id]),
+              "discard-king",
+            ],
+            kind: "set",
+          },
+        ],
+      }),
+    );
+  },
+);
+
 it("cancels a staged pickup from the discard label and restores drawing without changing cards", async () => {
   const snapshot = fixture();
   snapshot.discard = {
@@ -1786,7 +2034,7 @@ it("disables incompatible hand cards during pickup and unlocks the rest after th
   expect(
     (screen.getByRole("button", { name: "Stage meld" }) as HTMLButtonElement)
       .disabled,
-  ).toBe(true);
+  ).toBe(false);
   fireEvent.click(hand.getByRole("button", { name: "A of hearts" }));
   fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
   expect(king.disabled).toBe(false);
@@ -1874,7 +2122,7 @@ it("never offers the discard as an addition to a six-card pile", async () => {
   expect(
     screen.queryByRole("button", { name: "Add selected cards to A’s" }),
   ).toBeNull();
-  const stack = screen.getByRole("button", { name: "Inspect A’s, 6 cards" });
+  const stack = screen.getByRole("group", { name: "A’s, 6 cards" });
   expect(
     document.getElementById(stack.getAttribute("aria-describedby")!)
       ?.textContent,
@@ -1962,11 +2210,16 @@ it("only highlights piles with a natural majority and includes earlier draft add
 
 it.each(
   [false, true].flatMap((opened) =>
-    [1, 2, 3, 6].map((count) => ({ opened, count })),
+    [1, 2, 3, 6].flatMap((count) =>
+      (opened
+        ? ["Stage meld", "Add selected cards to red threes"]
+        : ["Stage meld"]
+      ).map((control) => ({ opened, count, control })),
+    ),
   ),
 )(
-  "handles $count selected red threes with the appropriate controls (opened: $opened)",
-  async ({ opened, count }) => {
+  "handles $count selected red threes using $control (opened: $opened)",
+  async ({ opened, count, control }) => {
     const snapshot = fixture();
     snapshot.phase = "play";
     snapshot.sides[0].opened = opened;
@@ -2002,12 +2255,16 @@ it.each(
       name: count === 1 ? "Replace" : "Replace from stack",
     }) as HTMLButtonElement;
     expect(replace.disabled).toBe(false);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Stage meld" })
+        .disabled,
+    ).toBe(!opened);
     if (opened) {
       const target = screen.getByRole("button", {
         name: "Add selected cards to red threes",
       });
       expect(target.closest(".legal-target")).toBeTruthy();
-      fireEvent.click(target);
+      fireEvent.click(screen.getByRole("button", { name: control }));
       expect(command).not.toHaveBeenCalled();
       expect(hand.getAllByRole("button", { name: /red three/ })).toHaveLength(
         count,
@@ -2083,6 +2340,10 @@ it("only offers red-three actions when every selected card is a red three", asyn
   expect(
     screen.queryByRole("button", { name: "Replace from stack" }),
   ).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Stage meld" })
+      .disabled,
+  ).toBe(true);
   expect(
     (screen.getByRole("button", { name: "Discard" }) as HTMLButtonElement)
       .disabled,
@@ -2235,8 +2496,7 @@ it("keeps a staged opening intact when selecting and clearing a red three", asyn
   const replace = screen.getByRole("button", {
     name: "Replace",
   }) as HTMLButtonElement;
-  expect(replace.disabled).toBe(true);
-  fireEvent.click(replace);
+  expect(replace.disabled).toBe(false);
   expect(command).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "clear selection" }));
   expect(hand.queryAllByRole("button", { pressed: true })).toHaveLength(0);
@@ -2245,3 +2505,111 @@ it("keeps a staged opening intact when selecting and clearing a red three", asyn
   expect(command).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "Play draft" })).toBeTruthy();
 });
+
+it.each(
+  [false, true].flatMap((opened) =>
+    [1, 2].flatMap((count) =>
+      [false, true].map((reduced) => ({ opened, count, reduced })),
+    ),
+  ),
+)(
+  "preserves and plays a staged draft after replacing $count red threes (opened: $opened, reduced motion: $reduced)",
+  async ({ opened, count, reduced }) => {
+    vi.useFakeTimers();
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) =>
+        ({
+          matches: reduced && query === "(prefers-reduced-motion: reduce)",
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
+    const snapshot = fixture();
+    snapshot.phase = "play";
+    snapshot.sides[0].opened = opened;
+    const reds = Array.from({ length: count }, (_, i) => ({
+      id: `red-${i}`,
+      rank: "3",
+      suit: i ? "diamonds" : "hearts",
+      value: -300,
+      wild: false,
+      redThree: true,
+    }));
+    const aces = [...snapshot.hand];
+    snapshot.hand.push(...reds);
+    const replacements = reds.map((card, i) => ({
+      ...card,
+      id: `replacement-${i}`,
+      rank: "K",
+      value: 10,
+      redThree: false,
+    }));
+    const replaced: Snapshot = {
+      ...snapshot,
+      revision: 2,
+      token: "reds-replaced",
+      hand: [...aces, ...replacements],
+      discard: reds[count - 1],
+      discardCount: count,
+      stockCount: snapshot.stockCount - count,
+    };
+    vi.mocked(getRoom).mockResolvedValue(snapshot);
+    vi.mocked(command)
+      .mockResolvedValueOnce(replaced)
+      .mockResolvedValueOnce({ ...replaced, revision: 3 });
+    await act(async () => openRoom());
+    const hand = screen.getByRole("region", { name: "Your private hand" });
+    for (const ace of within(hand).getAllByRole("button", { name: /^A of/ }))
+      fireEvent.click(ace);
+    fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
+    for (const red of within(hand).getAllByRole("button", {
+      name: /red three/,
+    }))
+      fireEvent.click(red);
+    const replace = screen.getByRole<HTMLButtonElement>("button", {
+      name: count === 1 ? "Replace" : "Replace from stack",
+    });
+    expect(replace.disabled).toBe(false);
+    await act(async () => fireEvent.click(replace));
+    expect(command).toHaveBeenCalledExactlyOnceWith(snapshot, "red_three", {
+      cardIds: expect.arrayContaining(reds.map((card) => card.id)),
+      expose: false,
+    });
+    expect(hand.querySelectorAll(".staged-card")).toHaveLength(3);
+    expect(
+      within(hand).queryAllByRole("button", { pressed: true }),
+    ).toHaveLength(0);
+    await act(async () =>
+      vi.advanceTimersByTime(
+        RED_REPLACEMENT_MS + DRAW_FLIGHT_MS + (count - 1) * DRAW_STAGGER_MS,
+      ),
+    );
+    expect(
+      screen.getByRole("group", { name: "Staged draft" }).textContent,
+    ).toContain("1 new meld");
+    const play = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Play draft",
+    });
+    expect(play.disabled).toBe(false);
+    expect(
+      screen.getByLabelText(
+        opened ? "60 points" : "60 points, 50 points to open",
+      ),
+    ).toBeTruthy();
+    expect(
+      within(hand).queryByRole("button", { name: /red three/ }),
+    ).toBeNull();
+    expect(within(hand).getAllByRole("button", { name: /^K of/ })).toHaveLength(
+      count,
+    );
+    fireEvent.click(within(hand).getAllByRole("button", { name: /^K of/ })[0]);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Discard" })
+        .disabled,
+    ).toBe(true);
+    await act(async () => fireEvent.click(play));
+    expect(command).toHaveBeenLastCalledWith(replaced, "meld", {
+      groups: [{ cardIds: aces.map((card) => card.id), kind: "set" }],
+    });
+  },
+);

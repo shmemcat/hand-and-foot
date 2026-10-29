@@ -143,6 +143,8 @@ it("moves a broken book down compactly before expanding into its open stack", ()
   );
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
     function (this: Element) {
+      if (this.classList.contains("book-closing-layer"))
+        return new DOMRect(0, 0, 1024, 768);
       const closed = this.closest(".closed-books");
       const layer = this.closest<HTMLElement>(".meld-card-layer");
       return new DOMRect(

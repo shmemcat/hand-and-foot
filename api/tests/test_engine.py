@@ -757,17 +757,17 @@ def test_spent_red_threes_do_not_also_receive_retained_raw_card_points():
     assert score["total"] == 0
 
 
-def test_auto_cover_breaks_dirty_before_clean_even_if_clean_alone_could_pay():
+def test_auto_cover_preserves_more_points_by_breaking_clean_instead_of_dirty_and_clean():
     game = rig()
     clean = book(game, "A")
     dirty = book(game, "Q", dirty=True)
     game["players"][0]["hand"] = take(game, "9", 12)
     engine.finish_round(game, None, "Test round")
     assert game["scoring"]["sides"][0]["debt"] == 120
-    assert scoring.auto_choice(game, 0) == dirty["id"]
+    assert scoring.auto_choice(game, 0) == clean["id"]
     game = engine.apply(game, 0, {"type": "score_auto"})
-    assert game["scoring"]["sides"][0]["broken"] == [dirty["id"], clean["id"]]
-    assert scoring.project_review(game, 0)["score"]["books"] == 0
+    assert game["scoring"]["sides"][0]["broken"] == [clean["id"]]
+    assert scoring.project_review(game, 0)["score"]["books"] == dirty["bonus"]
 
 
 def test_auto_cover_uses_open_piles_then_dirty_books_and_preserves_clean_when_possible():
@@ -783,6 +783,41 @@ def test_auto_cover_uses_open_piles_then_dirty_books_and_preserves_clean_when_po
     assert game["scoring"]["sides"][0]["usedPiles"] == ["open-fives", dirty["id"]]
     assert game["scoring"]["sides"][0]["broken"] == [dirty["id"]]
     assert scoring.project_review(game, 0)["score"]["books"] == clean["bonus"]
+
+
+@pytest.mark.parametrize("red_count", [0, 2, 3])
+@pytest.mark.parametrize("debt", [5, 120, 400])
+def test_automatic_scoring_matches_the_best_legal_payment_order(red_count, debt):
+    game = rig()
+    book(game, "A")
+    book(game, "Q", dirty=True)
+    book(game, "5", dirty=True)
+    ids = take(game, "9", 3)
+    game["sides"][0]["melds"].append({"id": "open-nines", "creator": "0", "kind": "set", "cardIds": ids, **meld_details([game["cards"][i] for i in ids])})
+    game["players"][0]["redThrees"] = take(game, "3", red_count, "hearts")
+    game["players"][0]["hand"] = (take(game, "4") if debt == 5 else
+                                   take(game, "K", 12) if debt == 120 else
+                                   take(game, "3", 4, "clubs"))
+    engine.finish_round(game, None, "Test optimal settlement")
+
+    # Exhaust every legal order rather than reimplementing the planner. A side
+    # must keep paying until its debt is covered or no public piles remain.
+    def best_legal_total(candidate):
+        choices = scoring.options(candidate, 0)
+        if not choices:
+            return scoring.project_review(candidate, 0)["score"]["total"]
+        totals = []
+        for choice in choices:
+            next_game = {**candidate, "scoring": copy.deepcopy(candidate["scoring"])}
+            scoring.pay(next_game, 0, choice["id"])
+            totals.append(best_legal_total(next_game))
+        return max(totals)
+
+    expected = best_legal_total(game)
+    settled = engine.apply(game, 0, {"type": "score_auto"})
+    assert scoring.project_review(settled, 0)["score"]["total"] == expected
+    assert not scoring.options(settled, 0)
+    engine.assert_conservation(settled)
 
 
 def test_red_replacement_conservation_and_penalties():

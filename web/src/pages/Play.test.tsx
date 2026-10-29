@@ -48,29 +48,26 @@ it.each(
   async ({ scoring, capacity, mode }) => {
     renderCreateGame();
     expect(
-      screen.getByText("6 players · 7 decks · Play to 10,000"),
-    ).toBeTruthy();
+      screen
+        .getByRole("button", { name: "6 Players" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
     expect(screen.queryByRole("group", { name: "Play to" })).toBeNull();
     expect(screen.queryByRole("button", { name: "15,000" })).toBeNull();
     expect(screen.queryByRole("button", { name: "20,000" })).toBeNull();
     fireEvent.click(
-      screen.getByRole("button", {
+      screen.getByRole("radio", {
         name: scoring === "partnership" ? "Teams of 2" : "Individuals",
       }),
     );
     fireEvent.click(
       within(screen.getByRole("group", { name: "Players" })).getByRole(
         "button",
-        { name: String(capacity) },
+        { name: `${capacity} Players` },
       ),
     );
-    expect(
-      screen.getByText(
-        `${capacity} players${scoring === "partnership" ? ` · ${capacity / 2} teams` : ""} · ${capacity + 1} decks · Play to 10,000`,
-      ),
-    ).toBeTruthy();
     fireEvent.click(
-      screen.getByRole("button", {
+      screen.getByRole("radio", {
         name: mode === "online" ? "Online" : "Versus Bots",
       }),
     );
@@ -93,15 +90,16 @@ it.each(
   },
 );
 
-it("explains single-player bots and the guest leaderboard requirement before starting", () => {
+it("keeps the setup concise and shows the shared guest sign-in notice", () => {
   renderCreateGame();
-  expect(screen.getByText("Single player · You and 5 bots")).toBeTruthy();
+  expect(screen.queryByText(/players · .*decks/)).toBeNull();
+  expect(screen.queryByText(/Single player ·/)).toBeNull();
   expect(screen.getByRole("heading", { name: "Pssst" })).toBeTruthy();
   expect(screen.getByText("We noticed you're not signed in!")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Online" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Online" }));
   expect(
-    screen.getByText(/Invite friends with a private lobby code/),
-  ).toBeTruthy();
+    screen.queryByText(/Invite friends with a private lobby code/),
+  ).toBeNull();
 });
 
 it("joins a normalized private code with the guest name and remembers the table", async () => {
@@ -150,23 +148,29 @@ it.each([2, 3, 5])(
     fireEvent.click(
       within(screen.getByRole("group", { name: "Players" })).getByRole(
         "button",
-        { name: String(capacity) },
+        { name: `${capacity} Players` },
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Teams of 2" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Teams of 2" }));
     const choices = within(screen.getByRole("group", { name: "Players" }));
     expect(
       choices.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual(["4", "6"]);
+    ).toEqual(["4 Players", "6 Players"]);
     const selected = Math.max(4, capacity + (capacity % 2));
     expect(
       choices
-        .getByRole("button", { name: String(selected) })
+        .getByRole("button", { name: `${selected} Players` })
         .getAttribute("aria-pressed"),
     ).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Individuals" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Individuals" }));
     expect(
       choices.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual(["2", "3", "4", "5", "6"]);
+    ).toEqual([
+      "2 Players",
+      "3 Players",
+      "4 Players",
+      "5 Players",
+      "6 Players",
+    ]);
   },
 );

@@ -55,7 +55,7 @@ def create_app(config=None):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         SESSION_COOKIE_NAME="handandfoot_session", SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=os.environ.get("HANDANDFOOT_SECURE_COOKIE") == "1",
-        MAX_CONTENT_LENGTH=32768, START_WORKER=True, BOT_INTERVAL=.65,
+        MAX_CONTENT_LENGTH=32768, START_WORKER=True, BOT_INTERVAL=1.5,
         DEVELOPMENT_FIXTURES=os.environ.get("HANDANDFOOT_DEVELOPMENT_FIXTURES") == "1",
         ALLOWED_ORIGINS=[value.strip() for value in os.environ.get("CORS_ORIGINS", "http://127.0.0.1:3004,http://localhost:3004,https://cards.shmem.dev").split(",") if value.strip()],
         CARDS_ACCOUNTS_URL=os.environ.get("CARDS_ACCOUNTS_URL", ""),

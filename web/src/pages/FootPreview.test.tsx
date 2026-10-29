@@ -130,11 +130,14 @@ it("slows the whole sequence and cancels cleanly when reset mid-cascade", () => 
 });
 
 it("skips flights for reduced motion while preserving the discard outcome", () => {
-  vi.mocked(window.matchMedia).mockReturnValue({
-    matches: true,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  } as unknown as MediaQueryList);
+  vi.mocked(window.matchMedia).mockImplementation(
+    (query) =>
+      ({
+        matches: query !== "(max-width: 768px)",
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }) as unknown as MediaQueryList,
+  );
   const view = show();
   fireEvent.change(screen.getByLabelText("Foot entry method"), {
     target: { value: "discard" },

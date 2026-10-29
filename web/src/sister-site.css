@@ -774,6 +774,9 @@ a {
   margin-inline: auto;
   gap: 28px;
 }
+.create-setup {
+  width: min(600px, 100%);
+}
 .setup-form legend {
   width: 100%;
   margin-bottom: 12px;
@@ -798,7 +801,8 @@ a {
 .field-label > input {
   margin-top: 8px;
 }
-.setup-form input:not([type="range"]):not([type="checkbox"]) {
+.setup-form
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]) {
   min-height: 44px;
   padding: 9px 12px;
   font-size: 16px;
@@ -847,16 +851,72 @@ a {
   padding: 8px;
   font-size: 16px;
 }
-.setup-detail {
-  text-align: center;
-  color: var(--muted);
-  font-size: 14px;
+.setup-radio-choices {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px 24px;
+  border-radius: 20px;
+  background: var(--surface);
+  font-weight: 600;
+  font-variant-caps: small-caps;
+  letter-spacing: 2px;
+}
+.setup-radio-choices label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.setup-radio-choices input[type="radio"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--link);
+  cursor: pointer;
+}
+.setup-player-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.setup-player-choices > button {
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 8px 16px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+.setup-player-choices > button[aria-pressed="true"] {
+  border-color: var(--primary-shadow);
+  background: var(--primary);
+  color: var(--button-text);
+}
+.setup-player-choices > button:hover {
+  border-color: var(--primary-shadow);
 }
 .setup-form .button-stack {
   margin-top: 0;
 }
 .join-setup {
   max-width: 360px;
+}
+.join-intro {
+  text-align: center;
+}
+.join-intro p {
+  margin-top: 16px;
+  line-height: 1.5;
 }
 .join-setup .placeholder-field {
   width: min(240px, 100%);
@@ -1276,6 +1336,17 @@ a {
   }
   .page-body {
     margin-top: 28px;
+  }
+  .setup-radio-choices {
+    flex-direction: column;
+    gap: 4px;
+    padding-inline: 16px;
+  }
+  .setup-player-choices {
+    gap: 6px;
+  }
+  .setup-player-choices > button {
+    padding: 8px 10px;
   }
   .play-choices {
     flex-direction: column;

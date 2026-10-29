@@ -106,10 +106,12 @@ export function Rules() {
               or tilts when space is tight, to mark this restriction.
             </div>
             <p>
-              To start a matching pile with the discard, play it with two
-              matching natural cards from your hand. A wild or a three cannot be
-              picked up. Taking the discard and playing it is one move: a
-              rejected pickup leaves all your cards where they were.
+              To start a matching pile with the discard, combine it with cards
+              from your hand to make a valid meld. One matching natural card
+              plus a joker or a two is enough: the discard counts toward the
+              required natural majority. A wild or a three cannot be picked up.
+              Taking the discard and playing it is one move: a rejected pickup
+              leaves all your cards where they were.
             </p>
             <RulesPickupExample />
           </section>
@@ -184,12 +186,12 @@ export function Rules() {
             </p>
             <ol>
               <li>
-                <strong>Choose which piles pay.</strong> Each side gets an
-                interactive scoring review. Unfinished piles have no book bonus
-                to risk. Using any card from a complete book breaks that book’s
-                bonus. Keep choosing piles until the debt is covered, or there
-                are no piles left. Automatic cover uses unfinished piles first,
-                then breaks dirty books before clean books.
+                <strong>Debt is covered automatically.</strong> Scoring uses
+                public piles to cover as much debt as possible while losing the
+                fewest points. Unfinished piles have no book bonus to risk.
+                Using any card from a complete book breaks that book’s bonus, so
+                scoring compares the combined loss across books, straight
+                flushes, and red threes before opening them.
               </li>
               <li>
                 <strong>Watch the count.</strong> Your foot joins your hand,
@@ -211,12 +213,12 @@ export function Rules() {
                 bonus, and finish at −5 with no red penalties.
               </li>
               <li>
-                <strong>Confirm the score.</strong> Played card points minus all
+                <strong>See the score.</strong> Played card points minus all
                 leftover-card debt, plus red-three debt credits, remaining book
                 bonuses, remaining red-three points, and the going-out bonus
-                make the round total. Uncovered debt stays a deduction. Either
-                teammate can settle the shared score; the round commits when
-                every side confirms.
+                make the round total. Uncovered debt stays a deduction. Shared
+                scores settle automatically too. The count finishes and opens
+                the round results without scoring choices or confirmation.
               </li>
             </ol>
           </section>

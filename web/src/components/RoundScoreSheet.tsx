@@ -92,13 +92,12 @@ export function RoundScoreSheet({
       )}
     </button>
   );
-  return (
+  const sheet = (
     <section
-      id={id}
+      id={inline ? id : undefined}
       className={`score-sheet round-score-sheet ${leavingScores ? "score-sheet-leaving" : ""}`}
-      role={inline ? "region" : "dialog"}
-      aria-modal={inline ? undefined : true}
-      aria-label="Score sheet"
+      role={inline ? "region" : undefined}
+      aria-label={inline ? "Score sheet" : undefined}
     >
       {!review && (
         <div className="sheet-topline">
@@ -288,7 +287,24 @@ export function RoundScoreSheet({
         </div>
       )}
       {finished && resultNotice}
-      {visibilityToggle}
     </section>
+  );
+  return inline ? (
+    <>
+      {sheet}
+      {visibilityToggle}
+    </>
+  ) : (
+    <div
+      id={id}
+      className="round-score-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Score sheet"
+    >
+      {sheet}
+      {/* Keep the fixed control outside the animated, scrolling panel. */}
+      {visibilityToggle}
+    </div>
   );
 }

@@ -20,12 +20,16 @@ export function DrawCards({
   cards,
   board,
   toDivider = false,
+  toHandDrawer = false,
 }: {
   request: DrawRequest;
   cards: Face[];
   board: RefObject<HTMLDivElement | null>;
   toDivider?: boolean;
+  toHandDrawer?: boolean;
 }) {
+  const layer = useRef<HTMLDivElement>(null);
+  const [origin, setOrigin] = useState({ left: 0, top: 0 });
   const [targets, setTargets] = useState<
     { x: number; y: number; sx: number; sy: number }[]
   >([]);
@@ -34,7 +38,13 @@ export function DrawCards({
   const flip = DRAW_FLIP_MS;
   const revealed = useRef<number | null>(null);
   useLayoutEffect(() => {
-    if (toDivider || !cards.length || revealed.current === request.key) return;
+    if (
+      toDivider ||
+      toHandDrawer ||
+      !cards.length ||
+      revealed.current === request.key
+    )
+      return;
     const strip = board.current?.querySelector<HTMLElement>(".hand-scroll");
     if (!strip) return;
     const slots = [
@@ -74,8 +84,9 @@ export function DrawCards({
       left: strip.scrollLeft + shift / scale,
       behavior: "smooth",
     });
-  }, [request.key, ids, board, toDivider]);
+  }, [request.key, ids, board, toDivider, toHandDrawer]);
   useLayoutEffect(() => {
+    if (toHandDrawer) return;
     const shifts: Animation[] = [];
     for (const slot of board.current?.querySelectorAll<HTMLElement>(
       ".hand-card[data-card-id]",
@@ -101,9 +112,31 @@ export function DrawCards({
       );
     }
     return () => shifts.forEach((animation) => animation.cancel());
-  }, [request.key, ids, board]);
+  }, [request.key, ids, board, toHandDrawer]);
   useLayoutEffect(() => {
     const measure = () => {
+      const bounds = layer.current?.getBoundingClientRect();
+      setOrigin({ left: bounds?.left ?? 0, top: bounds?.top ?? 0 });
+      if (toHandDrawer) {
+        const drawer = board.current
+          ?.querySelector(".hand-drawer-toggle")
+          ?.getBoundingClientRect();
+        if (!drawer) return;
+        setTargets(
+          cards.map((_, index) => ({
+            x:
+              drawer.left +
+              drawer.width / 2 -
+              request.from.width / 2 -
+              request.from.left +
+              (index - (cards.length - 1) / 2) * (request.from.width + 6),
+            y: drawer.top + 5 - request.from.top,
+            sx: 1,
+            sy: 1,
+          })),
+        );
+        return;
+      }
       if (toDivider) {
         const divider = board.current
           ?.querySelector(".game-header")
@@ -143,13 +176,22 @@ export function DrawCards({
       );
     };
     measure();
+    const drawer = toHandDrawer
+      ? board.current?.querySelector(".mobile-hand-drawer")
+      : null;
+    const observer =
+      drawer && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measure)
+        : null;
+    if (drawer) observer?.observe(drawer);
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
     return () => {
+      observer?.disconnect();
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [request.key, ids, board, toDivider]);
+  }, [request.key, ids, board, toDivider, toHandDrawer]);
   const divider =
     toDivider && targets[0]
       ? Math.max(
@@ -159,12 +201,13 @@ export function DrawCards({
       : undefined;
   return (
     <div
+      ref={layer}
       className="draw-flight-layer"
       data-to-divider={toDivider}
       style={
         divider === undefined
           ? undefined
-          : { height: divider, bottom: "auto", overflow: "hidden" }
+          : { height: divider - origin.top, bottom: "auto", overflow: "hidden" }
       }
       aria-hidden="true"
     >
@@ -174,8 +217,8 @@ export function DrawCards({
           key={`replace-${card.id}`}
           style={
             {
-              left: from.left,
-              top: from.top,
+              left: from.left - origin.left,
+              top: from.top - origin.top,
               width: from.width,
               height: from.height,
               "--replace-x": `${to.left - from.left}px`,
@@ -195,11 +238,12 @@ export function DrawCards({
             <div
               className="draw-card-flight"
               data-to-divider={toDivider}
+              data-to-hand-drawer={toHandDrawer}
               key={card.id}
               style={
                 {
-                  left: request.from.left,
-                  top: request.from.top,
+                  left: request.from.left - origin.left,
+                  top: request.from.top - origin.top,
                   width: request.from.width,
                   height: request.from.height,
                   "--draw-x": `${targets[i].x}px`,

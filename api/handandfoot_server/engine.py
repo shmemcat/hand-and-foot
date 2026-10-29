@@ -65,6 +65,7 @@ def can_go_out(game, player):
 def enter_foot(game, player):
     if not player["hand"] and not player["inFoot"]:
         player.update(hand=player["foot"], foot=[], inFoot=True)
+        table_event(game, player, "foot", count=len(player["hand"]))
         record_foot_pickup(game, player)
         game["message"] = f'{player["name"]} picked up their foot.'
 
@@ -112,11 +113,6 @@ def apply_melds(game, player, groups, *, pickup_id=None):
             if target and len(target["cardIds"]) == 6:
                 raise ValueError("The seventh card must be played from your hand, not picked up from the discard.")
             pickup_played = True
-            if not target:
-                top = game["cards"][pickup_id]
-                matches = [game["cards"][i] for i in ids if i != pickup_id and not game["cards"][i]["wild"] and game["cards"][i]["rank"] == top["rank"]]
-                if group.get("kind", "set") == "set" and len(matches) < 2:
-                    raise ValueError("To start a pile with the discard, add two matching natural cards.")
         kind = target["kind"] if target else group.get("kind", "set")
         all_ids = [*target["cardIds"], *ids] if target else ids[:]
         details = meld_details([game["cards"][i] for i in all_ids], kind, existing=target)

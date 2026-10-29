@@ -1,0 +1,59 @@
+/* Reuse Golf's centered going-out notice sizing, colors, and type. */
+.foot-pickup-announcer {
+  position: fixed;
+  inset: 0;
+  z-index: 105;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.foot-pickup-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 22px 26px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  animation: foot-pickup-appear 180ms ease-in-out both;
+}
+.foot-pickup-notice > svg {
+  width: 30px;
+  height: 30px;
+  color: var(--secondary);
+}
+.foot-pickup-notice strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.2px;
+  overflow-wrap: anywhere;
+}
+@keyframes foot-pickup-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (max-width: 700px) {
+  .foot-pickup-notice {
+    gap: 12px;
+    padding: 18px;
+  }
+  .foot-pickup-notice strong {
+    font-size: 19px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foot-pickup-notice {
+    animation: none;
+  }
+}

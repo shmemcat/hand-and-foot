@@ -37,13 +37,10 @@ it("keeps reconciled cards normal when saved scoring metadata marks them spent",
   const meld = pile({ bonusLost: true, spentCardIds: ["s1", "heart"] });
   show(meld);
   expect(document.querySelector(".card.spent")).toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Inspect 10’s, book broken" }),
-  );
-  const inspection = screen.getByRole("group", { name: "Cards in 10’s" });
-  expect(inspection.querySelectorAll(".card")).toHaveLength(meld.cards.length);
-  expect(inspection.querySelector(".spent")).toBeNull();
-  expect(inspection.textContent).not.toContain("×");
+  const stack = screen.getByRole("group", { name: "10’s, book broken" });
+  expect(stack.querySelectorAll(".card")).toHaveLength(meld.cards.length);
+  expect(stack.querySelector(".spent")).toBeNull();
+  expect(stack.textContent).not.toContain("×");
 });
 function show(meld = pile(), canTarget = false) {
   const onTarget = vi.fn();
@@ -63,7 +60,7 @@ it("shows the simple type and count with indexed strips above the regular bottom
   const group = screen.getByRole("group", { name: "Clean 10’s" });
   expect(within(group).getByText("Clean")).toBeTruthy();
   expect(within(group).getByText("5 / 7")).toBeTruthy();
-  const stack = screen.getByRole("button", { name: "Inspect 10’s, 5 cards" });
+  const stack = screen.getByRole("group", { name: "10’s, 5 cards" });
   const faces = within(stack).getAllByRole("img");
   expect(
     faces.slice(0, -1).every((face) => face.querySelector(".card-index")),
@@ -84,7 +81,7 @@ it.each(["2", "Joker"])(
     show(meld);
     expect(screen.getByText("Dirty")).toBeTruthy();
     const faces = within(
-      screen.getByRole("button", { name: "Inspect 10’s, 5 cards" }),
+      screen.getByRole("group", { name: "10’s, 5 cards" }),
     ).getAllByRole("img");
     expect(faces.at(-1)?.getAttribute("aria-label")).toBe("10 of hearts");
     expect(faces.at(-1)?.querySelector(".card-art text")?.textContent).toBe(
@@ -110,7 +107,7 @@ it("uses a two as the natural face in a pile of twos with a Joker", () => {
     }),
   );
   const faces = within(
-    screen.getByRole("button", { name: "Inspect 2’s, 3 cards" }),
+    screen.getByRole("group", { name: "2’s, 3 cards" }),
   ).getAllByRole("img");
   expect(faces.at(-1)?.querySelector(".card-art text")?.textContent).toBe("2");
   expect(screen.getByText("Dirty")).toBeTruthy();
@@ -138,22 +135,14 @@ it("labels straight flushes separately from clean and dirty books", () => {
   expect(document.querySelector(".clean-book")).toBeNull();
 });
 
-it("inspects every physical card without replacing the regular stack", () => {
-  show();
-  const toggle = screen.getByRole("button", { name: "Inspect 10’s, 5 cards" });
-  expect(screen.queryByText("Inspect cards")).toBeNull();
-  expect(toggle.getAttribute("aria-expanded")).toBe("false");
-  fireEvent.click(toggle);
-  expect(toggle.getAttribute("aria-expanded")).toBe("true");
-  expect(
-    within(screen.getByRole("group", { name: "Cards in 10’s" })).getAllByRole(
-      "img",
-    ),
-  ).toHaveLength(5);
-  expect(
-    screen.getByRole("button", { name: "Inspect 10’s, 5 cards" }),
-  ).toBeTruthy();
-  fireEvent.click(toggle);
+it("keeps a pile static when no game action can target it", () => {
+  const onTarget = show();
+  const stack = screen.getByRole("group", { name: "10’s, 5 cards" });
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(stack.hasAttribute("aria-expanded")).toBe(false);
+  fireEvent.click(stack);
+  expect(onTarget).not.toHaveBeenCalled();
+  expect(within(stack).getAllByRole("img")).toHaveLength(5);
   expect(screen.queryByRole("group", { name: "Cards in 10’s" })).toBeNull();
 });
 
@@ -171,30 +160,27 @@ it("stages cards by clicking an outlined pile without opening inspection or addi
   expect(screen.queryByRole("group", { name: "Cards in 10’s" })).toBeNull();
 });
 
-it("preserves completed book bonuses and allows their cards to be inspected", () => {
+it("preserves completed book bonuses and covers without an inspection toggle", () => {
   const meld = pile({ complete: true, bonus: 500 });
   meld.cards.push(card("sixth"), card("seventh"));
   show(meld);
   expect(screen.getByText("Clean book")).toBeTruthy();
   expect(screen.getByText("7 cards")).toBeTruthy();
   const cover = within(
-    screen.getByRole("button", {
-      name: "Inspect 10’s, clean book, 500 bonus points",
+    screen.getByRole("group", {
+      name: "10’s, clean book, 500 bonus points",
     }),
   ).getByRole("img");
   expect(cover.getAttribute("aria-label")).toBe("10 of hearts");
   expect(cover.querySelector(".card-index")).toBeNull();
   fireEvent.click(
-    screen.getByRole("button", {
-      name: "Inspect 10’s, clean book, 500 bonus points",
+    screen.getByRole("group", {
+      name: "10’s, clean book, 500 bonus points",
     }),
   );
-  expect(screen.getByText("+500 bonus")).toBeTruthy();
-  expect(
-    within(screen.getByRole("group", { name: "Cards in 10’s" })).getAllByRole(
-      "img",
-    ),
-  ).toHaveLength(7);
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.getAllByRole("img")).toHaveLength(1);
+  expect(screen.queryByRole("group", { name: "Cards in 10’s" })).toBeNull();
 });
 
 it.each([
@@ -205,11 +191,10 @@ it.each([
   (state) => {
     show(pile({ ...state, bonusLost: true }));
     expect(screen.getByText("Broken book")).toBeTruthy();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Inspect 10’s, book broken" }),
-    );
+    fireEvent.click(screen.getByRole("group", { name: "10’s, book broken" }));
     expect(screen.queryByText(/bonus|−300|−500/)).toBeNull();
-    expect(screen.getByRole("group", { name: "Cards in 10’s" })).toBeTruthy();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Cards in 10’s" })).toBeNull();
   },
 );
 
@@ -272,8 +257,8 @@ it("labels a finished straight separately and preserves its suit", () => {
   expect(screen.queryByText("Clean book")).toBeNull();
   expect(
     within(
-      screen.getByRole("button", {
-        name: "Inspect spades straight, straight, 1300 bonus points",
+      screen.getByRole("group", {
+        name: "spades straight, straight, 1300 bonus points",
       }),
     )
       .getByRole("img")

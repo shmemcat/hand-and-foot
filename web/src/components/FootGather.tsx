@@ -18,16 +18,18 @@ export function FootGather({
   gathering,
   speed,
   enabled = true,
+  mobile = false,
   children,
 }: {
   gathering: boolean;
   speed: number;
   enabled?: boolean;
+  mobile?: boolean;
   children: ReactNode;
 }) {
   const root = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (!gathering || !root.current) return;
+    if (!gathering || !root.current || mobile) return;
     const board = root.current;
     const source = board.querySelector(".foot-stack")?.getBoundingClientRect();
     if (!source) return;
@@ -52,13 +54,14 @@ export function FootGather({
       );
       card.style.animation = "";
     });
-  }, [gathering, speed]);
+  }, [gathering, speed, mobile]);
   return (
     <div
       ref={root}
       className="foot-transition"
       data-enabled={enabled}
       data-gathering={gathering}
+      data-mobile={mobile}
       style={
         {
           "--foot-flight-duration": `${FOOT_GATHER_FLIGHT_MS / speed}ms`,

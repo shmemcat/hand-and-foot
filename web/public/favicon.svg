@@ -1,9 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="7 9 50 50">
   <title>Hand and Foot</title>
-  <rect width="64" height="64" rx="16" fill="#4B303B"/>
   <g fill="none" stroke="#E5B1B6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M32 23v27M11 17h11c6 0 10 3 10 6 0-3 4-6 10-6h11v31H42c-5 0-8 1-10 3-2-2-5-3-10-3H11Z"/>
     <path d="M17 25h6m-6 7h8m-8 7h8m14-14h8m-8 7h8m-8 7h8" stroke-width="1.8"/>
   </g>
-  <path d="m32 7 3 4-3 4-3-4Z" fill="#C7AA6A"/>
 </svg>

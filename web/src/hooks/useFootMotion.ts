@@ -7,23 +7,20 @@ import {
   type RefObject,
 } from "react";
 import type { Snapshot } from "../types";
-import {
-  FOOT_GATHER_DELAY_MS,
-  FOOT_SETTLE_MS,
-  footGatherDuration,
-} from "../lib/footMotion";
+import { afterCardAnimations } from "../lib/cardAnimations";
+import { FOOT_SETTLE_MS, footGatherDuration } from "../lib/footMotion";
 import {
   MELD_FLIGHT_MS,
   type CardPosition,
   type MeldFlight,
 } from "./useMeldMotion";
-import { useSound } from "../context/SoundContext";
 
 type Transition = {
   key: number;
   before: Snapshot;
   stage: "leaving" | "gathering";
   discardFlight: MeldFlight | null;
+  count: number;
 };
 const sameDeal = (before: Snapshot, after: Snapshot) =>
   before.code === after.code &&
@@ -45,6 +42,8 @@ export function useFootMotion(
   meldActive: boolean,
   rehearsal: boolean,
   ownBoard = true,
+  mobile = false,
+  rehearsalAnimate = false,
 ) {
   const [desktop, setDesktop] = useState(
     () => window.matchMedia("(min-width: 769px)").matches,
@@ -55,12 +54,9 @@ export function useFootMotion(
     positions: Map<string, CardPosition>;
   } | null>(null);
   const serial = useRef(0);
-  const sound = useSound();
-  const playSound = useRef(sound.play);
-  playSound.current = sound.play;
   const cancel = useCallback(() => setTransition(null), []);
   const enabled = Boolean(
-    !rehearsal && desktop && incoming?.playMode === "practice",
+    (!rehearsal || rehearsalAnimate) && (mobile || desktop),
   );
   const canAnimate = Boolean(
     enabled &&
@@ -86,7 +82,9 @@ export function useFootMotion(
       incoming.hand.length,
   );
   const valid = Boolean(
-    canAnimate &&
+    enabled &&
+      !reduced &&
+      !document.hidden &&
       transition &&
       incoming &&
       sameDeal(transition.before, incoming) &&
@@ -109,7 +107,7 @@ export function useFootMotion(
         ?.querySelector(".game-header")
         ?.getBoundingClientRect().bottom;
       const discardFlight: MeldFlight | null =
-        discarded && from && target
+        !mobile && discarded && from && target
           ? {
               key,
               token: incoming.token,
@@ -138,6 +136,7 @@ export function useFootMotion(
         before: prior.snapshot,
         stage: "leaving",
         discardFlight,
+        count: incoming.hand.length,
       });
     }
     if (!incoming) {
@@ -154,30 +153,35 @@ export function useFootMotion(
     previous.current = { snapshot: incoming, positions };
   });
 
+  const waitingForPlay = current?.stage === "leaving" && meldActive;
   useEffect(() => {
-    if (!current || (current.stage === "leaving" && meldActive)) return;
+    if (!current || waitingForPlay) return;
+    let cancelled = false;
     const timer = window.setTimeout(
-      () => {
-        if (current.stage === "gathering") cancel();
-        else
-          setTransition((old) =>
-            old?.key === current.key ? { ...old, stage: "gathering" } : old,
-          );
-      },
+      () =>
+        afterCardAnimations(
+          board.current,
+          current.stage === "gathering"
+            ? ".hand-card, .mobile-foot-card, .foot-status"
+            : ".meld-card-flight",
+          () => {
+            if (cancelled) return;
+            if (current.stage === "gathering") cancel();
+            else
+              setTransition((old) =>
+                old?.key === current.key ? { ...old, stage: "gathering" } : old,
+              );
+          },
+        ),
       current.stage === "gathering"
-        ? footGatherDuration(incoming!.hand.length)
+        ? footGatherDuration(current.count)
         : FOOT_SETTLE_MS + (current.discardFlight ? MELD_FLIGHT_MS : 0),
     );
-    return () => clearTimeout(timer);
-  }, [current?.key, current?.stage, meldActive, cancel]);
-  useEffect(() => {
-    if (!gathering) return;
-    const timer = window.setTimeout(
-      () => playSound.current("deal"),
-      FOOT_GATHER_DELAY_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [gathering, current?.key]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [current?.key, current?.stage, waitingForPlay, cancel]);
   useEffect(() => {
     const media = window.matchMedia("(min-width: 769px)");
     const change = () => setDesktop(media.matches);
@@ -209,6 +213,8 @@ export function useFootMotion(
     current && presented && hand
       ? {
           ...presented,
+          actorId: current.before.actorId,
+          phase: current.before.phase,
           hand,
           players: presented.players.map((seat) =>
             seat.id === presented.viewerId
@@ -234,6 +240,15 @@ export function useFootMotion(
           count: player(current.before)!.footCount,
         }
       : undefined,
+    key: current?.key,
+    pickup:
+      gathering && current
+        ? {
+            id: `local-foot-${current.key}`,
+            playerId: current.before.viewerId,
+            count: current.count,
+          }
+        : null,
     discardFlight: current?.stage === "leaving" ? current.discardFlight : null,
   };
 }

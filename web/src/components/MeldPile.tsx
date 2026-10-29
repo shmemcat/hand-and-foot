@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type CSSProperties } from "react";
+import { useId, type CSSProperties } from "react";
 import type { Meld } from "../types";
 import { Card } from "./Card";
 
@@ -10,6 +10,7 @@ export function MeldPile({
   flyingIds,
   cardPoints,
   targetLabel,
+  compact = false,
 }: {
   meld: Meld;
   canTarget: boolean;
@@ -18,15 +19,10 @@ export function MeldPile({
   flyingIds?: Set<string>;
   cardPoints?: Record<string, number>;
   targetLabel?: string;
+  compact?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [inspectionMounted, setInspectionMounted] = useState(false);
-  const inspectionId = useId();
-  useEffect(() => {
-    if (expanded || !inspectionMounted) return;
-    const timer = window.setTimeout(() => setInspectionMounted(false), 220);
-    return () => clearTimeout(timer);
-  }, [expanded, inspectionMounted]);
+  const finishHintId = useId();
+  const Stack = canTarget ? "button" : "div";
   const straight = meld.kind === "run";
   const needsHandCard =
     !meld.complete && !meld.bonusLost && meld.cards.length === 6;
@@ -41,20 +37,13 @@ export function MeldPile({
         : `${kind} book`
       : kind;
   const title = straight ? `${meld.rank} straight` : `${meld.rank}’s`;
-  const actionLabel = canTarget
+  const stackLabel = canTarget
     ? (targetLabel ?? `Add selected cards to ${title}`)
     : meld.bonusLost
-      ? `Inspect ${title}, book broken`
+      ? `${title}, book broken`
       : meld.complete
-        ? `Inspect ${title}, ${kind.toLowerCase()}${straight ? "" : " book"}, ${meld.bonus} bonus points`
-        : `Inspect ${title}, ${meld.cards.length} cards`;
-  function activate() {
-    if (canTarget) onTarget();
-    else {
-      setInspectionMounted(true);
-      setExpanded(!expanded);
-    }
-  }
+        ? `${title}, ${kind.toLowerCase()}${straight ? "" : " book"}, ${meld.bonus} bonus points`
+        : `${title}, ${meld.cards.length} cards`;
   // Twos are natural in a pile of twos; other matching piles use their own rank.
   const natural = !straight
     ? meld.cards
@@ -84,41 +73,39 @@ export function MeldPile({
     >
       <span className="meld-kind">{label}</span>
       {meld.complete ? (
-        <button
+        <Stack
+          type={canTarget ? "button" : undefined}
+          role={canTarget ? undefined : "group"}
           className={`closed-card-stack ${meld.bonusLost ? "broken-book" : ""}`}
           data-book-cover-id={cover?.id}
-          onClick={activate}
-          aria-label={actionLabel}
-          aria-expanded={canTarget ? undefined : expanded}
-          aria-controls={canTarget ? undefined : inspectionId}
+          onClick={canTarget ? onTarget : undefined}
+          aria-label={stackLabel}
           data-meld-hidden={Boolean(cover && flyingIds?.has(cover.id))}
         >
           <Card card={cover} small />
-        </button>
+        </Stack>
       ) : (
-        <button
+        <Stack
+          type={canTarget ? "button" : undefined}
+          role={canTarget ? undefined : "group"}
           className="meld-card-stack indexed-stack"
-          onClick={activate}
-          aria-label={actionLabel}
-          aria-expanded={canTarget ? undefined : expanded}
-          aria-controls={canTarget ? undefined : inspectionId}
-          aria-describedby={
-            needsHandCard ? `${inspectionId}-finish` : undefined
-          }
+          onClick={canTarget ? onTarget : undefined}
+          aria-label={stackLabel}
+          aria-describedby={needsHandCard ? finishHintId : undefined}
           title={needsHandCard ? finishingHint : undefined}
         >
           <div
             className="meld-card-layers"
             style={
               {
-                "--stack-height": `${106 + (cards.length - 1) * 25}px`,
+                "--stack-height": `${(compact ? 86 : 106) + (cards.length - 1) * (compact ? 17 : 25)}px`,
               } as CSSProperties
             }
           >
             {cards.map((card, index) => (
               <div
                 className="meld-card-layer"
-                style={{ top: index * 25 }}
+                style={{ top: index * (compact ? 17 : 25) }}
                 key={card.id}
                 data-card-id={card.id}
                 data-meld-hidden={flyingIds?.has(card.id)}
@@ -131,10 +118,10 @@ export function MeldPile({
               </div>
             ))}
           </div>
-        </button>
+        </Stack>
       )}
       {needsHandCard && (
-        <span className="sr-only" id={`${inspectionId}-finish`}>
+        <span className="sr-only" id={finishHintId}>
           {finishingHint}
         </span>
       )}
@@ -143,31 +130,6 @@ export function MeldPile({
         {staged > 0 && <span className="meld-staged-count"> +{staged}</span>}
         {meld.complete || meld.bonusLost ? " cards" : " / 7"}
       </span>
-      <div
-        className="meld-inspection"
-        id={inspectionId}
-        data-expanded={expanded}
-        aria-hidden={!expanded}
-      >
-        <div className="meld-inspection-inner">
-          {inspectionMounted && (
-            <>
-              {meld.complete && !meld.bonusLost && (
-                <span className="book-bonus">+{meld.bonus} bonus</span>
-              )}
-              <div
-                className="meld-inspection-cards"
-                role="group"
-                aria-label={`Cards in ${title}`}
-              >
-                {cards.map((card) => (
-                  <Card card={card} small key={card.id} />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

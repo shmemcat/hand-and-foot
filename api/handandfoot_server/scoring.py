@@ -1,4 +1,4 @@
-"""Interactive, persistent debt settlement before any book bonuses are awarded."""
+"""Persistent debt settlement that preserves the most points before awarding bonuses."""
 import copy
 from .rules import FAMILY
 from .achievement_events import record_round_end
@@ -123,17 +123,11 @@ def auto_choice(game, team):
     if free:
         # Paying with a short red-three pile also removes its existing penalty.
         return min(free, key=lambda choice: (0 if choice["redThree"] else 1, -choice["points"]))["id"]
-    dirty_ids = {meld["id"] for meld in game["sides"][team]["melds"]
-                 if meld["kind"] == "set" and meld["complete"] and meld["dirty"]}
-    dirty = [choice for choice in choices if choice["id"] in dirty_ids]
-    if dirty:
-        # Dirty books are always spent before clean books, even when a clean
-        # book alone could cover the debt with a smaller combined bonus loss.
-        choices = dirty
     remaining = game["scoring"]["sides"][team]["remaining"]
     target = min(remaining, sum(choice["points"] for choice in choices))
-    # Within the current priority group, break the least bonus needed to cover
-    # as much debt as possible. Re-evaluate the priority after each payment.
+    # Ordinary card values minus debt are fixed regardless of payment order.
+    # Compare all books, flushes, and qualified reds together to lose the least
+    # bonus while covering the full debt (or all available table points).
     plans = {0: (0, [])}
     for choice in choices:
         risk = choice["bonusAtRisk"]

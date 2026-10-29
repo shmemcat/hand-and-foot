@@ -79,13 +79,7 @@ function SessionStatus({
 }: {
   active: ReturnType<typeof useActiveTable>;
 }) {
-  if (active.table) return null;
-  if (active.checking)
-    return (
-      <p className="session-status" role="status">
-        Checking for an active game…
-      </p>
-    );
+  if (active.table || active.checking) return null;
   if (active.error)
     return (
       <div className="session-status">
@@ -142,7 +136,7 @@ export function CreateGame() {
     <div className="page setup-page">
       <PageTitle>CREATE GAME</PageTitle>
       <form
-        className="setup-form page-body"
+        className="setup-form create-setup page-body"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
@@ -150,23 +144,27 @@ export function CreateGame() {
       >
         <fieldset>
           <legend>Game Type</legend>
-          <div className="segmented">
-            <button
-              type="button"
-              aria-pressed={mode === "practice"}
-              className={mode === "practice" ? "active" : ""}
-              onClick={() => setMode("practice")}
-            >
-              Versus Bots
-            </button>
-            <button
-              type="button"
-              aria-pressed={mode === "online"}
-              className={mode === "online" ? "active" : ""}
-              onClick={() => setMode("online")}
-            >
-              Online
-            </button>
+          <div className="setup-radio-choices">
+            <label>
+              <input
+                type="radio"
+                name="gameType"
+                value="practice"
+                checked={mode === "practice"}
+                onChange={() => setMode("practice")}
+              />
+              <span>Versus Bots</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="gameType"
+                value="online"
+                checked={mode === "online"}
+                onChange={() => setMode("online")}
+              />
+              <span>Online</span>
+            </label>
           </div>
         </fieldset>
         {!user && (
@@ -183,57 +181,49 @@ export function CreateGame() {
         )}
         <fieldset>
           <legend>Scoring</legend>
-          <div className="segmented">
-            <button
-              type="button"
-              aria-pressed={scoring === "partnership"}
-              className={scoring === "partnership" ? "active" : ""}
-              onClick={() => {
-                setScoring("partnership");
-                setCapacity((count) => Math.max(4, count + (count % 2)));
-              }}
-            >
-              Teams of 2
-            </button>
-            <button
-              type="button"
-              aria-pressed={scoring === "individual"}
-              className={scoring === "individual" ? "active" : ""}
-              onClick={() => setScoring("individual")}
-            >
-              Individuals
-            </button>
+          <div className="setup-radio-choices">
+            <label>
+              <input
+                type="radio"
+                name="scoring"
+                value="partnership"
+                checked={scoring === "partnership"}
+                onChange={() => {
+                  setScoring("partnership");
+                  setCapacity((count) => Math.max(4, count + (count % 2)));
+                }}
+              />
+              <span>Teams of 2</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="scoring"
+                value="individual"
+                checked={scoring === "individual"}
+                onChange={() => setScoring("individual")}
+              />
+              <span>Individuals</span>
+            </label>
           </div>
         </fieldset>
         <fieldset>
           <legend>Players</legend>
-          <div className="seat-choices">
+          <div className="setup-player-choices">
             {(scoring === "partnership" ? [4, 6] : [2, 3, 4, 5, 6]).map(
               (count) => (
                 <button
                   key={count}
                   type="button"
                   aria-pressed={capacity === count}
-                  className={capacity === count ? "active" : ""}
                   onClick={() => setCapacity(count)}
                 >
-                  {count}
+                  {count} Players
                 </button>
               ),
             )}
           </div>
         </fieldset>
-        <p className="setup-detail">
-          {capacity} players
-          {scoring === "partnership" ? ` · ${capacity / 2} teams` : ""}
-          {" · "}
-          {capacity + 1} decks · Play to 10,000
-        </p>
-        <p className="setup-detail">
-          {mode === "practice"
-            ? `Single player · You and ${capacity - 1} ${capacity === 2 ? "bot" : "bots"}`
-            : "Invite friends with a private lobby code or link. Open seats can be filled with bots."}
-        </p>
         <LoginWarning />
         <SessionStatus active={active} />
         {error && (
@@ -303,11 +293,19 @@ export function JoinGame() {
           void submit();
         }}
       >
+        <div className="join-intro">
+          <h2>Enter the lobby code</h2>
+          <p id="lobby-code-hint">
+            The game host can provide you with a code, or simply visit the game
+            lobby link.
+          </p>
+        </div>
         <label className="placeholder-field">
           <span className="sr-only">Lobby code</span>
           <input
             className="join-code"
             aria-label="Lobby code"
+            aria-describedby="lobby-code-hint"
             value={code}
             onChange={(event) =>
               setCode(

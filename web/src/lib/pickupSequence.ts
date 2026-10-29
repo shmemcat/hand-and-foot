@@ -82,7 +82,7 @@ export function pickupBeats(scenario: PickupScenario): Beat[] {
         title: "Cards slide into place",
         hold: 1600,
         complete: true,
-        sound: "slide",
+        sound: "select",
         detail:
           "Every staged hand card slides face up to its own destination. Additions land in the existing meld and new groups land in their new melds. The hand closes its gaps when the cards arrive.",
       },
@@ -153,7 +153,7 @@ export function pickupBeats(scenario: PickupScenario): Beat[] {
               hold: 1400,
               staged: true,
               detail:
-                "Three nines total 30 points, below the required opening of at least 50. Play draft stays disabled; hover, focus, or tap it to see the minimum. The cards stay staged so you can add another meld. No request or slide sound is sent.",
+                "Three nines total 30 points, below the required opening of at least 50. Play draft stays disabled; hover, focus, or tap it to see the minimum. The cards stay staged so you can add another meld. No request or placement sound is sent.",
             },
           ]
         : [
@@ -171,7 +171,7 @@ export function pickupBeats(scenario: PickupScenario): Beat[] {
               title: "Pickup accepted",
               hold: 1600,
               complete: true,
-              sound: "slide" as const,
+              sound: "select" as const,
               detail: existing
                 ? "The discard slides into the existing meld. Once it lands, draw exactly one card from the deck to finish drawing for this turn."
                 : "The discard and staged hand cards slide into the new meld. The opening includes the discard’s points. Once the cards land, the deck highlights for your second card.",

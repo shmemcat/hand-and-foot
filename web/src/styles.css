@@ -132,7 +132,10 @@ summary:focus-visible,
 main:focus {
   outline: none;
 }
-input:not([type="range"]):not([type="checkbox"]) {
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):focus {
+  outline: none;
+}
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]) {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line);
@@ -1109,12 +1112,6 @@ legend {
   border-color: var(--muted);
   background: var(--surface);
 }
-.meld-inspection {
-  font-size: 10px;
-  line-height: 1.5;
-  padding: 5px 0;
-  overflow-wrap: anywhere;
-}
 .meld-pile > .text-button {
   font-size: 10px;
 }
@@ -2026,14 +2023,6 @@ body {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--emblem) transparent;
-}
-.turn-message .catch-up-note {
-  font-size: 10px;
-  color: var(--text);
-  padding: 5px 8px;
-  background: var(--surface);
-  border-radius: 5px;
-  line-height: 1.5;
 }
 @keyframes page-enter {
   from {

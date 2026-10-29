@@ -1,4 +1,8 @@
 /* Stacked result actions and host tooltip follow Golf. */
+.round-score-dialog {
+  width: 100%;
+  max-width: var(--score-sheet-width);
+}
 .score-player-name {
   display: flex;
   align-items: center;

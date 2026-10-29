@@ -17,6 +17,7 @@ import { TurnSoundProvider } from "./context/TurnSoundContext";
 import "./styles.css";
 import "./sister-site.css";
 import "./game-board.css";
+import "./mobile-game.css";
 
 const Profile = React.lazy(() =>
   import("./pages/Profile").then((module) => ({ default: module.Profile })),
@@ -117,6 +118,14 @@ const UserPreview = import.meta.env.DEV
     )
   : () => null;
 
+const MobilePreview = import.meta.env.DEV
+  ? React.lazy(() =>
+      import("./pages/MobilePreview").then((module) => ({
+        default: module.MobilePreview,
+      })),
+    )
+  : () => null;
+
 function AppRoutes() {
   const { user } = useAuth();
   return (
@@ -168,6 +177,16 @@ function AppRoutes() {
         }
       />
       {import.meta.env.DEV && <Route path="/preview" element={<Preview />} />}
+      {import.meta.env.DEV && (
+        <Route
+          path="/preview/mobile"
+          element={
+            <React.Suspense fallback={null}>
+              <MobilePreview />
+            </React.Suspense>
+          }
+        />
+      )}
       {import.meta.env.DEV && (
         <Route
           path="/preview/endings/designs"

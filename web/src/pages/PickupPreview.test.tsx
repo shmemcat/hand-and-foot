@@ -136,7 +136,7 @@ it("shows staging and the pending reply, then slides the accepted discard and ha
       .querySelector('[aria-label="K of diamonds"]'),
   ).toBeTruthy();
   expect(view.container.querySelector(".draw-flight-layer")).toBeNull();
-  expect(sound.play).toHaveBeenCalledWith("slide");
+  expect(sound.play).toHaveBeenCalledExactlyOnceWith("select");
 });
 
 it("replays without accumulating cards, repeating sounds, or touching a real game", () => {
@@ -157,7 +157,7 @@ it("replays without accumulating cards, repeating sounds, or touching a real gam
     Array.from({ length: 3 }, () => [
       "select",
       "select",
-      "slide",
+      "select",
       "deal",
     ]).flat(),
   );

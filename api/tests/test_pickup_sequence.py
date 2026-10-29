@@ -1,6 +1,7 @@
 import copy
 import pytest
 from handandfoot_server import engine
+from handandfoot_server.rules import RANKS
 from test_engine import rig, take, book
 
 
@@ -14,6 +15,65 @@ def pickup_game(*, opened=False, score=0, hand_matches=2):
     game["players"][0]["hand"] = matches + spare
     game["discard"] = take(game, "5") + [top]
     return game, {"type": "pickup", "groups": [{"cardIds": [*matches, top]}]}
+
+
+@pytest.mark.parametrize("rank", RANKS)
+@pytest.mark.parametrize("wild", ["Joker", "2"])
+def test_pickup_can_start_a_valid_pile_with_one_matching_natural_and_a_wild(rank, wild):
+    game = rig()
+    game["phase"] = "draw"
+    game["sides"][0]["opened"] = True
+    top = take(game, rank)[0]
+    hand = take(game, rank) + take(game, wild)
+    spare = take(game, "4")
+    game["players"][0]["hand"] = hand + spare
+    lower = take(game, "5")
+    game["discard"] = lower + [top]
+    before = copy.deepcopy(game)
+    result = engine.apply(game, 0, {"type": "pickup", "groups": [{"cardIds": [*hand, top]}]})
+    assert game == before
+    assert result["discard"] == lower
+    assert result["players"][0]["hand"] == spare
+    meld = result["sides"][0]["melds"][0]
+    assert meld["rank"] == rank
+    assert meld["dirty"]
+    assert set(meld["cardIds"]) == {*hand, top}
+    assert result["pickupDrawPending"]
+    assert engine.project(result, "0")["drawCount"] == 1
+    engine.assert_conservation(result)
+
+
+@pytest.mark.parametrize("ranks,error", [
+    (["K"], "at least three cards"),
+    (["Joker", "2"], "outnumber wilds"),
+    (["K", "Joker", "2"], "outnumber wilds"),
+    (["Q", "Joker"], "same rank"),
+])
+def test_pickup_still_requires_a_valid_resulting_meld(ranks, error):
+    game, _ = pickup_game(opened=True, hand_matches=0)
+    hand = [take(game, rank)[0] for rank in ranks]
+    game["players"][0]["hand"].extend(hand)
+    before = copy.deepcopy(game)
+    with pytest.raises(ValueError, match=error):
+        engine.apply(game, 0, {"type": "pickup", "groups": [{"cardIds": [*hand, game["discard"][-1]]}]})
+    assert game == before
+
+
+@pytest.mark.parametrize("score,allowed", [(0, True), (3001, False), (6000, False)])
+def test_pickup_with_a_wild_still_requires_the_opening_minimum(score, allowed):
+    game, command = pickup_game(score=score, hand_matches=1)
+    wild = take(game, "Joker")[0]
+    game["players"][0]["hand"].append(wild)
+    command["groups"][0]["cardIds"].append(wild)
+    before = copy.deepcopy(game)
+    if not allowed:
+        with pytest.raises(ValueError, match="Your opening must total at least"):
+            engine.apply(game, 0, command)
+        assert game == before
+        return
+    result = engine.apply(game, 0, command)
+    assert result["sides"][0]["opened"]
+    assert result["pickupDrawPending"]
 
 
 @pytest.mark.parametrize("score,minimum", [(0, 50), (3001, 90), (6000, 120)])

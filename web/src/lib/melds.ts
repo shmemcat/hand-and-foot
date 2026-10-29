@@ -84,17 +84,24 @@ export function pickupPlayableCards(
       ...selected,
       card,
     ]);
+    const matching = unique([...required, ...naturals]);
+    // A matching pair can use an unselected wild to become a complete meld.
+    if (matching.length < 3) {
+      const wild = hand.find(
+        (item) => item.wild && !matching.some((old) => old.id === item.id),
+      );
+      if (wild) matching.push(wild);
+    }
     if (
       (!meld || meld.kind === "set") &&
-      (meld || naturals.length >= 2) &&
       (meld
         ? canExtendMeld(
             meld,
-            unique([...required, ...naturals]).filter(
+            matching.filter(
               (item) => !meld.cards.some((old) => old.id === item.id),
             ),
           )
-        : isValidMeld(unique([...required, ...naturals]), "set"))
+        : isValidMeld(matching, "set"))
     )
       return true;
     if (meld && meld.kind !== "run") return false;

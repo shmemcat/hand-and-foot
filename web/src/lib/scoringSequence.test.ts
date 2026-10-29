@@ -9,6 +9,50 @@ import {
 } from "./scoringSequence";
 
 describe("physical end-of-round score count", () => {
+  it("breaks one clean book when that loses less than two dirty books", () => {
+    const typical = SCORING_SCENARIOS[0];
+    const queen = typical.melds.find((meld) => meld.id === "queens")!;
+    const ace = typical.melds.find((meld) => meld.id === "aces")!;
+    const dirty = (id: string) => ({
+      ...queen,
+      id,
+      cards: queen.cards.map((card, index) => ({
+        ...card,
+        id: `${id}-${index}`,
+        value: card.wild ? 20 : 5,
+      })),
+    });
+    const beats = scoringSequence({
+      ...typical,
+      hand: Array.from({ length: 12 }, (_, index) => ({
+        ...typical.hand[0],
+        id: `debt-${index}`,
+      })),
+      foot: [],
+      reds: [],
+      melds: [dirty("dirty-one"), dirty("dirty-two"), ace],
+    });
+    expect(
+      beats
+        .filter((beat) => beat.kind === "break")
+        .map((beat) => beat.activePile),
+    ).toEqual(["aces"]);
+    expect(beats.at(-1)!.base).toBe(600);
+  });
+
+  it("uses short reds before ordinary piles to remove their penalties", () => {
+    const typical = SCORING_SCENARIOS[0];
+    const beats = scoringSequence({
+      ...typical,
+      hand: [typical.hand[2]],
+      foot: [],
+      reds: typical.reds.slice(0, 2),
+      melds: typical.melds.filter((meld) => meld.id === "fives"),
+    });
+    expect(beats.find((beat) => beat.kind === "pair")?.activePile).toBe("reds");
+    expect(beats.at(-1)!.base + beats.at(-1)!.cardValue).toBe(-285);
+  });
+
   it("waits after gathering the foot, and follows only accepted pile choices", () => {
     const scenario = SCORING_SCENARIOS[0];
     const waiting = scoringSequence(scenario, { pileIds: [], complete: false });

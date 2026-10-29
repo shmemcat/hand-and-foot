@@ -43,14 +43,10 @@ export function AnimatedNumber({
 
 export function ScoringReview({
   snapshot,
-  busy,
   error,
-  act,
 }: {
   snapshot: Snapshot;
-  busy: boolean;
   error: string;
-  act: (type: string, payload?: Record<string, unknown>) => Promise<void>;
 }) {
   const review = snapshot.scoring!;
   const side = snapshot.sides[review.team];
@@ -67,7 +63,6 @@ export function ScoringReview({
     (player) => player.team === review.team,
   ))
     for (const card of player.redThrees) lookup.set(card.id, card);
-  const [justPaid, setJustPaid] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const lastCount = useRef(review.canceled.length);
   useEffect(() => {
@@ -80,11 +75,6 @@ export function ScoringReview({
     lastCount.current = review.canceled.length;
   }, [review.revision]);
   const canConfirm = review.remaining === 0 || review.options.length === 0;
-  async function usePile(id: string) {
-    setJustPaid(id);
-    await act("score_pay", { pileId: id });
-    setJustPaid(null);
-  }
   return (
     <div className="modal-backdrop">
       <section
@@ -108,7 +98,7 @@ export function ScoringReview({
             <span>2</span>Count surviving books
           </li>
           <li className={review.confirmed ? "active" : ""}>
-            <span>3</span>Confirm your score
+            <span>3</span>Round complete
           </li>
         </ol>
         <div className="debt-meter" aria-live="polite">
@@ -150,51 +140,10 @@ export function ScoringReview({
           </p>
         </details>
         {!review.confirmed && review.options.length > 0 ? (
-          <>
-            <p className="score-instruction">
-              Choose a pile to pay the debt. Using any card in a completed book
-              breaks its bonus. Unfinished piles have no bonus to lose.
-            </p>
-            <div className="debt-options">
-              {review.options.map((option) => (
-                <button
-                  key={option.id}
-                  className={`debt-option ${option.bonusAtRisk ? "bonus-at-risk" : ""} ${justPaid === option.id ? "paying-pile" : ""}`}
-                  disabled={busy}
-                  onClick={() => void usePile(option.id)}
-                >
-                  <div className="debt-option-cards">
-                    {option.cardIds.slice(0, 7).map((id) => (
-                      <Card small card={lookup.get(id)} key={id} />
-                    ))}
-                  </div>
-                  <strong>{option.label}</strong>
-                  <span>
-                    Cover up to {Math.min(option.points, review.remaining)} pts
-                  </span>
-                  <small>
-                    {option.redThree
-                      ? redsQualified
-                        ? `Breaks the +${option.bonusAtRisk} red-three bonus; cards stay worth 5 each, with no penalty`
-                        : "5 pts each toward debt; unspent reds cost −300 each"
-                      : option.bonusAtRisk
-                        ? `Breaks the +${option.bonusAtRisk} bonus`
-                        : "No book bonus at risk"}
-                  </small>
-                  <span className="use-pile-label">
-                    Use this pile <span aria-hidden="true">→</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-            <button
-              className="text-button auto-cover"
-              disabled={busy}
-              onClick={() => void act("score_auto")}
-            >
-              Cover automatically · open piles, then dirty books
-            </button>
-          </>
+          <p className="score-instruction" role="status">
+            Covering leftover cards automatically while preserving the most
+            points.
+          </p>
         ) : (
           <div className="debt-resolved">
             <Icon name="check" />
@@ -279,18 +228,6 @@ export function ScoringReview({
             {error}
           </p>
         )}
-        <button
-          autoFocus
-          className="button full"
-          disabled={busy || review.confirmed || !canConfirm}
-          onClick={() => void act("score_confirm")}
-        >
-          {review.confirmed
-            ? "Waiting for the table…"
-            : canConfirm
-              ? "Confirm this score"
-              : "Cover the remaining debt first"}
-        </button>
         <p className="fine-print">
           {review.confirmedSides.length} of {snapshot.sides.length} sides
           confirmed · Match target {snapshot.targetScore.toLocaleString()}

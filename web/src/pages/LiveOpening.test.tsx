@@ -159,7 +159,11 @@ it("runs the actual opening, preserves board browsing, uses the chosen cards, an
     }).disabled,
   ).toBe(false);
   expect(sound.play).toHaveBeenCalledExactlyOnceWith("start");
-  expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Follow turn" })
+      .checked,
+  ).toBe(true);
+  expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
 });
 
 it("starts later rounds at Dealer with the previous badge position, while a rematch starts with Arrive", async () => {

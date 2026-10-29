@@ -9,41 +9,9 @@
 .game-page.live-scoring .pile-button:disabled {
   opacity: 1;
 }
-.live-score-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  font:
-    400 11px/1.3 Figtree,
-    Arial,
-    sans-serif;
-}
-.live-score-controls .button {
-  width: auto;
-  padding: 6px 14px;
-  min-height: 28px;
-  font-size: 11px;
-}
-.live-score-controls .text-button {
-  font-size: 11px;
-}
-.rule-state-cue {
-  color: var(--secondary);
-  font:
-    500 11px/1.4 Figtree,
-    Arial,
-    sans-serif;
-  animation: rule-cue-in 220ms ease-out both;
-}
 .board-player[data-leading="true"] .board-player-score {
   color: var(--secondary);
   transition: color 300ms;
-}
-.board-player[data-leading="true"] .board-player-score::before {
-  content: "◆";
-  font-size: 8px;
-  margin-right: 5px;
 }
 .round-score-sheet {
   animation: score-sheet-arrive 240ms ease-out both;
@@ -85,17 +53,45 @@
     transform: translateY(-12px);
   }
 }
-@keyframes rule-cue-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 @media (min-width: 769px) {
+  .game-page {
+    --table-piles-height: 460px;
+    --table-hand-height: 226px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "header"
+      "hint"
+      "table"
+      "navigation"
+      "hand";
+    grid-template-rows: auto 52px auto 72px var(--table-hand-height);
+  }
+  .game-page > .game-header {
+    grid-area: header;
+  }
+  .game-page > .turn-message {
+    grid-area: hint;
+  }
+  .game-page > .board-carousel {
+    grid-area: table;
+  }
+  .game-page > .board-browser {
+    grid-area: navigation;
+  }
+  .game-page > .hand-dock {
+    grid-area: hand;
+    height: var(--table-hand-height);
+  }
+  .game-page .player-lane,
+  .game-page .opening-tableau-stage {
+    flex: none;
+    height: var(--table-piles-height);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--emblem) transparent;
+  }
   .game-page > .turn-message {
     min-height: 82px;
   }
@@ -109,13 +105,15 @@
     margin: 0;
   }
   .game-page .melds {
-    min-height: calc(285px + var(--max-pile-cards, 7) * 25px);
+    min-height: max(
+      var(--table-piles-height),
+      calc(285px + var(--max-pile-cards, 7) * 25px)
+    );
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .round-score-sheet,
-  .round-score-sheet.score-sheet-leaving,
-  .rule-state-cue {
+  .round-score-sheet.score-sheet-leaving {
     animation: none;
   }
 }
@@ -291,6 +289,9 @@
 .hand-card[data-meld-hidden="true"],
 .meld-card-layer[data-meld-hidden="true"],
 .closed-card-stack[data-meld-hidden="true"] {
+  visibility: hidden;
+}
+.red-three-stack > span[data-meld-hidden="true"] {
   visibility: hidden;
 }
 .meld-flight-layer {
@@ -700,11 +701,11 @@
 .board-player {
   position: relative;
   isolation: isolate;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 2px 0;
   min-width: 0;
   padding: 5px 10px;
   border-radius: 12px;
@@ -730,6 +731,7 @@
   opacity: 1;
 }
 .board-player-members {
+  grid-column: 2;
   width: 100%;
   min-width: 0;
 }
@@ -739,9 +741,11 @@
   max-width: calc(var(--player-count) * 260px - 24px);
 }
 .team-board-nav .board-player {
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .board-player-pair {
+  grid-column: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -808,6 +812,7 @@
   pointer-events: none;
 }
 .board-player-score {
+  grid-column: 2;
   font:
     500 13px/1.35 Bitter,
     Georgia,
@@ -817,6 +822,55 @@
 .board-player-score > small {
   font-size: 11px;
   color: var(--muted);
+}
+.team-board-nav .board-player-score {
+  grid-column: 1;
+}
+.board-player-foot {
+  display: block;
+  flex-shrink: 0;
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    width var(--board-foot-fade-duration) cubic-bezier(0.22, 0.68, 0.26, 1),
+    opacity var(--board-foot-fade-duration) ease-in-out;
+}
+.board-player > .board-player-foot {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.board-partner > .board-player-foot {
+  /* Cancel the name row's flex gap once the icon's own space has collapsed. */
+  margin-right: -6px;
+}
+.board-player-foot[data-visible="true"] {
+  width: 26px;
+  opacity: 1;
+}
+.board-player-foot[data-visible="false"][data-pickup="true"] {
+  transition-delay: var(--board-foot-fade-delay);
+}
+.board-player-foot-icon {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 22px;
+}
+.board-player-foot-icon::before,
+.board-player-foot-icon::after {
+  content: "";
+  position: absolute;
+  border: 1px solid var(--muted);
+  border-radius: 2px;
+  background: var(--primary);
+}
+.board-player-foot-icon::before {
+  inset: 1px 1px 2px 4px;
+  transform: rotate(8deg);
+}
+.board-player-foot-icon::after {
+  inset: 3px 4px 0 1px;
 }
 .dealer-marker {
   display: inline-grid;
@@ -850,6 +904,21 @@
   padding-top: 8px;
 }
 @media (min-width: 769px) {
+  .player-board-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 100%;
+  }
+  .board-player {
+    max-width: 100%;
+  }
+  .board-player-text {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   /* Keep open melds in their lower row before the first book is completed. */
   .game-page .melds:not(:has(.closed-books)) > .open-piles {
     margin-top: 152px;
@@ -978,11 +1047,6 @@
 .open-piles .meld-count {
   transition: opacity 180ms ease-out;
 }
-.book-bonus {
-  margin-top: 8px;
-  font-size: 10px;
-  color: var(--secondary);
-}
 .meld-pile {
   container-type: inline-size;
   display: flex;
@@ -1079,47 +1143,6 @@
 }
 .meld-staged-count {
   color: var(--secondary);
-}
-.meld-inspection-cards {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 4px;
-  width: 100%;
-  margin-top: 14px;
-}
-.meld-inspection {
-  display: grid;
-  grid-template-rows: 0fr;
-  width: 100%;
-  padding: 0;
-  transition: grid-template-rows 220ms ease-in-out;
-}
-.meld-inspection[data-expanded="true"] {
-  grid-template-rows: 1fr;
-}
-.meld-inspection-inner {
-  min-height: 0;
-  overflow: hidden;
-  visibility: hidden;
-  transform: translateY(-6px);
-  transition:
-    transform 220ms ease-in-out,
-    visibility 0s 220ms;
-}
-.meld-inspection[data-expanded="true"] > .meld-inspection-inner {
-  visibility: visible;
-  transform: translateY(0);
-  transition-delay: 0s;
-}
-.meld-inspection .book-bonus {
-  display: block;
-  text-align: center;
-}
-.meld-inspection-cards > .card {
-  width: 32px;
-  height: 45px;
-  border-radius: 4px;
 }
 .game-page .empty-lane {
   flex-direction: column;
@@ -1450,7 +1473,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .board-player-turn {
+  .board-player-turn,
+  .board-player-foot {
     transition: none;
   }
   .turn-message.inactivity-shake > p {

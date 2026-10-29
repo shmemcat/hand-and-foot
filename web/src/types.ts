@@ -99,7 +99,7 @@ export type RoundResult = {
 export type TableEvent = {
   id: string;
   playerId: string;
-  kind: "draw" | "pickup" | "discard" | "replace";
+  kind: "draw" | "pickup" | "discard" | "replace" | "foot";
   count: number;
   card: Card | null;
   faceDown: boolean;
