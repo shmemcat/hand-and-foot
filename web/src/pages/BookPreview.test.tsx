@@ -92,7 +92,7 @@ it.each(["clean", "dirty", "reds", "first"] as BookExample[])(
     expect(
       view.container.querySelector<HTMLElement>(".board-carousel")?.style
         .minHeight,
-    ).toBe("550px");
+    ).toBe("");
     advance(BOOK_CLOSE_MS - 1);
     expect(view.container.querySelector(".book-closing-layer")).toBeTruthy();
     advance(1);
@@ -103,6 +103,33 @@ it.each(["clean", "dirty", "reds", "first"] as BookExample[])(
     ).toBeTruthy();
     view.rerender(room({ ...after, revision: 3 }));
     expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+  },
+);
+
+it.each([
+  "last",
+  "multiple",
+  "crowded",
+  "wrapped",
+  "straight",
+  "foot",
+  "finish-wild",
+  "overfull",
+] as BookExample[])(
+  "keeps the desktop height under CSS control while closing %s",
+  (example) => {
+    const view = render(room(bookExample(example, false)));
+    const board = () =>
+      view.container.querySelector<HTMLElement>(".board-carousel")!;
+    view.rerender(room(bookExample(example, true)));
+    expect(board().style.minHeight).toBe("");
+    expect(view.container.querySelector(".meld-card-flight")).toBeTruthy();
+    advance(MELD_FLIGHT_MS);
+    expect(view.container.querySelector(".book-closing-layer")).toBeTruthy();
+    expect(board().style.minHeight).toBe("");
+    advance(BOOK_CLOSE_MS);
+    expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+    expect(board().style.minHeight).toBe("");
   },
 );
 

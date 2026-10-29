@@ -2110,58 +2110,213 @@ it("cancels a staged pickup from the discard label and restores drawing without 
   expect(command).not.toHaveBeenCalled();
 });
 
-it("disables incompatible hand cards during pickup and unlocks the rest after the discard is staged", async () => {
-  const snapshot = fixture();
-  snapshot.discard = {
-    ...snapshot.hand[0],
-    id: "discard-ace",
-    suit: "diamonds",
-  };
-  snapshot.hand.push(
-    { ...snapshot.hand[0], id: "king", rank: "K" },
-    {
+it.each(["desktop", "mobile"])(
+  "locks further staging until the pickup meld is played and the second card is drawn on %s",
+  async (layout) => {
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) =>
+        ({
+          matches:
+            (layout === "mobile" && query === "(max-width: 768px)") ||
+            query === "(prefers-reduced-motion: reduce)",
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
+    const snapshot = fixture();
+    snapshot.sides[0].opened = true;
+    snapshot.discard = {
       ...snapshot.hand[0],
-      id: "joker",
-      rank: "Joker",
-      suit: "joker",
-      wild: true,
-    },
-  );
-  vi.mocked(getRoom).mockResolvedValue(snapshot);
-  openRoom();
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: "Pick up and immediately play the top discard",
-    }),
-  );
-  const hand = within(
-    screen.getByRole("region", { name: "Your private hand" }),
-  );
-  const king = hand.getByRole("button", {
-    name: "K of clubs",
-  }) as HTMLButtonElement;
-  const joker = hand.getByRole("button", {
-    name: "Joker, 50 points",
-  }) as HTMLButtonElement;
-  expect(king.disabled).toBe(true);
-  expect(king.closest(".hand-card")?.getAttribute("data-pickup-blocked")).toBe(
-    "true",
-  );
-  expect(joker.disabled).toBe(false);
-  fireEvent.click(hand.getByRole("button", { name: "A of clubs" }));
-  fireEvent.click(joker);
-  expect(
-    (screen.getByRole("button", { name: "Stage meld" }) as HTMLButtonElement)
-      .disabled,
-  ).toBe(false);
-  fireEvent.click(hand.getByRole("button", { name: "A of hearts" }));
-  fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
-  expect(king.disabled).toBe(false);
-  expect(king.closest(".hand-card")?.getAttribute("data-pickup-blocked")).toBe(
-    "false",
-  );
-  expect(command).not.toHaveBeenCalled();
-});
+      id: "discard-ace",
+      suit: "diamonds",
+    };
+    snapshot.hand.push(
+      ...["clubs", "hearts", "spades"].map((suit) => ({
+        ...snapshot.hand[0],
+        id: `king-${suit}`,
+        rank: "K",
+        suit,
+      })),
+      {
+        ...snapshot.hand[0],
+        id: "joker",
+        rank: "Joker",
+        suit: "joker",
+        wild: true,
+      },
+    );
+    snapshot.sides[0].melds = ["A", "K"].map((rank) => ({
+      id: `table-${rank}`,
+      creator: "you",
+      kind: "set",
+      rank,
+      complete: false,
+      dirty: false,
+      bonus: 0,
+      cards: Array.from({ length: 3 }, (_, index) => ({
+        ...snapshot.hand[0],
+        id: `table-${rank}-${index}`,
+        rank,
+      })),
+    }));
+    const pickupIds = ["ace-clubs", "joker", "ace-hearts", "discard-ace"];
+    const accepted: Snapshot = {
+      ...snapshot,
+      revision: 2,
+      token: "pickup-accepted",
+      pickupDrawPending: true,
+      drawCount: 1,
+      discard: null,
+      hand: snapshot.hand.filter((card) => !pickupIds.includes(card.id)),
+      sides: snapshot.sides.map((side) =>
+        side.id
+          ? side
+          : {
+              ...side,
+              melds: [
+                ...side.melds,
+                {
+                  id: "pickup-aces",
+                  creator: "you",
+                  kind: "set",
+                  rank: "A",
+                  complete: false,
+                  dirty: true,
+                  bonus: 0,
+                  cards: [
+                    ...snapshot.hand.filter((card) =>
+                      pickupIds.includes(card.id),
+                    ),
+                    snapshot.discard!,
+                  ],
+                },
+              ],
+            },
+      ),
+    };
+    const drawn: Snapshot = {
+      ...accepted,
+      revision: 3,
+      token: "second-card-drawn",
+      phase: "play",
+      pickupDrawPending: false,
+      drawCount: 2,
+      hand: [
+        ...accepted.hand,
+        { ...snapshot.hand[0], id: "second-card", rank: "Q" },
+      ],
+    };
+    vi.mocked(getRoom).mockResolvedValue(snapshot);
+    vi.mocked(command)
+      .mockResolvedValueOnce(accepted)
+      .mockResolvedValueOnce(drawn);
+    openRoom();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Pick up and immediately play the top discard",
+      }),
+    );
+    const hand = within(
+      screen.getByRole("region", { name: "Your private hand" }),
+    );
+    const king = hand.getByRole("button", {
+      name: "K of clubs",
+    }) as HTMLButtonElement;
+    const joker = hand.getByRole("button", {
+      name: "Joker, 50 points",
+    }) as HTMLButtonElement;
+    expect(king.disabled).toBe(true);
+    expect(
+      king.closest(".hand-card")?.getAttribute("data-pickup-blocked"),
+    ).toBe("true");
+    expect(joker.disabled).toBe(false);
+    fireEvent.click(hand.getByRole("button", { name: "A of clubs" }));
+    fireEvent.click(joker);
+    expect(
+      (screen.getByRole("button", { name: "Stage meld" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    fireEvent.click(hand.getByRole("button", { name: "A of hearts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
+    expect(king.disabled).toBe(false);
+    expect(
+      king.closest(".hand-card")?.getAttribute("data-pickup-blocked"),
+    ).toBe("false");
+    for (const card of hand.getAllByRole("button", { name: /^K of/ }))
+      fireEvent.click(card);
+    const stage = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Stage meld",
+    });
+    expect(stage.disabled).toBe(true);
+    expect(document.querySelector(".meld-pile.legal-target")).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "Add selected cards to a pile" }),
+    ).toBeNull();
+    const stageControl = screen.getByRole("group", { name: "Stage meld" });
+    fireEvent.mouseEnter(stageControl);
+    expect(screen.getByRole("tooltip").textContent).toBe(
+      "Play your meld that includes the discard first, then draw before staging more",
+    );
+    fireEvent.mouseLeave(stageControl);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.focus(stageControl);
+    expect(screen.getByRole("tooltip").textContent).toContain(
+      "Play your meld that includes the discard first",
+    );
+    fireEvent.keyDown(stageControl, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.click(stageControl);
+    expect(screen.getByRole("tooltip")).toBeTruthy();
+    fireEvent.click(stage);
+    expect(document.querySelectorAll(".staged-card")).toHaveLength(3);
+    expect(command).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear draft" }));
+    expect(king.disabled).toBe(true);
+    for (const name of ["A of clubs", "Joker, 50 points", "A of hearts"])
+      fireEvent.click(hand.getByRole("button", { name }));
+    expect(stage.disabled).toBe(false);
+    expect(screen.queryByRole("group", { name: "Stage meld" })).toBeNull();
+    fireEvent.click(stage);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Play draft" })
+        .disabled,
+    ).toBe(false);
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Play draft" })),
+    );
+    expect(command).toHaveBeenCalledWith(snapshot, "pickup", {
+      groups: [{ cardIds: pickupIds, kind: "set" }],
+    });
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Stage meld" })
+        .disabled,
+    ).toBe(true);
+    fireEvent.mouseEnter(screen.getByRole("group", { name: "Stage meld" }));
+    expect(screen.getByRole("tooltip").textContent).toBe(
+      "Draw your second card from the deck first.",
+    );
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Draw your second card from the deck",
+        }),
+      ),
+    );
+    expect(command).toHaveBeenCalledWith(accepted, "draw", {});
+    for (const card of hand.getAllByRole("button", { name: /^K of/ }))
+      fireEvent.click(card);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Stage meld" })
+        .disabled,
+    ).toBe(false);
+    expect(screen.queryByRole("group", { name: "Stage meld" })).toBeNull();
+    expect(document.querySelector(".meld-pile.legal-target")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
+    expect(document.querySelectorAll(".staged-card")).toHaveLength(3);
+    expect(command).toHaveBeenCalledTimes(2);
+  },
+);
 
 it("outlines legal existing melds as soon as the discard is selected and stages it without hand selection", async () => {
   const snapshot = fixture();
@@ -2201,6 +2356,16 @@ it("outlines legal existing melds as soon as the discard is selected and stages 
   fireEvent.click(target);
   expect(document.querySelector(".meld-staged-count")?.textContent).toBe(" +1");
   expect(screen.getByRole("button", { name: "Play draft" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "A of clubs" }));
+  expect(document.querySelector(".meld-pile.legal-target")).toBeNull();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Stage meld" })
+      .disabled,
+  ).toBe(true);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Play draft" })
+      .disabled,
+  ).toBe(false);
 });
 
 it("never offers the discard as an addition to a six-card pile", async () => {

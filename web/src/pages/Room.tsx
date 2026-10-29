@@ -55,7 +55,10 @@ import { ResultsToggle } from "../components/ResultsToggle";
 import { ScoreCount, SettlementPiles } from "../components/ScoreCount";
 import { ScoreMotion } from "../components/ScoreMotion";
 import { useLiveScoring } from "../hooks/useLiveScoring";
-import { useMobilePlayMotion } from "../hooks/useMobilePlayMotion";
+import {
+  MOBILE_PLAY_MS,
+  useMobilePlayMotion,
+} from "../hooks/useMobilePlayMotion";
 import { MobilePlayCards } from "../components/MobilePlayCards";
 import { MobileFootCards } from "../components/MobileFootCards";
 import { useHandLayoutMotion } from "../hooks/useHandLayoutMotion";
@@ -77,6 +80,7 @@ import {
   useBookClosing,
 } from "../hooks/useBookClosing";
 import { usePileLayoutMotion } from "../hooks/usePileLayoutMotion";
+import { useMeldStackMotion } from "../hooks/useMeldStackMotion";
 import { useFootMotion } from "../hooks/useFootMotion";
 import { useTableMotion } from "../hooks/useTableMotion";
 import { useRedThreeCelebration } from "../hooks/useRedThreeCelebration";
@@ -378,6 +382,14 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
         ? BOOK_CLOSE_MS - BOOK_RISE_DELAY_MS
         : undefined),
   });
+  useMeldStackMotion(
+    boardRef,
+    `${snapshot?.code}:${snapshot?.round}:${snapshot?.viewerId}:${viewed}:${mobile}`,
+    opening.reduced || rehearsal?.meldAnimate === false,
+    rehearsal?.meldSpeed ?? 1,
+    rehearsal?.meldPaused ?? false,
+    mobile ? MOBILE_PLAY_MS : undefined,
+  );
   useRedThreeCelebration(
     snapshot?.phase === "scoring" ? null : snapshot,
     boardRef,
@@ -974,7 +986,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     error,
   ]);
   function stage(meldId?: string) {
-    if (!canStage) return;
+    if (!canStage || discardIsStaged) return;
     const target = ownSide.melds.find((meld) => meld.id === meldId);
     if (meldId ? !target || !canAddToMeld(target) : !stageKind) return;
     setDrafts((old) => [
@@ -1230,7 +1242,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     stageIds.length > 0 && stageCards.length === stageIds.length;
   const stageKind = hasStageCards ? detectMeldKind(stageCards) : null;
   function canAddToMeld(meld: Meld) {
-    if (!canStage || !hasStageCards) return false;
+    if (!canStage || discardIsStaged || !hasStageCards) return false;
     let target = meld;
     for (const draft of drafts.filter((draft) => draft.meldId === meld.id)) {
       const additions = draft.cardIds.flatMap((id) => cardMap.get(id) || []);
@@ -1582,7 +1594,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
         <div
           className="board-carousel"
           style={
-            playingMeld || scoring.enabled
+            mobile && (playingMeld || scoring.enabled)
               ? {
                   minHeight: Math.max(
                     meldMotion.flight?.boardHeight ?? 0,
@@ -1886,7 +1898,10 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                       <span className="mobile-target-hint">
                         Picking up your foot…
                       </span>
-                    ) : mobileGame && canStage && stageIds.length > 0 ? (
+                    ) : mobileGame &&
+                      canStage &&
+                      !discardIsStaged &&
+                      stageIds.length > 0 ? (
                       <div
                         className="mobile-meld-targets"
                         role="group"
@@ -2147,17 +2162,29 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                           "Select cards to play"
                         )}
                       </span>
-                      <button
-                        className="button small"
-                        disabled={
-                          !canStage || (!stageKind && !canStageRedThrees)
-                        }
-                        onClick={() =>
-                          canStageRedThrees ? stageRedThrees() : stage()
+                      <DrawFirstHint
+                        blocked={discardIsStaged || needsSecondDraw}
+                        label="Stage meld"
+                        hint={
+                          discardIsStaged
+                            ? "Play your meld that includes the discard first, then draw before staging more"
+                            : undefined
                         }
                       >
-                        Stage meld
-                      </button>
+                        <button
+                          className="button small"
+                          disabled={
+                            !canStage ||
+                            discardIsStaged ||
+                            (!stageKind && !canStageRedThrees)
+                          }
+                          onClick={() =>
+                            canStageRedThrees ? stageRedThrees() : stage()
+                          }
+                        >
+                          Stage meld
+                        </button>
+                      </DrawFirstHint>
                       <PlayDraftButton
                         count={drafts.length}
                         total={draftTotal}
@@ -2350,10 +2377,13 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             <MeldCards
               flight={meldMotion.flight}
               paused={rehearsal?.meldPaused ?? false}
+              board={boardRef}
             />,
           )}
         {mobileMotion.flight &&
-          motionLayer(<MobilePlayCards flight={mobileMotion.flight} />)}
+          motionLayer(
+            <MobilePlayCards flight={mobileMotion.flight} board={boardRef} />,
+          )}
         {mobileMotion.bookFlight &&
           motionLayer(
             <ClosingBooks

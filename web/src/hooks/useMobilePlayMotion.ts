@@ -10,6 +10,7 @@ import type { Card, Snapshot } from "../types";
 import { afterCardAnimations } from "../lib/cardAnimations";
 import { landingPosition, type CardPosition } from "./useMeldMotion";
 import { BOOK_CLOSE_MS, type BookClosingFlight } from "./useBookClosing";
+import { bookCover } from "../lib/bookCover";
 
 export const MOBILE_PLAY_MS = 480;
 export const MOBILE_PLAY_STAGGER_MS = 55;
@@ -34,6 +35,8 @@ export type MobilePlayFlight = {
   key: string;
   kind: Destination["kind"];
   faceDown: boolean;
+  cover?: Card;
+  stackCovers?: { meldId: string; card: Card }[];
   cards: { card: Card; from: CardPosition; to: CardPosition }[];
 };
 const scope = (snapshot: Snapshot) =>
@@ -132,18 +135,26 @@ export function useMobilePlayMotion(
           hand: sequence!.before.hand,
           sides: incoming.sides.map((side) => ({
             ...side,
-            melds: side.melds.map((meld) =>
-              sequence!.groups
+            melds: side.melds.map((meld) => {
+              const pending = sequence!.groups
                 .slice(sequence!.index)
-                .some(
-                  (group, index) =>
-                    group.id === meld.id &&
-                    group.completes &&
-                    (index > 0 || sequence!.stage !== "moving"),
-                )
+                .findIndex((group) => group.id === meld.id);
+              if (pending < 0) return meld;
+              const old = sequence!.before.sides
+                .flatMap((side) => side.melds)
+                .find((item) => item.id === meld.id);
+              if (old?.complete && meld.complete)
+                return {
+                  ...meld,
+                  cards: old.cards,
+                  dirty: old.dirty,
+                  bonus: old.bonus,
+                };
+              return sequence!.groups[sequence!.index + pending].completes &&
+                (pending > 0 || sequence!.stage !== "moving")
                 ? { ...meld, complete: false }
-                : meld,
-            ),
+                : meld;
+            }),
           })),
           discard:
             target?.kind === "discard"
@@ -408,15 +419,30 @@ export function useMobilePlayMotion(
         );
       return node ? [{ ...move, to: landingPosition(node) }] : [];
     });
-    if (cards.length)
+    if (cards.length) {
+      const old = sequence.before.sides
+        .flatMap((side) => side.melds)
+        .find((meld) => target.kind === "meld" && meld.id === target.id);
+      const natural =
+        old && !old.complete && old.kind !== "run"
+          ? old.cards
+              .slice()
+              .reverse()
+              .find((card) => card.rank === old.rank)
+          : undefined;
       setFlight({
         key: `${sequence.key}:${sequence.index}`,
         kind: target.kind,
         faceDown:
           target.kind === "discard" && Boolean(incoming?.discardFaceDown),
+        cover: old?.complete ? bookCover(old) : undefined,
+        stackCovers:
+          natural && target.moves.some(({ card }) => card.rank !== old!.rank)
+            ? [{ meldId: target.id, card: natural }]
+            : [],
         cards,
       });
-    else cancel();
+    } else cancel();
   });
 
   useEffect(() => {

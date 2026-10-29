@@ -129,7 +129,7 @@ def test_hard_preserves_a_six_card_clean_prospect_until_the_round_is_urgent():
 
 
 @pytest.mark.parametrize("difficulty", ["medium", "hard"])
-def test_wilds_can_be_played_on_a_completed_dirty_book(difficulty):
+def test_wilds_can_be_played_on_a_completed_dirty_book_to_go_out(difficulty):
     game = rig()
     game["sides"][0]["opened"] = True
     book(game, "A")
@@ -141,6 +141,87 @@ def test_wilds_can_be_played_on_a_completed_dirty_book(difficulty):
     assert command["type"] == "meld"
     result = engine.apply(game, 0, command)
     assert result["players"][0]["hand"] == tail
+
+
+@pytest.mark.parametrize("difficulty", ["medium", "hard"])
+@pytest.mark.parametrize("rank", ["2", "Joker"])
+def test_wilds_are_saved_instead_of_added_to_a_closed_dirty_book(difficulty, rank):
+    game = rig()
+    game["sides"][0]["opened"] = True
+    closed = pile(game, "A", 6, dirty=True)
+    wild = take(game, rank)
+    game["players"][0]["hand"] = wild + take(game, "4") + take(game, "5") + take(game, "6")
+    command = bots.decide(view(game), difficulty)
+    assert command["type"] == "discard" and command["cardId"] not in wild
+    result = engine.apply(game, 0, command)
+    assert set(wild).issubset(result["players"][0]["hand"])
+    assert set(result["sides"][0]["melds"][0]["cardIds"]) == set(closed["cardIds"])
+
+
+@pytest.mark.parametrize("difficulty", ["medium", "hard"])
+@pytest.mark.parametrize("rank", ["2", "Joker"])
+@pytest.mark.parametrize("existing", [False, True])
+def test_wilds_help_new_or_unfinished_books_before_closed_books(difficulty, rank, existing):
+    game = rig()
+    game["sides"][0]["opened"] = True
+    closed = pile(game, "A", 6, dirty=True)
+    if existing:
+        target = pile(game, "K", 5, dirty=True)
+        naturals = []
+    else:
+        target = None
+        naturals = take(game, "K", 2)
+    wild = take(game, rank)
+    game["players"][0]["hand"] = naturals + wild + take(game, "4") + take(game, "5")
+    command = bots.decide(view(game), difficulty)
+    assert command["type"] == "meld"
+    result = engine.apply(game, 0, command)
+    assert set(result["sides"][0]["melds"][0]["cardIds"]) == set(closed["cardIds"])
+    used = next(m for m in result["sides"][0]["melds"] if m["rank"] == "K")
+    assert set(wild).issubset(used["cardIds"])
+    if target:
+        assert used["id"] == target["id"] and used["complete"]
+
+
+@pytest.mark.parametrize("difficulty", ["medium", "hard"])
+@pytest.mark.parametrize("discard_into_foot", [False, True])
+def test_closed_dirty_books_may_take_wilds_to_reach_the_foot(difficulty, discard_into_foot):
+    game = rig()
+    game["sides"][0]["opened"] = True
+    pile(game, "A", 6, dirty=True)
+    foot = take(game, "8", 11)
+    game["players"][0]["foot"] = foot
+    tail = take(game, "4") if discard_into_foot else []
+    game["players"][0]["hand"] = take(game, "Joker") + tail
+    result = engine.apply(game, 0, bots.decide(view(game), difficulty))
+    if tail:
+        assert result["players"][0]["hand"] == tail
+        result = engine.apply(result, 0, bots.decide(view(result), difficulty))
+        assert result["actor"] != 0
+    else:
+        assert result["actor"] == 0
+    assert result["players"][0]["inFoot"] and result["players"][0]["hand"] == foot
+
+
+@pytest.mark.parametrize("difficulty", ["medium", "hard"])
+@pytest.mark.parametrize("threat", ["stock", "opponent"])
+def test_wilds_may_reduce_debt_on_closed_books_when_the_round_is_ending(difficulty, threat):
+    game = rig()
+    game["sides"][0]["opened"] = True
+    pile(game, "Q", 6, dirty=True)
+    wild = take(game, "Joker")
+    game["players"][0]["hand"] = wild + take(game, "4") + take(game, "5") + take(game, "6")
+    if threat == "stock":
+        game["discard"] = game["stock"][:-2]
+        game["stock"] = game["stock"][-2:]
+    else:
+        book(game, "A", team=1)
+        book(game, "K", team=1, dirty=True)
+        game["players"][1].update(inFoot=True, hand=take(game, "8"))
+    command = bots.decide(view(game), difficulty)
+    assert command["type"] == "meld"
+    result = engine.apply(game, 0, command)
+    assert set(wild).issubset(result["sides"][0]["melds"][0]["cardIds"])
 
 
 @pytest.mark.parametrize("difficulty", ["medium", "hard"])

@@ -1,12 +1,26 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import { Card } from "./Card";
+import { BookFlightCover } from "./BookFlightCover";
+import { MeldStackCovers } from "./MeldStackCovers";
 import {
   MOBILE_PLAY_MS,
   MOBILE_PLAY_STAGGER_MS,
   type MobilePlayFlight,
 } from "../hooks/useMobilePlayMotion";
 
-export function MobilePlayCards({ flight }: { flight: MobilePlayFlight }) {
+export function MobilePlayCards({
+  flight,
+  board,
+}: {
+  flight: MobilePlayFlight;
+  board?: RefObject<HTMLDivElement | null>;
+}) {
   const layer = useRef<HTMLDivElement>(null);
   const [origin, setOrigin] = useState({ left: 0, top: 0 });
   useLayoutEffect(() => {
@@ -49,6 +63,18 @@ export function MobilePlayCards({ flight }: { flight: MobilePlayFlight }) {
           </div>
         </div>
       ))}
+      {flight.cover && (
+        <BookFlightCover
+          card={flight.cover}
+          position={flight.cards[0].to}
+          origin={origin}
+        />
+      )}
+      <MeldStackCovers
+        flightKey={flight.key}
+        targets={flight.stackCovers ?? []}
+        board={board}
+      />
     </div>
   );
 }

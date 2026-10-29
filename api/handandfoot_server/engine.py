@@ -135,7 +135,9 @@ def apply_melds(game, player, groups, *, pickup_id=None):
         raise ValueError("Keep a final card to discard, even when going out.")
     if player["inFoot"] and remaining == 1 and not can_go_out(game, player):
         raise ValueError("Keep two cards until you have both a clean and a dirty book; your turn still needs a discard.")
-    enter_foot(game, player)
+    # A discard pickup still owes a stack card, even when its meld empties the hand.
+    if not pickup_id:
+        enter_foot(game, player)
     game["message"] = f'{player["name"]} played {len(used)} cards.'
 
 

@@ -114,7 +114,7 @@ def _potential(details, size, kind):
     return size * size * (3 if details["dirty"] else 5)
 
 
-def _meld_options(view, hand, difficulty, pickup):
+def _meld_options(view, hand, difficulty, pickup, *, finish=False):
     """One bucket per destination, plus alternative new sets and natural runs.
 
     Physical-card masks enforce that overlapping set/run choices cannot reuse
@@ -208,8 +208,11 @@ def _meld_options(view, hand, difficulty, pickup):
         old_wilds = len(existing) - old_naturals
         for n in range(min(len(naturals), 7) + 1):
             limit = max(0, old_naturals + n - old_wilds - 1)
-            if target and target["complete"] and not target["dirty"]:
-                limit = 0
+            if target and target["complete"]:
+                # A closed dirty book earns no new bonus. Save its wildcard
+                # capacity for clearing the hand or avoiding imminent debt.
+                if not target["dirty"] or not (urgent or finish):
+                    limit = 0
             # Extra naturals on an existing book remain playable on later actions.
             room = 3 if target and target["complete"] and target["dirty"] else max(0, 7 - len(existing) - n)
             limit = min(limit, len(wilds), room)
@@ -225,7 +228,7 @@ def _meld_options(view, hand, difficulty, pickup):
     return buckets
 
 
-def _search_plan(view, difficulty, pickup=None):
+def _search_plan(view, difficulty, pickup=None, *, finish=False):
     player, side = _context(view)
     hand = view["hand"] + ([view["discard"]] if pickup else [])
     if not hand:
@@ -251,7 +254,7 @@ def _search_plan(view, difficulty, pickup=None):
         # cannot meet those mandatory constraints.
         return (not required or bool(mask & required), side["opened"] or points >= side["opening"], quality, points)
 
-    for options in _meld_options(view, hand, difficulty, pickup):
+    for options in _meld_options(view, hand, difficulty, pickup, finish=finish):
         expanded = list(beam)
         for mask, groups, points, quality, clean, dirty in beam:
             for used, group, value, gain, new_clean, new_dirty in options:
@@ -271,14 +274,33 @@ def _search_plan(view, difficulty, pickup=None):
             if len(unique) == width:
                 break
         beam = list(unique.values())
-    valid = [plan for plan in beam if (not required or plan[0] & required)
-             and (side["opened"] or plan[2] >= side["opening"])]
+    def eligible(plan):
+        mask, _, points, _, clean, dirty = plan
+        remaining = len(hand) - mask.bit_count() + bool(pickup)
+        if required and not mask & required:
+            return False
+        if not side["opened"] and points < side["opening"]:
+            return False
+        # The second pass may use a closed book only to reach the foot (by
+        # playing or discarding out) or leave a legal going-out discard.
+        return not finish or (remaining <= 1 and (not player["inFoot"] or (remaining == 1 and clean and dirty)))
+
+    valid = [plan for plan in beam if eligible(plan)]
     return max(valid, key=rank)[1] if valid else []
 
 
 def plan_melds(view, difficulty=DEFAULT_DIFFICULTY):
     validate_difficulty(difficulty)
-    return _simple_plan_melds(view) if difficulty == "easy" else _search_plan(view, difficulty)
+    if difficulty == "easy":
+        return _simple_plan_melds(view)
+    groups = _search_plan(view, difficulty)
+    if groups:
+        return groups
+    _, side = _context(view)
+    if (any(c["wild"] for c in view["hand"])
+            and any(m["kind"] == "set" and m["complete"] and m["dirty"] for m in side["melds"])):
+        return _search_plan(view, difficulty, finish=True)
+    return []
 
 
 def decide(view, difficulty=DEFAULT_DIFFICULTY):

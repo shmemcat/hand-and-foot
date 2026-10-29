@@ -3,10 +3,12 @@ import { useId, useState, type ReactNode } from "react";
 export function DrawFirstHint({
   blocked,
   label,
+  hint = "Draw your second card from the deck first.",
   children,
 }: {
   blocked: boolean;
   label: string;
+  hint?: string;
   children: ReactNode;
 }) {
   const id = useId();
@@ -23,8 +25,16 @@ export function DrawFirstHint({
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
+      onClick={() => blocked && setOpen(true)}
       onKeyDown={(event) => {
-        if (event.key === "Escape") setOpen(false);
+        if (event.key === "Escape" && blocked && open) {
+          event.stopPropagation();
+          setOpen(false);
+        }
+        if (blocked && ["Enter", " "].includes(event.key)) {
+          event.preventDefault();
+          setOpen(true);
+        }
       }}
     >
       {children}
@@ -35,7 +45,7 @@ export function DrawFirstHint({
           id={id}
           hidden={!open}
         >
-          Draw your second card from the deck first.
+          {hint}
         </span>
       )}
     </span>

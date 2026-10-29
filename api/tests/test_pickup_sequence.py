@@ -127,6 +127,85 @@ def test_pickup_requires_one_followup_draw_before_any_other_play_and_survives_pr
     engine.assert_conservation(discarded)
 
 
+@pytest.mark.parametrize("opened", [False, True])
+@pytest.mark.parametrize("play_drawn", [False, True])
+def test_emptying_the_hand_with_a_pickup_waits_for_the_second_card(opened, play_drawn):
+    game, command = pickup_game(opened=opened, hand_matches=4 if not opened else 2)
+    player = game["players"][0]
+    game["stock"].append(player["hand"].pop())
+    foot = take(game, "4", 11)
+    player["foot"] = foot
+    second = take(game, "K" if play_drawn else "Q")[0]
+    game["stock"].append(second)
+
+    pending = engine.apply(game, 0, command)
+    assert pending["players"][0]["hand"] == []
+    assert pending["players"][0]["foot"] == foot
+    assert not pending["players"][0]["inFoot"]
+    assert pending["phase"] == "draw" and pending["actor"] == 0
+    assert pending["pickupDrawPending"]
+    assert [event["kind"] for event in pending["tableEvents"]] == ["pickup"]
+    assert pending["firstFootPlayerId"] is None
+    for viewer in ("0", "1"):
+        view = engine.project(copy.deepcopy(pending), viewer)
+        assert view["pickupDrawPending"] and view["drawCount"] == 1
+        assert view["players"][0]["handCount"] == 0
+        assert view["players"][0]["footCount"] == 11
+        assert not view["players"][0]["inFoot"]
+    for action in ("pickup", "meld", "discard", "red_three"):
+        with pytest.raises(ValueError, match="Draw your second card"):
+            engine.apply(pending, 0, {"type": action, "groups": command["groups"], "cardId": foot[0]})
+
+    drawn = engine.apply(pending, 0, {"type": "draw"})
+    assert drawn["players"][0]["hand"] == [second]
+    assert drawn["players"][0]["foot"] == foot
+    assert not drawn["players"][0]["inFoot"]
+    assert drawn["phase"] == "play" and drawn["actor"] == 0
+    assert not drawn["pickupDrawPending"]
+    assert [event["kind"] for event in drawn["tableEvents"]] == ["pickup", "draw"]
+
+    meld_id = drawn["sides"][0]["melds"][0]["id"]
+    play = {"type": "meld", "groups": [{"meldId": meld_id, "cardIds": [second]}]}
+    if play_drawn:
+        entered = engine.apply(drawn, 0, play)
+        assert entered["phase"] == "play" and entered["actor"] == 0
+        assert second in entered["sides"][0]["melds"][0]["cardIds"]
+        expected_events = ["pickup", "draw", "foot"]
+    else:
+        with pytest.raises(ValueError, match="same rank"):
+            engine.apply(drawn, 0, play)
+        entered = engine.apply(drawn, 0, {"type": "discard", "cardId": second})
+        assert entered["phase"] == "draw" and entered["actor"] == 1
+        assert entered["discard"][-1] == second
+        expected_events = ["pickup", "draw", "discard", "foot"]
+    assert entered["players"][0]["hand"] == foot
+    assert entered["players"][0]["foot"] == []
+    assert entered["players"][0]["inFoot"]
+    assert entered["firstFootPlayerId"] == "0"
+    assert [event["kind"] for event in entered["tableEvents"]] == expected_events
+    engine.assert_conservation(entered)
+
+
+def test_empty_stack_after_emptying_the_hand_with_a_pickup_leaves_the_foot_unplayed():
+    game, command = pickup_game(opened=True)
+    game["stock"].append(game["players"][0]["hand"].pop())
+    foot = take(game, "4", 11)
+    game["players"][0]["foot"] = foot
+    game["replaced"].extend(game["stock"])
+    game["stock"] = []
+
+    pending = engine.apply(game, 0, command)
+    ended = engine.apply(pending, 0, {"type": "draw"})
+    assert ended["phase"] == "scoring"
+    assert not ended["pickupDrawPending"]
+    assert ended["players"][0]["hand"] == []
+    assert ended["players"][0]["foot"] == foot
+    assert not ended["players"][0]["inFoot"]
+    assert ended["firstFootPlayerId"] is None
+    assert [event["kind"] for event in ended["tableEvents"]] == ["pickup"]
+    engine.assert_conservation(ended)
+
+
 def test_catchup_does_not_add_an_extra_card_to_the_pickup_followup():
     game, command = pickup_game(opened=True)
     for side in game["sides"][1:]:

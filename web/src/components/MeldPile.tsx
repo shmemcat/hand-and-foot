@@ -1,6 +1,7 @@
 import { useId, type CSSProperties } from "react";
 import type { Meld } from "../types";
 import { Card } from "./Card";
+import { bookCover } from "../lib/bookCover";
 
 export function MeldPile({
   meld,
@@ -54,16 +55,7 @@ export function MeldPile({
   const cards = natural
     ? [...meld.cards.filter((card) => card.id !== natural.id), natural]
     : meld.cards;
-  const cover = straight
-    ? meld.cards[meld.cards.length - 1]
-    : meld.cards
-        .slice()
-        .reverse()
-        .find(
-          (card) =>
-            card.rank === meld.rank &&
-            ["hearts", "diamonds"].includes(card.suit) === !meld.dirty,
-        ) || natural;
+  const cover = bookCover(meld);
   return (
     <div
       className={`meld-pile ${meld.complete ? "completed-book" : ""} ${straight ? "straight-book" : meld.dirty ? "dirty-book" : "clean-book"} ${canTarget ? "legal-target" : ""} ${needsHandCard ? "six-card-meld" : ""}`}
