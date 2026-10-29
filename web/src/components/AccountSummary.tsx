@@ -3,16 +3,33 @@ import { request } from "../lib/api";
 import {
   computeAchievements,
   type AccountSummary as Summary,
+  type Stats,
 } from "../lib/achievements";
 import { AchievementBadge } from "./AchievementBadge";
 import { ACHIEVEMENT_EVENT } from "../lib/achievementEvents";
+import { ResultCategoryTabs } from "./ResultCategoryTabs";
+import {
+  RESULT_CATEGORIES,
+  type ResultCategory,
+} from "../lib/resultCategories";
+
+const emptyStats: Stats = {
+  games: 0,
+  wins: 0,
+  rounds: 0,
+  best: null,
+  total: 0,
+  cleanBooks: 0,
+  dirtyBooks: 0,
+  goingOut: 0,
+};
 
 export function AccountSummary({ preview }: { preview?: Summary }) {
   const [data, setData] = useState<Summary | null>(preview ?? null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [separate, setSeparate] = useState(false);
-  const [category, setCategory] = useState<"practice" | "online">("practice");
+  const [category, setCategory] = useState<ResultCategory>("medium");
   useEffect(() => {
     if (preview) return;
     const refresh = () => setAttempt((value) => value + 1);
@@ -55,7 +72,14 @@ export function AccountSummary({ preview }: { preview?: Summary }) {
         Loading statistics and achievements…
       </p>
     );
-  const stats = data.stats[separate ? category : "all"];
+  const stats = separate
+    ? (data.stats[category] ??
+      (category === "medium"
+        ? data.stats.practice
+        : category === "multiplayer"
+          ? data.stats.online
+          : emptyStats))
+    : data.stats.all;
   const badges = computeAchievements(data);
   const rows = [
     [
@@ -104,24 +128,12 @@ export function AccountSummary({ preview }: { preview?: Summary }) {
         </button>
       </div>
       {separate && (
-        <div
-          className="leaderboard-tabs account-tabs"
-          role="group"
-          aria-label="Statistics category"
-        >
-          <button
-            aria-pressed={category === "practice"}
-            onClick={() => setCategory("practice")}
-          >
-            Against Bots
-          </button>
-          <button
-            aria-pressed={category === "online"}
-            onClick={() => setCategory("online")}
-          >
-            Multiplayer
-          </button>
-        </div>
+        <ResultCategoryTabs
+          categories={RESULT_CATEGORIES}
+          value={category}
+          onChange={setCategory}
+          label="Statistics category"
+        />
       )}
       <div className="account-stats" aria-label="Your statistics">
         {rows.map((column, index) => (

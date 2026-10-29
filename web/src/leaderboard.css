@@ -1,0 +1,16 @@
+.leaderboard-page .leaderboard-tabs {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.leaderboard-page .achievement-standings {
+  max-width: 440px;
+}
+.leaderboard-achievements-width {
+  width: 150px;
+}
+.leaderboard-tier-note {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}

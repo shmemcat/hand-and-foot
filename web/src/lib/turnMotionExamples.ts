@@ -1,7 +1,7 @@
 import type { Card, Meld, Snapshot, TableEvent } from "../types";
 import { INITIAL_OPENING, openingSnapshot } from "./openingSequence";
 
-export type TurnScene = "replacement" | "hand" | "bot" | "draw";
+export type TurnScene = "replacement" | "hand" | "bot" | "draw" | "public";
 export type TurnExample =
   | "one"
   | "two"
@@ -11,7 +11,10 @@ export type TurnExample =
   | "add"
   | "close"
   | "offscreen"
-  | "mixed";
+  | "mixed"
+  | "replace"
+  | "replace-two"
+  | "pickup";
 const suits = ["hearts", "clubs", "diamonds", "spades"];
 function face(id: string, rank: string, suit = "clubs"): Card {
   const redThree = rank === "3" && ["hearts", "diamonds"].includes(suit);
@@ -63,6 +66,159 @@ export function turnMotionExample(
   replay = 0,
   covered = false,
 ): Snapshot {
+  if (scene === "public") {
+    const base = turnMotionExample("bot", "new", false, replay);
+    const actor = base.players[1];
+    const drawing = example === "offscreen" || example === "two";
+    const playing = example === "meld";
+    const replacing = example === "replace" || example === "replace-two";
+    const redCount = example === "replace-two" ? 2 : 1;
+    const pickup = example === "pickup";
+    const top = face("public-pickup", "J", "hearts");
+    const pickupMeld = pile("public-pickup-jacks", "J", 3, actor.id);
+    pickupMeld.cards[0] = top;
+    const reds = Array.from({ length: redCount }, (_, index) =>
+      face(`public-red-${index}`, "3", index ? "diamonds" : "hearts"),
+    );
+    const discarded = face("public-discard", "10", "hearts");
+    const events: TableEvent[] =
+      !played || playing
+        ? []
+        : replacing
+          ? [
+              ...reds.map((card, index) => ({
+                id: `public-replace-${replay}-${index}`,
+                playerId: actor.id,
+                kind: "replace" as const,
+                count: 1,
+                card,
+                faceDown: false,
+              })),
+              {
+                id: `public-replacement-draw-${replay}`,
+                playerId: actor.id,
+                kind: "draw",
+                count: redCount,
+                card: null,
+                faceDown: false,
+              },
+            ]
+          : pickup
+            ? [
+                {
+                  id: `public-pickup-${replay}`,
+                  playerId: actor.id,
+                  kind: "pickup",
+                  count: 1,
+                  card: top,
+                  faceDown: false,
+                },
+                ...(covered
+                  ? [
+                      {
+                        id: `public-pickup-draw-${replay}`,
+                        playerId: actor.id,
+                        kind: "draw" as const,
+                        count: 1,
+                        card: null,
+                        faceDown: false,
+                      },
+                    ]
+                  : []),
+              ]
+            : [
+                {
+                  id: `public-${example}-${replay}`,
+                  playerId: actor.id,
+                  kind: drawing ? "draw" : "discard",
+                  count: drawing ? 2 : 1,
+                  card: drawing ? null : discarded,
+                  faceDown: false,
+                },
+              ];
+    return {
+      ...base,
+      code: `PUBLIC-MOTION-${example}-${replay}`,
+      revision: covered ? 3 : played ? 2 : 1,
+      token: `public-${replay}`,
+      phase: (drawing && !played) || (pickup && !covered) ? "draw" : "play",
+      pickupDrawPending: pickup && played && !covered,
+      players: base.players.map((player) => ({
+        ...player,
+        bot: false,
+        handCount:
+          player.id === actor.id
+            ? 9 +
+              (played
+                ? drawing
+                  ? 2
+                  : playing
+                    ? -3
+                    : replacing
+                      ? 0
+                      : pickup
+                        ? -2 + Number(covered)
+                        : -1
+                : 0)
+            : player.handCount,
+      })),
+      sides: base.sides.map((side) => ({
+        ...side,
+        melds:
+          played && (playing || pickup) && side.id === actor.team
+            ? [
+                ...side.melds,
+                pickup
+                  ? pickupMeld
+                  : pile("public-new-jacks", "J", 3, actor.id),
+              ]
+            : side.melds,
+      })),
+      stockCount:
+        base.stockCount -
+        (played
+          ? drawing
+            ? 2
+            : replacing
+              ? redCount
+              : pickup && covered
+                ? 1
+                : 0
+          : 0),
+      discard: pickup
+        ? played
+          ? null
+          : top
+        : played && replacing
+          ? reds.at(-1)!
+          : played && !drawing && !playing
+            ? discarded
+            : base.discard,
+      discardCount:
+        base.discardCount +
+        (played
+          ? pickup
+            ? -1
+            : replacing
+              ? redCount
+              : !drawing && !playing
+                ? 1
+                : 0
+          : 0),
+      tableEvents: events,
+      message: drawing
+        ? "Poppy is drawing two cards."
+        : replacing
+          ? `Poppy is replacing ${redCount === 2 ? "two red threes" : "a red three"}.`
+          : pickup
+            ? covered
+              ? "Poppy drew the follow-up card."
+              : "Poppy is playing the top discard."
+            : playing
+              ? "Poppy is playing three jacks."
+              : "Poppy is discarding.",
+    };
+  }
   const base = openingSnapshot({
     state: { ...INITIAL_OPENING, step: 7, choice: 0 },
     names: ["You", "Poppy", "Hazel", "Jasper", "Sunny", "Clover"],

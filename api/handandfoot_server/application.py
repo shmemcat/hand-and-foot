@@ -233,6 +233,7 @@ def create_app(config=None):
         player = member(data, key)
         base = {key: data[key] for key in ("code", "capacity", "scoringMode", "playMode", "revision", "hostId", "status", "targetScore")}
         base["viewerId"] = player["id"]
+        base["botDifficulty"] = data.get("botDifficulty", bots.DEFAULT_DIFFICULTY)
         base["developmentFixture"] = bool(data.get("developmentFixture"))
         if data.get("game"):
             base.update(engine.project(data["game"], player["id"]))
@@ -281,6 +282,7 @@ def create_app(config=None):
         if game and game["phase"] == "finished" and not data.get("developmentFixture") and not db.session.get(MatchResult, game["matchId"]):
             db.session.add(MatchResult(id=game["matchId"], completed_at=time.time(), payload={
                 "code": data["code"], "mode": data["scoringMode"], "playMode": data["playMode"], "targetScore": game["targetScore"],
+                "botDifficulty": data.get("botDifficulty", bots.DEFAULT_DIFFICULTY),
                 "players": [{"key": p.get("key"), "accountId": p.get("accountId"), "team": p["team"], "utcOffsetMinutes": p.get("utcOffsetMinutes"), "achievements": game.get("playerAchievements", {}).get(p["id"], [])} for p in game["players"]],
                 "startedAt": game.get("startedAt"),
                 "scores": [side["score"] for side in game["sides"]], "winners": game["winners"],
@@ -310,6 +312,7 @@ def create_app(config=None):
     def start(data, *, fill_bots=True):
         validate_setup(data["scoringMode"], data["capacity"], data["playMode"])
         validate_target_score(data["targetScore"])
+        bots.validate_difficulty(data.get("botDifficulty", bots.DEFAULT_DIFFICULTY))
         lobby.prepare_start(data, fill_bots)
         roster = [next((p for p in data["players"] if p["lobbySeat"] == seat), None) for seat in range(data["capacity"])]
         used_names = {player["name"].casefold() for player in data["players"]}
@@ -399,6 +402,7 @@ def create_app(config=None):
         name = player_name(values.get("name"))
         target = values.get("targetScore", FAMILY.target_score)
         validate_target_score(target)
+        difficulty = bots.validate_difficulty(values.get("botDifficulty", bots.DEFAULT_DIFFICULTY))
         with lock:
             require_free_seat(actor())
             # Bound accidental repeated creates; rooms are private, not discoverable.
@@ -411,7 +415,7 @@ def create_app(config=None):
             player = new_player(name, actor())
             data = {"code": code, "capacity": count, "scoringMode": scoring, "playMode": mode,
                     "players": [player], "hostId": player["id"], "revision": 0, "token": engine.uid(),
-                    "status": "lobby", "game": None, "targetScore": target}
+                    "status": "lobby", "game": None, "targetScore": target, "botDifficulty": difficulty}
             if mode == "practice":
                 start(data)
             row = Room(code=code, payload=data, updated_at=time.time())
@@ -537,9 +541,14 @@ def create_app(config=None):
             elif action == "lobby_options":
                 if data["hostId"] != player["id"] or data["status"] != "lobby":
                     raise PermissionError("Only the host can choose how to start the lobby.")
-                if type(values.get("fillBots")) is not bool:
+                if "fillBots" not in values and "botDifficulty" not in values:
+                    raise ValueError("Choose a lobby option to change.")
+                if "fillBots" in values and type(values["fillBots"]) is not bool:
                     raise ValueError("Choose whether to fill empty seats with bots.")
-                data["lobbyFillBots"] = values["fillBots"]
+                if "botDifficulty" in values:
+                    data["botDifficulty"] = bots.validate_difficulty(values["botDifficulty"])
+                if "fillBots" in values:
+                    data["lobbyFillBots"] = values["fillBots"]
                 data["token"] = engine.uid()
             elif action == "close":
                 if data["hostId"] != player["id"] or data["status"] != "lobby":
@@ -637,7 +646,14 @@ def create_app(config=None):
     @app.get(ROOT + "/leaderboard")
     def leaderboard():
         from .leaderboard import standings
-        return jsonify(standings(request.args.get("mode", "practice"), accounts, lock))
+        category = request.args.get("category")
+        if category is None:
+            # Preserve links from older clients and completed matches.
+            mode = request.args.get("mode", "practice")
+            if mode not in ("practice", "online", "achievements"):
+                raise ValueError("Choose Against Bots, Multiplayer, or Achievements.")
+            category = {"practice": "medium", "online": "multiplayer", "achievements": "achievements"}[mode]
+        return jsonify(standings(category, accounts, lock))
 
     @socketio.on("connect", namespace=NAMESPACE)
     def socket_connect(auth):
@@ -730,7 +746,7 @@ def create_app(config=None):
                             pile = scoring.auto_choice(game, player["team"])
                             move = {"type": "score_pay", "pileId": pile} if pile else {"type": "score_confirm"}
                         else:
-                            move = bots.decide(view)
+                            move = bots.decide(view, data.get("botDifficulty", bots.DEFAULT_DIFFICULTY))
                         try:
                             data["game"] = engine.apply(game, bot_seat, move)
                             changed = True

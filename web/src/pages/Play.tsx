@@ -8,6 +8,8 @@ import { useAuth } from "../context/AuthContext";
 import { LoginWarning } from "../components/LoginWarning";
 import { useActiveTable } from "../hooks/useActiveTable";
 import { TableProgressDialog } from "../components/TableProgressDialog";
+import { BotDifficulty } from "../components/BotDifficulty";
+import type { BotDifficulty as Difficulty } from "../types";
 
 export function Play() {
   const navigate = useNavigate();
@@ -102,6 +104,7 @@ export function CreateGame() {
     "individual",
   );
   const [capacity, setCapacity] = useState(6);
+  const [botDifficulty, setBotDifficulty] = useState<Difficulty>("medium");
   const [name, setName] = useState(() =>
     readStorage("handandfoot.name.v1", ""),
   );
@@ -118,6 +121,7 @@ export function CreateGame() {
         playMode: mode,
         scoringMode: scoring,
         capacity,
+        botDifficulty,
         targetScore: 10000,
       });
       if (!user) writeStorage("handandfoot.name.v1", name.trim());
@@ -224,6 +228,7 @@ export function CreateGame() {
             )}
           </div>
         </fieldset>
+        <BotDifficulty value={botDifficulty} onChange={setBotDifficulty} />
         <LoginWarning />
         <SessionStatus active={active} />
         {error && (

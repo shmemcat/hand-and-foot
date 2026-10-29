@@ -8,6 +8,7 @@ import {
 import { Card } from "./Card";
 import { Book } from "./Icons";
 import { StartingPiles } from "./StartingPiles";
+import { DealerGlyph } from "./DealerGlyph";
 import type { Snapshot } from "../types";
 import {
   DEAL_LAUNCH,
@@ -27,6 +28,7 @@ export type OpeningPresentation = {
   tableau?: ReactNode;
   deckOverlay?: ReactNode;
   setup: boolean;
+  openingActive: boolean;
   previousDealerId?: string;
 };
 
@@ -313,6 +315,7 @@ export function OpeningMotion({
         animationKey: state.replay,
         tableau,
         setup: state.step <= 4,
+        openingActive: state.step < 7 || state.elapsed < duration,
         previousDealerId: state.step === 1 ? previousDealerId : undefined,
         deckOverlay:
           state.step === 2 ? (
@@ -336,7 +339,7 @@ export function OpeningMotion({
             "--dealer-y": `${dealerFlight.dy}px`,
           })}
         >
-          D
+          <DealerGlyph />
         </span>
       )}
       {state.step === 3 && !reduced && (

@@ -70,6 +70,14 @@ const ScoringPreview = import.meta.env.DEV
     )
   : () => null;
 
+const ScoringGlowPreview = import.meta.env.DEV
+  ? React.lazy(() =>
+      import("./pages/ScoringGlowPreview").then((module) => ({
+        default: module.ScoringGlowPreview,
+      })),
+    )
+  : () => null;
+
 const EndingsPreview = import.meta.env.DEV
   ? React.lazy(() =>
       import("./pages/EndingsPreview").then((module) => ({
@@ -114,6 +122,14 @@ const UserPreview = import.meta.env.DEV
   ? React.lazy(() =>
       import("./pages/UserPreview").then((module) => ({
         default: module.UserPreview,
+      })),
+    )
+  : () => null;
+
+const BoardPreview = import.meta.env.DEV
+  ? React.lazy(() =>
+      import("./pages/BoardPreview").then((module) => ({
+        default: module.BoardPreview,
       })),
     )
   : () => null;
@@ -179,6 +195,16 @@ function AppRoutes() {
       {import.meta.env.DEV && <Route path="/preview" element={<Preview />} />}
       {import.meta.env.DEV && (
         <Route
+          path="/preview/board"
+          element={
+            <React.Suspense fallback={null}>
+              <BoardPreview />
+            </React.Suspense>
+          }
+        />
+      )}
+      {import.meta.env.DEV && (
+        <Route
           path="/preview/mobile"
           element={
             <React.Suspense fallback={null}>
@@ -223,6 +249,16 @@ function AppRoutes() {
           element={
             <React.Suspense fallback={null}>
               <BookPreview />
+            </React.Suspense>
+          }
+        />
+      )}
+      {import.meta.env.DEV && (
+        <Route
+          path="/preview/scoring/glows"
+          element={
+            <React.Suspense fallback={null}>
+              <ScoringGlowPreview />
             </React.Suspense>
           }
         />

@@ -346,8 +346,8 @@ export function ScoreMotion({
       {!opening && beat.activePile && beat.kind === "bonus" && (
         <style>
           {beat.activePile === "reds"
-            ? ".game-page .red-three-stack {--score-pile-outline:var(--secondary);}"
-            : `.game-page [data-meld-id="${beat.activePile}"] > button {--score-pile-outline:var(--secondary);}`}
+            ? ".game-page .red-three-stack {--score-pile-active:1;}"
+            : `.game-page [data-meld-id="${beat.activePile}"] > .closed-card-stack {--score-pile-active:1;}`}
         </style>
       )}
       {flights.map((flight) => (

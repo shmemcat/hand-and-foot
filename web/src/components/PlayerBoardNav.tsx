@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import type { Player, Side } from "../types";
 import { ProfileIcon } from "./ProfileIcon";
 import { AnimatedNumber } from "./ScoringReview";
+import { DealerGlyph } from "./DealerGlyph";
 
 export function PlayerBoardNav({
   sides,
@@ -14,6 +15,7 @@ export function PlayerBoardNav({
   previousDealerId,
   profileIcon,
   onView,
+  disabled = false,
   showLeader = true,
 }: {
   sides: Side[];
@@ -25,6 +27,7 @@ export function PlayerBoardNav({
   previousDealerId?: string;
   profileIcon?: string;
   onView: (id: number) => void;
+  disabled?: boolean;
   showLeader?: boolean;
 }) {
   const partners = players.length > sides.length;
@@ -55,6 +58,7 @@ export function PlayerBoardNav({
             type="button"
             className="board-player"
             key={side.id}
+            disabled={disabled && !isYou}
             data-turn={!partners && Boolean(playing)}
             data-leading={
               showLeader && side.score > 0 && side.score === leadingScore
@@ -107,7 +111,7 @@ export function PlayerBoardNav({
                         aria-label="Dealer"
                         title="Dealer this round"
                       >
-                        D
+                        <DealerGlyph />
                       </span>
                     )}
                     {player.id === previousDealerId &&
@@ -116,7 +120,7 @@ export function PlayerBoardNav({
                           className="dealer-marker opening-dealer-origin"
                           aria-hidden="true"
                         >
-                          D
+                          <DealerGlyph />
                         </span>
                       )}
                   </span>

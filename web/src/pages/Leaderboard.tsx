@@ -3,18 +3,25 @@ import { Link, useSearchParams } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
 import { ProfileIcon } from "../components/ProfileIcon";
 import { request } from "../lib/api";
+import { ResultCategoryTabs } from "../components/ResultCategoryTabs";
+import {
+  CATEGORY_LABELS,
+  LEADERBOARD_CATEGORIES,
+  leaderboardCategory,
+} from "../lib/resultCategories";
+import "../leaderboard.css";
 
 type Entry = {
   rank: number;
   username: string;
   profile_icon: string;
-  games_won: number;
-};
+} & ({ games_won: number } | { achievement_count: number });
 type Rankings = { monthly: Entry[]; all_time: Entry[] };
 
 export function Leaderboard() {
   const [search, setSearch] = useSearchParams();
-  const mode = search.get("mode") === "online" ? "online" : "practice";
+  const category = leaderboardCategory(search);
+  const achievements = category === "achievements";
   const [data, setData] = useState<Rankings | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -22,7 +29,7 @@ export function Leaderboard() {
     let active = true;
     setData(null);
     setError("");
-    void request<Rankings>(`/leaderboard?mode=${mode}`)
+    void request<Rankings>(`/leaderboard?category=${category}`)
       .then((result) => {
         if (active) setData(result);
       })
@@ -32,27 +39,19 @@ export function Leaderboard() {
     return () => {
       active = false;
     };
-  }, [mode, attempt]);
+  }, [category, attempt]);
   return (
     <div className="page leaderboard-page">
       <PageTitle>LEADERBOARD</PageTitle>
       <div className="page-body">
-        <div
-          className="leaderboard-tabs"
-          role="group"
-          aria-label="Leaderboard category"
-        >
-          {(["practice", "online"] as const).map((category) => (
-            <button
-              key={category}
-              type="button"
-              aria-pressed={category === mode}
-              onClick={() => setSearch({ mode: category }, { replace: true })}
-            >
-              {category === "practice" ? "Against Bots" : "Multiplayer"}
-            </button>
-          ))}
-        </div>
+        <ResultCategoryTabs
+          categories={LEADERBOARD_CATEGORIES}
+          value={category}
+          onChange={(selected) =>
+            setSearch({ category: selected }, { replace: true })
+          }
+          label="Leaderboard category"
+        />
         {!data && !error && (
           <p className="leaderboard-status" role="status">
             Loading scores…
@@ -72,8 +71,13 @@ export function Leaderboard() {
           </div>
         )}
         {data && (
-          <div className="leaderboard-columns">
-            {(["monthly", "all_time"] as const).map((period) => {
+          <div
+            className={`leaderboard-columns${achievements ? " achievement-standings" : ""}`}
+          >
+            {(achievements
+              ? (["all_time"] as const)
+              : (["monthly", "all_time"] as const)
+            ).map((period) => {
               const title = period === "monthly" ? "Monthly" : "All-Time";
               return (
                 <section
@@ -83,18 +87,30 @@ export function Leaderboard() {
                 >
                   <h2>{title}</h2>
                   <table
-                    aria-label={`${title} ${mode === "practice" ? "Against Bots" : "Multiplayer"} winners`}
+                    aria-label={
+                      achievements
+                        ? "All-Time achievements leaderboard"
+                        : `${title} ${CATEGORY_LABELS[category]} winners`
+                    }
                   >
                     <colgroup>
                       <col className="leaderboard-rank-width" />
                       <col />
-                      <col className="leaderboard-wins-width" />
+                      <col
+                        className={
+                          achievements
+                            ? "leaderboard-achievements-width"
+                            : "leaderboard-wins-width"
+                        }
+                      />
                     </colgroup>
                     <thead className="sr-only">
                       <tr>
                         <th scope="col">Rank</th>
                         <th scope="col">Player</th>
-                        <th scope="col">Wins</th>
+                        <th scope="col">
+                          {achievements ? "Achievements" : "Wins"}
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -111,15 +127,18 @@ export function Leaderboard() {
                               </div>
                             </td>
                             <td className="leaderboard-wins">
-                              {entry.games_won.toLocaleString()}{" "}
-                              {entry.games_won === 1 ? "win" : "wins"}
+                              {"achievement_count" in entry
+                                ? `${entry.achievement_count.toLocaleString()} ${entry.achievement_count === 1 ? "achievement" : "achievements"}`
+                                : `${entry.games_won.toLocaleString()} ${entry.games_won === 1 ? "win" : "wins"}`}
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
                           <td className="leaderboard-empty" colSpan={3}>
-                            No winners yet
+                            {achievements
+                              ? "No achievements yet"
+                              : "No winners yet"}
                           </td>
                         </tr>
                       )}
@@ -129,6 +148,11 @@ export function Leaderboard() {
               );
             })}
           </div>
+        )}
+        {achievements && (
+          <p className="leaderboard-tier-note">
+            Each earned tier counts separately.
+          </p>
         )}
       </div>
       <div className="button-stack">

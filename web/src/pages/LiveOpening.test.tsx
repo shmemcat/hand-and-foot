@@ -24,6 +24,24 @@ vi.mock("../lib/api", async (original) => ({
 }));
 let source: Snapshot;
 let selectedPile = 0;
+function openingSource(mode: Snapshot["scoringMode"] = "individual") {
+  const snapshot = openingSnapshot({
+    state: { ...INITIAL_OPENING, step: 4 },
+    names: ["You", "Poppy", "Hazel", "Jasper"],
+    mode,
+    dealer: 3,
+    duration: 0,
+  });
+  return {
+    ...snapshot,
+    code: "LIVE",
+    stockCount: 181,
+    actorId: snapshot.viewerId,
+    discard: { ...samplePiles()[1][1], id: "real-start-discard" },
+    discardCount: 1,
+    opening: { id: "deal-one", ready: [], complete: false },
+  };
+}
 beforeEach(() => {
   vi.useFakeTimers();
   sound.play.mockClear();
@@ -31,19 +49,7 @@ beforeEach(() => {
   vi.spyOn(window, "getComputedStyle").mockImplementation((el) =>
     computedStyle(el),
   );
-  source = openingSnapshot({
-    state: { ...INITIAL_OPENING, step: 4 },
-    names: ["You", "Poppy", "Hazel", "Jasper"],
-    mode: "individual",
-    dealer: 3,
-    duration: 0,
-  });
-  source.code = "LIVE";
-  source.stockCount = 181;
-  source.actorId = source.viewerId;
-  source.discard = { ...samplePiles()[1][1], id: "real-start-discard" };
-  source.discardCount = 1;
-  source.opening = { id: "deal-one", ready: [], complete: false };
+  source = openingSource();
   vi.mocked(getRoom).mockImplementation(async () => structuredClone(source));
   vi.mocked(command)
     .mockReset()
@@ -94,77 +100,115 @@ function chooseOthers() {
   });
   if (source.players.every((p) => p.chosen)) source.phase = "draw";
 }
+function expectOpeningNavigationLocked(container: HTMLElement) {
+  const tokens = container.querySelectorAll<HTMLButtonElement>(".board-player");
+  for (const token of tokens) {
+    expect(token.disabled).toBe(token.getAttribute("aria-pressed") !== "true");
+    fireEvent.click(token);
+  }
+  const board = screen.getByRole("region", { name: "Your board" });
+  fireEvent.keyDown(board, { key: "ArrowRight" });
+  fireEvent.keyDown(board, { key: "ArrowLeft" });
+  fireEvent.touchStart(board, {
+    touches: [{ clientX: 220, clientY: 200 }],
+  });
+  fireEvent.touchEnd(board, {
+    changedTouches: [{ clientX: 80, clientY: 200 }],
+  });
+  for (const arrow of container.querySelectorAll<HTMLButtonElement>(
+    ".board-arrow",
+  )) {
+    expect(arrow.disabled).toBe(true);
+    fireEvent.click(arrow);
+  }
+  for (const dot of container.querySelectorAll<HTMLButtonElement>(
+    ".table-dots button",
+  )) {
+    expect(dot.disabled).toBe(dot.getAttribute("aria-pressed") !== "true");
+    fireEvent.click(dot);
+  }
+  expect(screen.getByRole("region", { name: "Your board" })).toBe(board);
+}
 
-it("runs the actual opening, preserves board browsing, uses the chosen cards, and hands off once before enabling play", async () => {
-  const view = await open();
-  expect(currentStep(view.container)).toBe("0");
-  expect(screen.queryByRole("img", { name: "Dealer" })).toBeNull();
-  expect(
-    screen.queryByRole("button", { name: "Choose pile 1 as your hand" }),
-  ).toBeNull();
-  expect(screen.queryByLabelText("Your private hand")).toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "View Poppy’s board, 0 points" }),
-  );
-  chooseOthers();
-  await reachChoice();
-  expect(currentStep(view.container)).toBe("4");
-  expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
-  const face = view.container.querySelector(".opening-choice-stack > .card");
-  await advance(60000);
-  expect(currentStep(view.container)).toBe("4");
-  expect(command).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getByRole("button", { name: "View your board, 0 points" }),
-  );
-  expect(view.container.querySelector(".opening-choice-stack > .card")).toBe(
-    face,
-  );
-  await act(async () =>
-    fireEvent.click(
-      screen.getByRole("button", { name: "Choose pile 2 as your hand" }),
-    ),
-  );
-  expect(currentStep(view.container)).toBe("5");
-  expect(selectedPile).toBe(1);
-  const hand = screen.getByLabelText("Your private hand");
-  expect(within(hand).getAllByRole("button")).toHaveLength(11);
-  expect(
-    within(hand).getByRole("button", { name: "8 of hearts" }),
-  ).toBeTruthy();
-  expect(screen.queryByRole("img", { name: "8 of hearts" })).toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "View Poppy’s board, 0 points" }),
-  );
-  await advance(2100);
-  expect(currentStep(view.container)).toBe("7");
-  expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: "Draw 2 cards from the stack",
-    }).disabled,
-  ).toBe(true);
-  sound.play.mockClear();
-  await advance(800);
-  expect(sound.play).toHaveBeenCalledExactlyOnceWith("start");
-  await advance(1500);
-  expect(currentStep(view.container)).toBeUndefined();
-  expect(vi.mocked(command).mock.calls.map((call) => call[1])).toEqual([
-    "choose",
-    "opening_ready",
-  ]);
-  expect(
-    screen.getByRole<HTMLButtonElement>("button", {
-      name: "Draw 2 cards from the stack",
-    }).disabled,
-  ).toBe(false);
-  expect(sound.play).toHaveBeenCalledExactlyOnceWith("start");
-  expect(
-    screen.getByRole<HTMLInputElement>("checkbox", { name: "Follow turn" })
-      .checked,
-  ).toBe(true);
-  expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
-});
+it.each(["individual", "partnership"] as const)(
+  "locks %s board navigation throughout opening and restores browsing when play begins",
+  async (mode) => {
+    source = openingSource(mode);
+    const view = await open();
+    expect(currentStep(view.container)).toBe("0");
+    expectOpeningNavigationLocked(view.container);
+    expect(screen.queryByRole("img", { name: "Dealer" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Choose pile 1 as your hand" }),
+    ).toBeNull();
+    expect(screen.queryByLabelText("Your private hand")).toBeNull();
+    for (const duration of [900, 1500, 2000, 900]) {
+      await advance(duration + 100);
+      expectOpeningNavigationLocked(view.container);
+    }
+    expect(currentStep(view.container)).toBe("4");
+    const face = view.container.querySelector(".opening-choice-stack > .card");
+    await advance(60000);
+    expect(currentStep(view.container)).toBe("4");
+    expect(command).not.toHaveBeenCalled();
+    expectOpeningNavigationLocked(view.container);
+    expect(view.container.querySelector(".opening-choice-stack > .card")).toBe(
+      face,
+    );
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Choose pile 2 as your hand" }),
+      ),
+    );
+    expect(currentStep(view.container)).toBe("5");
+    expectOpeningNavigationLocked(view.container);
+    expect(selectedPile).toBe(1);
+    const hand = screen.getByLabelText("Your private hand");
+    expect(within(hand).getAllByRole("button")).toHaveLength(11);
+    expect(
+      within(hand).getByRole("button", { name: "8 of hearts" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "8 of hearts" })).toBeNull();
+    await advance(2100);
+    expect(currentStep(view.container)).toBe("6");
+    expectOpeningNavigationLocked(view.container);
+    chooseOthers();
+    await advance(3000);
+    expect(currentStep(view.container)).toBe("7");
+    expectOpeningNavigationLocked(view.container);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: "Draw 2 cards from the stack",
+      }).disabled,
+    ).toBe(true);
+    sound.play.mockClear();
+    await advance(800);
+    expect(sound.play).toHaveBeenCalledExactlyOnceWith("start");
+    await advance(1500);
+    expect(currentStep(view.container)).toBeUndefined();
+    expect(vi.mocked(command).mock.calls.map((call) => call[1])).toEqual([
+      "choose",
+      "opening_ready",
+    ]);
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: "Draw 2 cards from the stack",
+      }).disabled,
+    ).toBe(false);
+    expect(sound.play).toHaveBeenCalledExactlyOnceWith("start");
+    expect(
+      screen.getByRole<HTMLInputElement>("checkbox", { name: "Follow turn" })
+        .checked,
+    ).toBe(true);
+    expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
+    const otherToken = view.container.querySelector<HTMLButtonElement>(
+      '.board-player[aria-pressed="false"]',
+    )!;
+    expect(otherToken.disabled).toBe(false);
+    fireEvent.click(otherToken);
+    expect(screen.queryByRole("region", { name: "Your board" })).toBeNull();
+  },
+);
 
 it("starts later rounds at Dealer with the previous badge position, while a rematch starts with Arrive", async () => {
   const view = await open();
@@ -194,6 +238,7 @@ it("starts later rounds at Dealer with the previous badge position, while a rema
   sound.play.mockClear();
   await advance(3000);
   expect(currentStep(view.container)).toBe("1");
+  expectOpeningNavigationLocked(view.container);
   expect(
     view.container.querySelectorAll(".opening-dealer-origin"),
   ).toHaveLength(1);
@@ -215,6 +260,7 @@ it("starts later rounds at Dealer with the previous badge position, while a rema
   };
   await advance(3000);
   expect(currentStep(view.container)).toBe("0");
+  expectOpeningNavigationLocked(view.container);
   expect(view.container.querySelector(".opening-dealer-flight")).toBeNull();
 });
 
@@ -225,6 +271,7 @@ it("rejoins at waiting or Begin, waits for real players, and retries a failed op
   source.footPreview = null;
   const view = await open();
   expect(currentStep(view.container)).toBe("6");
+  expectOpeningNavigationLocked(view.container);
   expect(view.container.querySelector(".waiting-ellipsis")).toBeTruthy();
   await advance(60000);
   expect(currentStep(view.container)).toBe("6");
@@ -232,11 +279,13 @@ it("rejoins at waiting or Begin, waits for real players, and retries a failed op
   chooseOthers();
   await advance(3000);
   expect(currentStep(view.container)).toBe("7");
+  expectOpeningNavigationLocked(view.container);
   vi.mocked(command).mockRejectedValueOnce(new Error("Temporary disconnect"));
   await advance(2300);
   expect(
     screen.getByText("Reconnecting to the table before the first turn…"),
   ).toBeTruthy();
+  expectOpeningNavigationLocked(view.container);
   expect(
     screen.getByRole<HTMLButtonElement>("button", {
       name: "Draw 2 cards from the stack",

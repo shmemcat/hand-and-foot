@@ -22,6 +22,21 @@ const scenes: {
   examples: [TurnExample, string][];
 }[] = [
   {
+    id: "public",
+    label: "Opponent hand",
+    description:
+      "Face-down draws on the left · token plays · right-edge discards",
+    examples: [
+      ["two", "Draw two cards"],
+      ["meld", "Play and collapse hand"],
+      ["discard", "Flip a right-edge discard"],
+      ["replace", "Replace a red three"],
+      ["replace-two", "Replace two red threes"],
+      ["pickup", "Play the top discard, then draw"],
+      ["offscreen", "Another board · divider cutoff"],
+    ],
+  },
+  {
     id: "replacement",
     label: "Red 3 replacement",
     description:
@@ -64,7 +79,8 @@ const scenes: {
 export function MotionPreview() {
   const [params, setParams] = useSearchParams();
   const scene =
-    scenes.find((scene) => scene.id === params.get("scene")) ?? scenes[0];
+    scenes.find((scene) => scene.id === params.get("scene")) ??
+    scenes.find((scene) => scene.id === "replacement")!;
   return (
     <div className="draw-rehearsal turn-motion-preview">
       <h1>Play animations</h1>
@@ -101,6 +117,12 @@ function MotionStudy({ scene }: { scene: (typeof scenes)[number] }) {
     [scene.id, example, played, run, covered],
   );
   useEffect(() => {
+    if (scene.id !== "public" || example !== "pickup" || !played || covered)
+      return;
+    const timer = window.setTimeout(() => setCovered(true), 800 / speed);
+    return () => clearTimeout(timer);
+  }, [scene.id, example, played, covered, speed]);
+  useEffect(() => {
     if (!playing || launched) return;
     const timer = window.setTimeout(() => {
       setLaunched(true);
@@ -122,9 +144,11 @@ function MotionStudy({ scene }: { scene: (typeof scenes)[number] }) {
             ? example === "meld"
               ? 800
               : 600
-            : example === "close"
-              ? 1340
-              : 440;
+            : scene.id === "public"
+              ? 1800
+              : example === "close"
+                ? 1340
+                : 440;
     const timer = window.setTimeout(
       () => setPlaying(false),
       duration / speed + 60,
@@ -247,10 +271,19 @@ function MotionStudy({ scene }: { scene: (typeof scenes)[number] }) {
                 : undefined,
             meldSpeed: speed,
             handAnimate: true,
+            handExpanded: scene.id === "public",
             tableAnimate:
+              scene.id === "public" ||
               scene.id === "replacement" ||
               (scene.id === "hand" && example === "discard"),
-            viewedTeam: scene.id === "bot" ? 1 : 0,
+            viewedTeam:
+              scene.id === "public"
+                ? example === "offscreen"
+                  ? 2
+                  : 1
+                : scene.id === "bot"
+                  ? 1
+                  : 0,
             followTurn: false,
             portalMotion: true,
           }}

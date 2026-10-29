@@ -1,0 +1,31 @@
+.leaderboard-tabs.result-category-tabs {
+  width: fit-content;
+  gap: 0;
+  margin: 8px auto 0;
+}
+.leaderboard-tabs.result-category-tabs button {
+  padding: 8px 16px;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.leaderboard-tabs.result-category-tabs button:hover {
+  color: var(--text);
+}
+.result-category-mobile {
+  display: none;
+}
+@media (max-width: 768px) {
+  .result-category-desktop {
+    display: none;
+  }
+  .result-category-mobile {
+    display: inline;
+  }
+}
+@media (max-width: 430px) {
+  .leaderboard-tabs.result-category-tabs button {
+    padding-inline: 10px;
+    letter-spacing: 2px;
+  }
+}

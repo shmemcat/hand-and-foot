@@ -3,6 +3,7 @@ import { usePageSweep } from "../hooks/usePageSweep";
 import { Card } from "./Card";
 import { Icon } from "./Icons";
 import type { Card as Face } from "../types";
+import type { ConcealedSlot } from "../hooks/useConcealedHand";
 
 /** The viewed player's cards, with a mobile-only disclosure. */
 export function HandDock({
@@ -18,6 +19,8 @@ export function HandDock({
   foot,
   playerPicker,
   navigation,
+  publicPlayerId,
+  publicSlots,
 }: {
   mobile: boolean;
   expanded: boolean;
@@ -37,6 +40,8 @@ export function HandDock({
     direction?: number;
     duration: number;
   };
+  publicPlayerId?: string;
+  publicSlots?: ConcealedSlot[];
 }) {
   const id = useId();
   const dock = useRef<HTMLElement>(null);
@@ -147,6 +152,7 @@ export function HandDock({
       className={`hand-dock${mobile ? " mobile-hand-drawer" : ""}`}
       aria-label={ariaLabel}
       data-expanded={mobile ? expanded : undefined}
+      data-public-player={publicPlayerId}
       onKeyDown={(event) => {
         if (mobile && expanded && event.key === "Escape") {
           event.stopPropagation();
@@ -207,12 +213,18 @@ export function HandDock({
       {playerPicker}
       {mobile && !expanded && (
         <div className="hand-drawer-peek">
-          {cards.slice(0, 4).map((card, index) => (
+          {(publicSlots
+            ? publicSlots.slice(0, 4).map(() => undefined)
+            : cards.slice(0, 4)
+          ).map((card, index) => (
             <button
               type="button"
-              key={card?.id ?? index}
+              key={publicSlots?.[index]?.id ?? card?.id ?? index}
               className="hand-card"
               data-card-id={card?.id}
+              data-public-slot={publicSlots?.[index]?.id}
+              data-concealed-hidden={publicSlots?.[index]?.hidden}
+              data-concealed-leaving={publicSlots?.[index]?.leaving}
               aria-label={`Open ${title.toLowerCase()}`}
               onClick={() => onExpand(true)}
             >

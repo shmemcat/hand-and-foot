@@ -138,7 +138,7 @@
   align-items: center;
   justify-content: flex-start;
   gap: 30px;
-  min-height: 59px;
+  min-height: var(--table-settlement-height, 59px);
 }
 .score-settlement-pile {
   display: flex;
@@ -241,11 +241,27 @@
   pointer-events: none;
   z-index: 60;
 }
-:where(.live-scoring, .score-native-stage)
-  :where(.meld-pile > button, .red-three-stack):not(:focus-visible) {
-  outline: 2px solid var(--score-pile-outline, transparent);
-  outline-offset: 7px;
-  transition: outline-color 160ms ease-in-out;
+:is(.live-scoring, .score-native-stage)
+  :where(.closed-card-stack, .meld-card-stack, .red-three-stack) {
+  position: relative;
+  isolation: isolate;
+}
+:is(.live-scoring, .score-native-stage)
+  :where(.closed-card-stack, .meld-card-stack, .red-three-stack)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% + 43px);
+  height: calc(100% + 23px);
+  border-radius: 50%;
+  background: var(--primary);
+  filter: blur(15px);
+  opacity: calc(var(--score-pile-active, 0) * 0.5);
+  pointer-events: none;
+  transition: opacity 160ms ease-in-out;
 }
 .score-card-flight {
   position: fixed;
@@ -337,7 +353,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .live-scoring :is(.meld-pile > button, .red-three-stack) {
+  .live-scoring
+    :is(.closed-card-stack, .meld-card-stack, .red-three-stack)::before {
     transition: none;
   }
   .score-board-study *,

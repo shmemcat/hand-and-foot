@@ -3,20 +3,28 @@ import { useHorizontalWheel } from "../hooks/useHorizontalWheel";
 import { useSwipePages } from "../hooks/useSwipePages";
 import { Card } from "./Card";
 import { Icon } from "./Icons";
+import type { ConcealedSlot } from "../hooks/useConcealedHand";
+import type { Card as Face } from "../types";
 
-/** Only counts are needed to draw another player's concealed cards. */
+/** Other players' cards stay concealed until the round results reveal them. */
 export function PublicHand({
   playerId,
   title,
   count,
   mobile,
   foot,
+  slots,
+  drawKey,
+  cards,
 }: {
   playerId: string;
   title: string;
   count: number;
   mobile: boolean;
   foot: ReactNode;
+  slots?: ConcealedSlot[];
+  drawKey?: string;
+  cards?: Face[];
 }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(count / 10));
@@ -24,8 +32,19 @@ export function PublicHand({
   useLayoutEffect(() => setPage(0), [playerId]);
   const swipe = useSwipePages(mobile, current, pages, setPage);
   const scroll = useHorizontalWheel(!mobile, count);
+  useLayoutEffect(() => {
+    if (!drawKey) return;
+    setPage(0);
+    if (scroll.current) scroll.current.scrollLeft = 0;
+  }, [drawKey]);
   const start = mobile ? current * 10 : 0;
   const length = mobile ? Math.min(10, count - start) : count;
+  const visibleSlots: ConcealedSlot[] =
+    slots && !cards
+      ? mobile
+        ? slots.slice(start, start + 10)
+        : slots
+      : Array.from({ length }, (_, index) => ({ id: start + index }));
   return (
     <>
       <div className="hand-heading public-hand-heading">
@@ -37,16 +56,22 @@ export function PublicHand({
         </div>
         {foot}
       </div>
-      {count ? (
+      {visibleSlots.length ? (
         <div
           {...swipe}
           className="hand-scroll public-hand-cards"
-          aria-label={`${title}, ${count} face-down cards`}
+          aria-label={`${title}, ${count}${cards ? "" : " face-down"} cards`}
           ref={scroll}
         >
-          {Array.from({ length }, (_, index) => (
-            <div className="hand-card" key={start + index}>
-              <Card />
+          {visibleSlots.map((slot, index) => (
+            <div
+              className="hand-card"
+              key={slot.id}
+              data-public-slot={slot.id}
+              data-concealed-hidden={slot.hidden}
+              data-concealed-leaving={slot.leaving}
+            >
+              <Card card={cards?.[start + index]} />
             </div>
           ))}
         </div>

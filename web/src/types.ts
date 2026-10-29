@@ -27,6 +27,7 @@ export type Player = {
   handCount: number;
   footCount: number;
   footTop?: Card | null;
+  roundCards?: Card[];
   inFoot: boolean;
   chosen: boolean;
   redThrees: Card[];
@@ -105,7 +106,9 @@ export type TableEvent = {
   card: Card | null;
   faceDown: boolean;
 };
+export type BotDifficulty = "easy" | "medium" | "hard";
 export type Snapshot = {
+  botDifficulty?: BotDifficulty;
   lobbySeats?: (Player | null)[];
   lobbyFillBots?: boolean;
   waitingPlayers?: Player[];

@@ -83,13 +83,18 @@ it.each(["round_over", "finished"] as const)(
       phase,
       scoring: null,
       scoringFoot: null,
+      hand: [...scenario.hand, ...scenario.foot],
+      footTop: null,
       sides: source.sides.map((side) => ({ ...side, score: side.score + 100 })),
       players: source.players.map((player) => ({ ...player, ready: true })),
     };
     view.rerender({ snapshot: result });
     expect(view.result.current.snapshot).toBe(result);
-    expect(view.result.current.snapshot?.hand).toEqual(scenario.hand);
-    expect(view.result.current.snapshot?.footTop).toEqual(scenario.foot[0]);
+    expect(view.result.current.snapshot?.hand).toEqual([
+      ...scenario.hand,
+      ...scenario.foot,
+    ]);
+    expect(view.result.current.snapshot?.footTop).toBeNull();
     expect(view.result.current.snapshot?.players[0].redThrees).toEqual(
       scenario.reds,
     );
@@ -155,6 +160,54 @@ it("pauses while hidden and resumes without changing the accepted score", () => 
   expect(view.result.current.waiting).toBe(true);
   act(() => vi.advanceTimersByTime(10000));
   expect(view.result.current.waiting).toBe(true);
+});
+it.each([false, true])(
+  "skips counting while payment is pending (waiting: %s) and resets next round",
+  (waiting) => {
+    const source = round();
+    const view = renderHook(
+      ({ snapshot }) => useLiveScoring(snapshot, true, false),
+      { initialProps: { snapshot: source } },
+    );
+    if (waiting) act(() => vi.advanceTimersByTime(1200));
+    act(() => view.result.current.skip());
+    expect(view.result.current.done).toBe(true);
+    expect(view.result.current.beat).toBeUndefined();
+    expect(view.result.current.snapshot).toBe(source);
+    expect(source.scoring?.confirmed).toBe(false);
+    const paid = {
+      ...source,
+      revision: 2,
+      scoring: {
+        ...source.scoring!,
+        revision: 1,
+        remaining: 5,
+        usedPiles: ["reds:0"],
+        options: [],
+      },
+    };
+    view.rerender({ snapshot: paid });
+    act(() => vi.advanceTimersByTime(10000));
+    expect(view.result.current.done).toBe(true);
+    expect(view.result.current.beat).toBeUndefined();
+    expect(view.result.current.snapshot).toBe(paid);
+    view.rerender({ snapshot: { ...source, round: source.round + 1 } });
+    expect(view.result.current.done).toBe(false);
+    expect(view.result.current.beat?.kind).toBe("ready");
+  },
+);
+it("replays scoring after a rematch reuses the same round number", () => {
+  const source = round();
+  const view = renderHook(
+    ({ snapshot }) => useLiveScoring(snapshot, true, false),
+    { initialProps: { snapshot: source } },
+  );
+  act(() => view.result.current.skip());
+  expect(view.result.current.done).toBe(true);
+  view.rerender({ snapshot: { ...source, phase: "finished", scoring: null } });
+  view.rerender({ snapshot: source });
+  expect(view.result.current.done).toBe(false);
+  expect(view.result.current.beat?.kind).toBe("ready");
 });
 it("gathers every private foot face before permitting settlement and resets next deal", () => {
   const scenario = SCORING_SCENARIOS[0];

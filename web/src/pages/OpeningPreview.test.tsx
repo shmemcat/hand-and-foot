@@ -126,7 +126,7 @@ it("uses six-player partnerships and changes the first player through the dealer
     }).disabled,
   ).toBe(true);
 });
-it("uses the live board navigation and card sizes without opening a room or replacing the saved room", () => {
+it("uses the live board with other player tokens disabled without opening a room or replacing the saved room", () => {
   localStorage.setItem("handandfoot.room.v1", JSON.stringify("EXISTING"));
   const view = show();
   expect(
@@ -136,10 +136,12 @@ it("uses the live board navigation and card sizes without opening a room or repl
     view.container.querySelector(".board-carousel .player-board-nav"),
   ).toBeTruthy();
   expect(view.container.querySelector(".hand-dock")).toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "View Poppy’s board, 0 points" }),
-  );
-  expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
+  const other = screen.getByRole<HTMLButtonElement>("button", {
+    name: "View Poppy’s board, 0 points",
+  });
+  expect(other.disabled).toBe(true);
+  fireEvent.click(other);
+  expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
   expect(getRoom).not.toHaveBeenCalled();
   expect(socketCredentials).not.toHaveBeenCalled();
   expect(command).not.toHaveBeenCalled();
@@ -249,49 +251,59 @@ it("reaches the dealer promptly during continuous playback", () => {
   expect(screen.getByRole("img", { name: "Dealer" })).toBeTruthy();
   expect(screen.getByText(/02 \/ 08 · Meet your dealer/)).toBeTruthy();
 });
-it("keeps browsing another board through every setup beat and waits for the private choice", () => {
-  const view = show();
-  fireEvent.click(screen.getByRole("button", { name: "Play opening" }));
-  fireEvent.click(
-    screen.getByRole("button", { name: "View Poppy’s board, 0 points" }),
-  );
-  for (const duration of [900, 1500, 2000, 900]) {
-    act(() => vi.advanceTimersByTime(duration + 100));
-    expect(screen.getByRole("region", { name: "Poppy’s board" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
-  }
-  expect(screen.getByText(/05 \/ 08 · Choose your hand/)).toBeTruthy();
-  const previewCard = view.container.querySelector(
-    ".opening-choice-stack > .card",
-  );
-  expect(previewCard).toBeTruthy();
-  expect(
-    screen.queryByRole("button", { name: "Choose pile 1 as your hand" }),
-  ).toBeNull();
-  act(() => vi.advanceTimersByTime(60000));
-  expect(screen.getByText(/05 \/ 08 · Choose your hand/)).toBeTruthy();
-  expect(sound.play.mock.calls.filter(([cue]) => cue === "flip").length).toBe(
-    2,
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "View your board, 0 points, dealer" }),
-  );
-  expect(view.container.querySelector(".opening-choice-stack > .card")).toBe(
-    previewCard,
-  );
-  expect(
-    screen.getByRole("button", { name: "Choose pile 1 as your hand" }),
-  ).toBeTruthy();
-  act(() => vi.advanceTimersByTime(1000));
-  expect(sound.play.mock.calls.filter(([cue]) => cue === "flip").length).toBe(
-    2,
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Choose pile 1 as your hand" }),
-  );
-  expect(screen.getByText(/06 \/ 08 · Your hand, your foot/)).toBeTruthy();
-});
-it("keeps the same dealing and gathering elements alive when browsing away and back", () => {
+it.each(["individual", "partnership"])(
+  "keeps the %s board on your own side through every setup beat and waits for the private choice",
+  (mode) => {
+    const view = show();
+    fireEvent.change(screen.getByLabelText("Scoring"), {
+      target: { value: mode },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Play opening" }));
+    const other = screen.getByRole<HTMLButtonElement>("button", {
+      name: /^View Poppy.*board, 0 points/,
+    });
+    expect(other.disabled).toBe(true);
+    fireEvent.click(other);
+    for (const duration of [900, 1500, 2000, 900]) {
+      act(() => vi.advanceTimersByTime(duration + 100));
+      expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
+      expect(other.disabled).toBe(true);
+      fireEvent.click(other);
+      expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+    }
+    expect(screen.getByText(/05 \/ 08 · Choose your hand/)).toBeTruthy();
+    const previewCard = view.container.querySelector(
+      ".opening-choice-stack > .card",
+    );
+    expect(previewCard).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Choose pile 1 as your hand" }),
+    ).toBeTruthy();
+    act(() => vi.advanceTimersByTime(60000));
+    expect(screen.getByText(/05 \/ 08 · Choose your hand/)).toBeTruthy();
+    expect(sound.play.mock.calls.filter(([cue]) => cue === "flip").length).toBe(
+      2,
+    );
+    fireEvent.click(
+      view.container.querySelector('.board-player[aria-pressed="true"]')!,
+    );
+    expect(view.container.querySelector(".opening-choice-stack > .card")).toBe(
+      previewCard,
+    );
+    expect(
+      screen.getByRole("button", { name: "Choose pile 1 as your hand" }),
+    ).toBeTruthy();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(sound.play.mock.calls.filter(([cue]) => cue === "flip").length).toBe(
+      2,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Choose pile 1 as your hand" }),
+    );
+    expect(screen.getByText(/06 \/ 08 · Your hand, your foot/)).toBeTruthy();
+  },
+);
+it("keeps dealing and gathering on your board when other player tokens are clicked", () => {
   const view = show();
   beat("04 Deal");
   act(() => vi.advanceTimersByTime(350));
@@ -299,6 +311,7 @@ it("keeps the same dealing and gathering elements alive when browsing away and b
   fireEvent.click(
     screen.getByRole("button", { name: "View Poppy’s board, 0 points" }),
   );
+  expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
   act(() => vi.advanceTimersByTime(400));
   fireEvent.click(
     screen.getByRole("button", { name: "View your board, 0 points, dealer" }),
@@ -316,6 +329,7 @@ it("keeps the same dealing and gathering elements alive when browsing away and b
   fireEvent.click(
     screen.getByRole("button", { name: "View Poppy’s board, 0 points" }),
   );
+  expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
   act(() => vi.advanceTimersByTime(500));
   fireEvent.click(
     screen.getByRole("button", { name: "View your board, 0 points, dealer" }),
@@ -338,10 +352,15 @@ it("adds decorative waiting dots and only plays the discard reveal chime in Begi
   expect(sound.play).not.toHaveBeenCalled();
   act(() => vi.advanceTimersByTime(400));
   expect(sound.play).toHaveBeenCalledExactlyOnceWith("start");
-  fireEvent.click(
-    screen.getByRole("button", { name: "View Hazel’s board, 0 points" }),
-  );
+  const other = screen.getByRole<HTMLButtonElement>("button", {
+    name: "View Hazel’s board, 0 points",
+  });
+  expect(other.disabled).toBe(true);
+  fireEvent.click(other);
+  expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
   act(() => vi.advanceTimersByTime(2000));
+  expect(other.disabled).toBe(false);
+  fireEvent.click(other);
   expect(screen.getByRole("region", { name: "Hazel’s board" })).toBeTruthy();
   expect(sound.play).toHaveBeenCalledExactlyOnceWith("start");
   expect(view.container.querySelector(".waiting-ellipsis")).toBeNull();

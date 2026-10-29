@@ -579,8 +579,8 @@ export function ScoringPreview() {
         ["bonus", "break"].includes(beat.kind) && (
           <style>
             {beat.activePile === "reds"
-              ? ".score-native-stage .red-three-stack {--score-pile-outline:var(--secondary);}"
-              : `.score-native-stage [data-meld-id="${beat.activePile}"] > button {--score-pile-outline:var(--secondary);}`}
+              ? ".score-native-stage .red-three-stack {--score-pile-active:1;}"
+              : `.score-native-stage [data-meld-id="${beat.activePile}"] > :is(.closed-card-stack, .meld-card-stack) {--score-pile-active:1;}`}
           </style>
         )}
       {flights.map((flight) => (

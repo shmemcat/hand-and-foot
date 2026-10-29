@@ -10,6 +10,7 @@ import type { Card, Snapshot, TableEvent } from "../types";
 import { afterCardAnimations } from "../lib/cardAnimations";
 import { footGatherDuration } from "../lib/footMotion";
 import type { CardPosition } from "./useMeldMotion";
+import { publicHandSlots, visiblePublicHandSlots } from "./useConcealedHand";
 import {
   DRAW_FLIGHT_MS,
   DRAW_STAGGER_MS,
@@ -21,6 +22,8 @@ export type TableFlight = {
   event: TableEvent;
   scope: string;
   local: boolean;
+  concealed?: boolean;
+  targets?: CardPosition[];
   card: Card | null;
   from: CardPosition;
   to: CardPosition;
@@ -60,6 +63,8 @@ export function useTableMotion(
   speed = 1,
   localDiscardHandled = false,
   suspended = false,
+  viewedPlayerId?: string,
+  navigationKey = 0,
 ) {
   const [desktop, setDesktop] = useState(
     () => window.matchMedia("(min-width: 769px)").matches,
@@ -69,12 +74,16 @@ export function useTableMotion(
   const previous = useRef<{
     snapshot: Snapshot;
     positions: Map<string, CardPosition>;
+    publicPlayer?: string;
+    navigationKey: number;
+    publicPositions: CardPosition[];
   } | null>(null);
   const clear = useCallback(() => setQueue([]), []);
   const canPresent = !rehearsal && !document.hidden;
   const enabled = canPresent && !reduced;
   const scope = incoming ? scopeOf(incoming) : "";
   const prior = previous.current;
+  const boardChanged = Boolean(prior && prior.navigationKey !== navigationKey);
   const sameDeal = Boolean(
     prior && incoming && scopeOf(prior.snapshot) === scope,
   );
@@ -86,17 +95,21 @@ export function useTableMotion(
     : [];
   const shouldShow = (event: TableEvent) =>
     event.playerId !== incoming?.viewerId
-      ? desktop || event.kind === "discard" || event.kind === "foot"
+      ? event.kind !== "pickup" ||
+        incoming?.players.find((player) => player.id === event.playerId)
+          ?.team !== viewedTeam
       : event.kind === "foot"
         ? !suspended
         : desktop && event.kind === "discard" && !localDiscardHandled;
   const visibleMotion = (event: TableEvent) =>
     !reduced || event.faceDown || event.kind === "foot";
-  const pendingEvents = canPresent
-    ? newEvents.filter((event) => shouldShow(event) && visibleMotion(event))
-    : [];
+  const pendingEvents =
+    canPresent && !boardChanged
+      ? newEvents.filter((event) => shouldShow(event) && visibleMotion(event))
+      : [];
   const flight =
     canPresent &&
+    !boardChanged &&
     !suspended &&
     queue[0]?.scope === scope &&
     visibleMotion(queue[0].event)
@@ -131,7 +144,27 @@ export function useTableMotion(
         !visibleMotion(queue[0].event))
     )
       clear();
-    if (canPresent && sameDeal && incoming.phase !== "choose") {
+    if (boardChanged && queue.length) {
+      // A new footer never inherits destinations or staged counts from the old one.
+      setQueue((old) =>
+        old
+          .filter((item) => item.event.faceDown || item.event.kind === "foot")
+          .map((item) => ({
+            ...item,
+            concealed: false,
+            local: false,
+            targets: undefined,
+            card: item.event.faceDown ? null : item.card,
+          })),
+      );
+      if (queue[0].event.faceDown) setLandedId(queue[0].event.id);
+    }
+    if (
+      canPresent &&
+      sameDeal &&
+      !boardChanged &&
+      incoming.phase !== "choose"
+    ) {
       const header = board.current
         .querySelector(".game-header")
         ?.getBoundingClientRect();
@@ -143,12 +176,13 @@ export function useTableMotion(
       );
       if (header && deck && discard) {
         const next: TableFlight[] = [];
+        let playersBefore = prior!.snapshot.players;
         let previousDiscard = {
           card: prior!.snapshot.discard,
           count: prior!.snapshot.discardCount,
           faceDown: prior!.snapshot.discardFaceDown,
         };
-        for (const event of newEvents) {
+        for (const [eventIndex, event] of newEvents.entries()) {
           const pile = position(event.kind === "draw" ? deck : discard);
           const own = event.playerId === incoming.viewerId;
           const card =
@@ -167,6 +201,46 @@ export function useTableMotion(
                 ?.team;
           const source =
             own && ownBoard && card ? prior!.positions.get(card.id) : null;
+          const concealed =
+            event.kind !== "pickup" &&
+            !own &&
+            event.playerId === viewedPlayerId &&
+            Boolean(
+              board.current.querySelector(
+                `[data-public-player="${viewedPlayerId}"]`,
+              ),
+            );
+          const slots = concealed
+            ? publicHandSlots(board.current).map((slot) =>
+                position(slot.querySelector(".card") ?? slot),
+              )
+            : [];
+          const oldSlots =
+            prior!.publicPlayer === viewedPlayerId
+              ? prior!.publicPositions
+              : [];
+          const handSource =
+            concealed && isDiscard(event)
+              ? (oldSlots.at(-1) ?? slots.at(-1))
+              : null;
+          const handTargets =
+            concealed && !isDiscard(event)
+              ? Array.from({ length: event.count }, (_, index) => {
+                  const first = slots[0] ?? oldSlots[0];
+                  if (slots[index]) return slots[index];
+                  const dock = board
+                    .current!.querySelector(".hand-dock")!
+                    .getBoundingClientRect();
+                  return first
+                    ? { ...first, left: first.left + index * (first.width + 6) }
+                    : {
+                        left: dock.left + 5 + index * 71,
+                        top: dock.top + 60,
+                        width: 65,
+                        height: 91,
+                      };
+                })
+              : undefined;
           const edge = { ...pile, top: header.bottom - pile.height * 0.15 };
           if (shouldShow(event) && visibleMotion(event))
             next.push({
@@ -175,16 +249,67 @@ export function useTableMotion(
               scope,
               before: {
                 ...prior!.snapshot,
+                players: playersBefore,
                 discard: previousDiscard.card,
                 discardCount: previousDiscard.count,
                 discardFaceDown: previousDiscard.faceDown,
               },
-              local: Boolean(source),
+              local: Boolean(
+                source || (concealed && (handSource || handTargets)),
+              ),
+              concealed,
+              targets: handTargets,
               card: event.faceDown && !source ? null : card,
-              from: isDiscard(event) ? (source ?? edge) : pile,
-              to: isDiscard(event) ? pile : edge,
+              from: isDiscard(event) ? (source ?? handSource ?? edge) : pile,
+              to: isDiscard(event) ? pile : (handTargets?.[0] ?? edge),
               divider: header.bottom,
             });
+          const delta =
+            event.kind === "draw"
+              ? event.count
+              : isDiscard(event)
+                ? -event.count
+                : 0;
+          playersBefore = playersBefore.map((player) =>
+            player.id === event.playerId
+              ? {
+                  ...player,
+                  handCount: Math.max(0, player.handCount + delta),
+                }
+              : player,
+          );
+          if (event.kind === "pickup") {
+            const laterDelta = newEvents
+              .slice(eventIndex + 1)
+              .filter((next) => next.playerId === event.playerId)
+              .reduce(
+                (sum, next) =>
+                  sum +
+                  (next.kind === "draw"
+                    ? next.count
+                    : isDiscard(next)
+                      ? -next.count
+                      : 0),
+                0,
+              );
+            playersBefore = playersBefore.map((player) =>
+              player.id === event.playerId
+                ? {
+                    ...player,
+                    handCount: Math.max(
+                      0,
+                      (incoming.players.find((seat) => seat.id === player.id)
+                        ?.handCount ?? player.handCount) - laterDelta,
+                    ),
+                  }
+                : player,
+            );
+            previousDiscard = {
+              card: incoming.discard,
+              count: Math.max(0, previousDiscard.count - event.count),
+              faceDown: incoming.discardFaceDown,
+            };
+          }
           if (isDiscard(event))
             previousDiscard = {
               card: event.card,
@@ -216,7 +341,15 @@ export function useTableMotion(
         const card = slot.querySelector(".card");
         if (card) positions.set(slot.dataset.cardId!, position(card));
       }
-    previous.current = { snapshot: incoming, positions };
+    previous.current = {
+      snapshot: incoming,
+      positions,
+      publicPlayer: viewedPlayerId,
+      navigationKey,
+      publicPositions: visiblePublicHandSlots(board.current).map((slot) =>
+        position(slot.querySelector(".card") ?? slot),
+      ),
+    };
   });
   useEffect(() => {
     if (!flight) return;
@@ -244,21 +377,42 @@ export function useTableMotion(
     const hide = () => {
       if (document.hidden) clear();
     };
+    const scroll = (event: Event) => {
+      if (
+        flight?.concealed &&
+        flight.event.kind === "draw" &&
+        event.target instanceof HTMLElement &&
+        event.target.matches(".public-hand-cards") &&
+        event.target.scrollLeft === 0
+      )
+        return;
+      cancel();
+    };
     media.addEventListener("change", change);
     document.addEventListener("visibilitychange", hide);
     window.addEventListener("resize", cancel);
-    window.addEventListener("scroll", cancel, true);
+    window.addEventListener("scroll", scroll, true);
     return () => {
       media.removeEventListener("change", change);
       document.removeEventListener("visibilitychange", hide);
       window.removeEventListener("resize", cancel);
-      window.removeEventListener("scroll", cancel, true);
+      window.removeEventListener("scroll", scroll, true);
     };
   }, [cancel, clear]);
 
   // Use the queued action's player, even when a newer server update has arrived.
   const event = flight?.event ?? (!suspended ? pendingEvents[0] : undefined);
   const before = flight?.before ?? prior?.snapshot;
+  const stagedEvents = [
+    ...queue.filter((item) => item.scope === scope).map((item) => item.event),
+    ...pendingEvents,
+  ].filter(
+    (item, index, items) =>
+      items.findIndex((other) => other.id === item.id) === index,
+  );
+  const laterEvents = stagedEvents.slice(
+    stagedEvents.findIndex((item) => item.id === event?.id) + 1,
+  );
   const waitingFeet = [
     ...queue
       .filter((item) => item.scope === scope)
@@ -293,7 +447,36 @@ export function useTableMotion(
                   inFoot: old.inFoot,
                   footTop: old.footTop,
                 }
-              : player;
+              : player.id === event.playerId &&
+                  ["draw", "discard", "replace"].includes(event.kind)
+                ? {
+                    ...player,
+                    handCount: Math.max(
+                      0,
+                      player.id !== presented.viewerId
+                        ? (incoming?.players.find(
+                            (seat) => seat.id === player.id,
+                          )?.handCount ?? player.handCount) -
+                            laterEvents
+                              .filter((next) => next.playerId === player.id)
+                              .reduce(
+                                (sum, next) =>
+                                  sum +
+                                  (next.kind === "draw"
+                                    ? next.count
+                                    : isDiscard(next)
+                                      ? -next.count
+                                      : 0),
+                                0,
+                              )
+                        : (before.players.find((seat) => seat.id === player.id)
+                            ?.handCount ?? player.handCount) +
+                            (event.kind === "draw"
+                              ? event.count
+                              : -event.count),
+                    ),
+                  }
+                : player;
           }),
           phase:
             event.kind === "draw" || event.kind === "pickup" ? "draw" : "play",
@@ -336,5 +519,6 @@ export function useTableMotion(
     holding,
     blocking,
     cancel,
+    handEvent: event,
   };
 }

@@ -455,9 +455,13 @@ it("keeps red-three replacement on its own draw flight without an overlapping mo
   expect(screen.getByRole("button", { name: "K of diamonds" })).toBeTruthy();
 });
 
-it.each(["round_over", "finished"] as const)(
-  "keeps the mobile count in the drawer and restores its controls after %s results are hidden",
-  async (phase) => {
+it.each(
+  (["round_over", "finished"] as const).flatMap((phase) =>
+    [false, true].map((skipAnimation) => ({ phase, skipAnimation })),
+  ),
+)(
+  "restores the mobile drawer after $phase results are hidden (skip animation: $skipAnimation)",
+  async ({ phase, skipAnimation }) => {
     vi.useFakeTimers();
     vi.mocked(window.matchMedia).mockImplementation(
       (query) =>
@@ -470,12 +474,27 @@ it.each(["round_over", "finished"] as const)(
         }) as unknown as MediaQueryList,
     );
     const source = mobileCountingSnapshot();
+    const remainingCards = [...source.hand, ...(source.scoringFoot ?? [])];
     vi.mocked(getRoom).mockResolvedValue(source);
     vi.mocked(command).mockResolvedValue({
       ...source,
       revision: source.revision + 1,
       phase,
       scoring: null,
+      hand: remainingCards,
+      footTop: null,
+      scoringFoot: null,
+      players: source.players.map((player) =>
+        player.id === source.viewerId
+          ? {
+              ...player,
+              roundCards: remainingCards,
+              handCount: remainingCards.length,
+              footCount: 0,
+              footTop: null,
+            }
+          : player,
+      ),
       history: [
         {
           round: source.round,
@@ -514,9 +533,17 @@ it.each(["round_over", "finished"] as const)(
     expect(command).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", {
-        name: /Pause count|Skip animation|Confirm score/,
+        name: /Pause count|Confirm score/,
       }),
     ).toBeNull();
+    const skip = screen.getByRole("button", { name: "Skip animation" });
+    expect(skip.closest(".hand-heading")).toBeTruthy();
+    if (skipAnimation) {
+      fireEvent.click(skip);
+      await act(async () => {});
+      expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Skip animation" })).toBeNull();
+    }
     for (
       let step = 0;
       step < 100 && !document.querySelector(".round-score-sheet");
@@ -529,7 +556,7 @@ it.each(["round_over", "finished"] as const)(
       "score_confirm",
       {},
     );
-    expect(counter.textContent).toContain("2,485");
+    if (!skipAnimation) expect(counter.textContent).toContain("2,485");
     expect(
       screen.getByRole("navigation", { name: "Main navigation" }),
     ).toBeTruthy();
@@ -540,7 +567,7 @@ it.each(["round_over", "finished"] as const)(
       "End of round board state",
     );
     const toggle = screen.getByRole("button", {
-      name: /your hand.*(?:table|open hand)/i,
+      name: /your cards.*(?:table|open hand)/i,
     });
     expect(toggle.hasAttribute("disabled")).toBe(false);
     expect(
@@ -549,22 +576,22 @@ it.each(["round_over", "finished"] as const)(
     if (toggle.getAttribute("aria-expanded") === "false")
       fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    const hand = screen.getByRole("region", { name: "Your private hand" });
+    const hand = screen.getByRole("region", { name: "Your Cards" });
     expect(hand.querySelector(".hand-info")?.textContent).toContain(
-      `${source.hand.length} cards`,
+      `${remainingCards.length} cards`,
     );
     expect(
-      within(hand).getByRole("group", {
+      within(hand).queryByRole("group", {
         name: `Your foot, ${source.players[0].footCount} cards`,
       }),
-    ).toBeTruthy();
+    ).toBeNull();
     expect(
       screen.queryByRole("group", { name: "Running round score" }),
     ).toBeNull();
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(
-      screen.getByRole("button", { name: /your hand.*open hand/i }),
+      screen.getByRole("button", { name: /your cards.*open hand/i }),
     );
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Show results" }));

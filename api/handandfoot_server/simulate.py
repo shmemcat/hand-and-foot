@@ -4,10 +4,14 @@ from . import bots, engine, scoring
 from .rules import MIN_PLAYERS, MAX_PLAYERS
 
 
-def simulate(count=6, mode="partnership", seed=1, *, verbose=False):
+def simulate(count=6, mode="partnership", seed=1, *, verbose=False, difficulties=None):
+    difficulties = difficulties or [bots.DEFAULT_DIFFICULTY]
+    if len(difficulties) not in (1, count):
+        raise ValueError("Choose one difficulty for the table or one per seat.")
+    for difficulty in difficulties:
+        bots.validate_difficulty(difficulty)
     players = [{"id": str(i), "name": f"Bot {i + 1}", "bot": True} for i in range(count)]
     game = engine.new_game(players, mode, seed=seed)
-    last_round = 0
     for step in range(50000):
         if game["phase"] == "finished":
             return game, step
@@ -24,7 +28,7 @@ def simulate(count=6, mode="partnership", seed=1, *, verbose=False):
         else:
             seat = next(i for i,p in enumerate(game["players"]) if not p["chosen"]) if game["phase"] == "choose" else game["actor"]
             view = engine.project(game, str(seat)) | {"viewerId": str(seat)}
-            move = bots.decide(view)
+            move = bots.decide(view, difficulties[seat % len(difficulties)])
         game = engine.apply(game, seat, move)
     raise AssertionError("Match did not finish within 50,000 moves.")
 
@@ -34,6 +38,8 @@ if __name__ == "__main__":
     parser.add_argument("--players", type=int, choices=range(MIN_PLAYERS, MAX_PLAYERS + 1), default=MAX_PLAYERS)
     parser.add_argument("--mode", choices=["individual", "partnership"], default="partnership")
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--difficulties", nargs="+", choices=bots.DIFFICULTIES, default=[bots.DEFAULT_DIFFICULTY],
+                        help="One profile for the table, or one per seat in seating order.")
     args = parser.parse_args()
-    game, steps = simulate(args.players, args.mode, args.seed, verbose=True)
+    game, steps = simulate(args.players, args.mode, args.seed, verbose=True, difficulties=args.difficulties)
     print(f'Finished: {game["round"]} rounds, {steps} accepted moves, scores {[side["score"] for side in game["sides"]]}, winners {game["winners"]}.')

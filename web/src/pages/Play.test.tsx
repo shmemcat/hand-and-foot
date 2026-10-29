@@ -85,8 +85,34 @@ it.each(
       playMode: mode,
       scoringMode: scoring,
       capacity,
+      botDifficulty: "medium",
       targetScore: 10000,
     });
+  },
+);
+
+it.each(["Easy", "Medium", "Hard"])(
+  "creates a game with %s bots",
+  async (label) => {
+    renderCreateGame();
+    expect(
+      (screen.getByRole("radio", { name: "Medium" }) as HTMLInputElement)
+        .checked,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("radio", { name: label }));
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: "Create Game" })
+          .hasAttribute("disabled"),
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Create Game" }));
+    await screen.findByText("Table created");
+    expect(request).toHaveBeenLastCalledWith(
+      "/rooms",
+      expect.objectContaining({ botDifficulty: label.toLowerCase() }),
+    );
   },
 );
 

@@ -1,3 +1,5 @@
+import type { ResultCategory } from "./resultCategories";
+
 export type Stats = {
   games: number;
   wins: number;
@@ -9,7 +11,8 @@ export type Stats = {
   goingOut: number;
 };
 export type AccountSummary = {
-  stats: Record<"all" | "practice" | "online", Stats>;
+  stats: Record<"all" | "practice" | "online", Stats> &
+    Partial<Record<ResultCategory, Stats>>;
   counters: Record<string, number>;
   unlocks: string[];
 };

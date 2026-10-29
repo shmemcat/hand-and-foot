@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 import math
 from .models import AchievementUnlock, MatchResult
 from .achievement_events import GAMEPLAY_ACHIEVEMENTS
+from .result_categories import RESULT_CATEGORIES, result_category
 
 
 FIXED_HOLIDAYS = {
@@ -54,12 +55,17 @@ def account_summary(key):
         player = next((p for p in data["players"] if p.get("key") == key), None)
         if player:
             results.append((data, player))
-    counters = dict(games=0, wins=0, clean_books=0, dirty_books=0, going_out=0, red_threes=0)
     user_id = int(key.split(":")[1])
     unlocks = {row.achievement_id for row in AchievementUnlock.query.filter_by(user_id=user_id)}
+    return summarize(results, unlocks)
+
+
+def summarize(results, unlocks):
+    unlocks = set(unlocks)
+    counters = dict(games=0, wins=0, clean_books=0, dirty_books=0, going_out=0, red_threes=0)
     streak = 0
     stats = {category: dict(games=0, wins=0, rounds=0, best=None, total=0, cleanBooks=0, dirtyBooks=0, goingOut=0)
-             for category in ("all", "practice", "online")}
+             for category in ("all", "practice", "online", *RESULT_CATEGORIES)}
     for data, player in results:
         unlocks.update(set(player.get("achievements", [])) & GAMEPLAY_ACHIEVEMENTS)
         unlocks.update(calendar_achievements(data.get("startedAt"), player.get("utcOffsetMinutes")))
@@ -80,7 +86,7 @@ def account_summary(key):
         counters["going_out"] += outs
         counters["red_threes"] += reds
         streak = streak + 1 if won else 0
-        for category in ("all", data.get("playMode")):
+        for category in ("all", data.get("playMode"), result_category(data)):
             if category not in stats:
                 continue
             item = stats[category]
@@ -142,3 +148,19 @@ def account_summary(key):
             if runs >= 2:
                 unlocks.add("scenic_route")
     return {"stats": stats, "counters": counters, "unlocks": sorted(unlocks)}
+
+
+def achievement_count(summary):
+    singles = {
+        "first_chapter", "first_victory", "straight_ahead", "matched_set", "big_hand",
+        "team_spirit", "own_two_feet", "good_company", "sole_survivor", "a_leg_up",
+        "caught_red_handed", "triple_threat", "seeing_red", "clean_sweep", "comeback",
+        "photo_finish", "overachiever", "handle_with_care", "hot_streak", "private_library",
+        "balancing_act", "long_story", "full_house", "scenic_route", "better_with_friends",
+        "early_bird", "night_owl", "geezer", "new_year", "lonely_heart", "lucky_clover",
+        "easter_egg", "fireworks", "spooky", "thankful", "christmas_spirit",
+    }
+    tiers = {"games": (10, 50, 200), "wins": (5, 25, 100), "clean_books": (10, 50, 200),
+             "dirty_books": (10, 50, 200), "going_out": (10, 50, 200), "red_threes": (10, 50, 200)}
+    return len(set(summary["unlocks"]) & singles) + sum(
+        summary["counters"][key] >= target for key, targets in tiers.items() for target in targets)

@@ -14,16 +14,19 @@ def test_completed_scoring_restores_every_board_for_every_viewer(mode, phase):
         owner = next(p for p in game["players"] if p["team"] == side["id"])
         book(game, rank, team=side["id"], creator=owner["id"])
         owner["redThrees"] = take(game, "3", 2, "hearts" if side["id"] % 2 else "diamonds")
-    for player in game["players"]:
+    for index, player in enumerate(game["players"]):
         player["hand"] = take(game, "A", 2)
-        player["foot"] = take(game, "4", 2)
+        player["inFoot"] = bool(index % 2)
+        player["foot"] = [] if player["inFoot"] else take(game, "4", 2)
     engine.arrange_book_covers(game)
     before = {p["id"]: engine.project(game, p["id"]) for p in game["players"]}
+    assert all("roundCards" not in p for view in before.values() for p in view["players"])
     engine.finish_round(game, None, "The stack ran out.")
     for side in game["sides"]:
         seat = next(i for i, p in enumerate(game["players"]) if p["team"] == side["id"])
         game = engine.apply(game, seat, {"type": "score_auto"})
         scoring_view = engine.project(game, game["players"][seat]["id"])
+        assert all("roundCards" not in p for p in scoring_view["players"])
         assert any(meld["bonusLost"] for meld in scoring_view["sides"][side["id"]]["melds"])
         game = engine.apply(game, seat, {"type": "score_confirm"})
     assert game["phase"] == phase
@@ -31,12 +34,17 @@ def test_completed_scoring_restores_every_board_for_every_viewer(mode, phase):
     for player in game["players"]:
         view = engine.project(game, player["id"])
         original = before[player["id"]]
-        assert view["hand"] == original["hand"]
-        assert view["footTop"] == original["footTop"]
-        assert view["players"] == original["players"]
+        assert view["hand"] == [game["cards"][i] for i in [*player["hand"], *player["foot"]]]
+        assert view["footTop"] is None
+        for public, prior, actual in zip(view["players"], original["players"], game["players"]):
+            remaining = [game["cards"][i] for i in [*actual["hand"], *actual["foot"]]]
+            assert public == {**prior, "roundCards": remaining, "handCount": len(remaining), "footCount": 0, "footTop": None}
         assert [side["melds"] for side in view["sides"]] == [side["melds"] for side in original["sides"]]
         assert view["scoringFoot"] is None
     engine.assert_conservation(game)
+    engine.deal_round(game)
+    for player in game["players"]:
+        assert all("roundCards" not in p for p in engine.project(game, player["id"])["players"])
 
 
 def test_scoring_reveals_the_full_foot_only_to_its_owner():

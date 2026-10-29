@@ -41,9 +41,51 @@ it("loads personal statistics, separates modes, and conceals secret names and de
   );
   fireEvent.click(screen.getByRole("button", { name: "Separate" }));
   expect(screen.getByText("100%")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Medium" }).getAttribute("aria-pressed"),
+  ).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Easy" }));
+  expect(
+    within(screen.getByLabelText("Your statistics")).getByText("Win Rate")
+      .nextElementSibling?.textContent,
+  ).toBe("—");
+  fireEvent.click(screen.getByRole("button", { name: "Hard" }));
+  expect(
+    within(screen.getByLabelText("Your statistics")).getByText("Games Won")
+      .nextElementSibling?.textContent,
+  ).toBe("0");
   fireEvent.click(screen.getByRole("button", { name: "Multiplayer" }));
   expect(
     within(screen.getByLabelText("Your statistics")).getByText("0%"),
+  ).toBeTruthy();
+});
+
+it("uses difficulty-specific records without mixing them with the legacy bot total", () => {
+  render(
+    <AccountSummary
+      preview={{
+        ...data,
+        stats: {
+          ...data.stats,
+          easy: { ...empty, games: 2, wins: 1 },
+          medium: { ...empty, games: 4, wins: 3 },
+          hard: { ...empty, games: 3, wins: 1 },
+          multiplayer: { ...empty, games: 1 },
+        },
+      }}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Separate" }));
+  expect(
+    within(screen.getByLabelText("Your statistics")).getByText("75%"),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Easy" }));
+  expect(
+    within(screen.getByLabelText("Your statistics")).getByText("50%"),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Hard" }));
+  expect(
+    within(screen.getByLabelText("Your statistics")).getByText("33%"),
   ).toBeTruthy();
 });
 it("offers a retry instead of displaying a false empty account on failure", async () => {

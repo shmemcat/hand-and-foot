@@ -355,7 +355,7 @@ def assert_conservation(game):
 
 
 def project(game, viewer_id):
-    """Expose counts and each chosen foot's public top card; hands stay private."""
+    """Keep hands private during play and reveal all remaining cards at round end."""
     # Older saved tables receive the same cover arrangement as their next move.
     if game["phase"] in ("play", "draw"):
         game = copy.deepcopy(game)
@@ -363,12 +363,14 @@ def project(game, viewer_id):
     viewer = next(p for p in game["players"] if p["id"] == viewer_id)
     from .scoring import project_review
     cards = game["cards"]
+    round_review = game["phase"] in ("round_over", "finished")
     players = [{
         "id": p["id"], "name": p["name"], "team": p["team"], "bot": p["bot"],
         "chosen": p["chosen"], "inFoot": p["inFoot"],
-        "handCount": len(p["hand"]) if p["chosen"] else 11,
-        "footCount": len(p["foot"]) if p["chosen"] else 11,
-        "footTop": cards[p["foot"][0]] if p["chosen"] and p["foot"] else None,
+        "handCount": len(p["hand"]) + (len(p["foot"]) if round_review else 0) if p["chosen"] else 11,
+        "footCount": 0 if round_review else len(p["foot"]) if p["chosen"] else 11,
+        "footTop": cards[p["foot"][0]] if not round_review and p["chosen"] and p["foot"] else None,
+        **({"roundCards": [cards[i] for i in [*p["hand"], *p["foot"]]]} if round_review else {}),
         "redThrees": [cards[i] for i in p["redThrees"]],
         "ready": p["id"] in game["ready"], "away": p.get("away", False),
     } for p in game["players"]]
@@ -393,9 +395,9 @@ def project(game, viewer_id):
         "opening": {"id": game["dealId"], "ready": game.get("openingReady", []), "complete": not opening_pending(game)} if "openingReady" in game else None,
         "actorId": game["players"][game["actor"]]["id"],
         "dealerId": game["players"][game["dealer"]]["id"], "message": game["message"],
-        "hand": [cards[i] for i in viewer["hand"]],
+        "hand": [cards[i] for i in [*viewer["hand"], *(viewer["foot"] if round_review else [])]],
         "footPreview": [[cards[pile[0]], cards[pile[-1]]] for pile in viewer["piles"]] if not viewer["chosen"] else None,
-        "footTop": cards[viewer["foot"][0]] if viewer["foot"] else None,
+        "footTop": cards[viewer["foot"][0]] if not round_review and viewer["foot"] else None,
         # Round settlement may show every private foot face to its owner only.
         "scoringFoot": [cards[i] for i in viewer["foot"]] if game["phase"] == "scoring" else None,
         "discard": cards[game["discard"][-1]] if game["discard"] and not game.get("discardFaceDown") else None,

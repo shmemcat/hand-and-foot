@@ -24,6 +24,7 @@ import {
   pickupPlayableCards,
 } from "../lib/melds";
 import { goingOutRequirement, hasGoingOutBooks } from "../lib/goingOut";
+import { CATEGORY_LABELS, resultCategory } from "../lib/resultCategories";
 import { Card } from "../components/Card";
 import { HandDock } from "../components/HandDock";
 import { PublicHand } from "../components/PublicHand";
@@ -58,6 +59,7 @@ import { useMobilePlayMotion } from "../hooks/useMobilePlayMotion";
 import { MobilePlayCards } from "../components/MobilePlayCards";
 import { MobileFootCards } from "../components/MobileFootCards";
 import { useHandLayoutMotion } from "../hooks/useHandLayoutMotion";
+import { useConcealedHand } from "../hooks/useConcealedHand";
 import { GameMenu } from "../components/GameMenu";
 import { PlayerBoardNav } from "../components/PlayerBoardNav";
 import { PlayDraftButton } from "../components/PlayDraftButton";
@@ -107,6 +109,7 @@ export type RoomRehearsal = {
   footerSummary?: ReactNode;
   footerSummaryVisible?: boolean;
   handCaption?: string;
+  handExpanded?: boolean;
   emptyHandMessage?: string;
   emptyTableMessage?: string;
   cardPoints?: Record<string, number>;
@@ -115,6 +118,7 @@ export type RoomRehearsal = {
   tableau?: ReactNode;
   deckOverlay?: ReactNode;
   setup?: boolean;
+  openingActive?: boolean;
   footSource?: { topCard: Face | null; count: number };
   onDraw?: () => void;
   onCommand?: (type: string, payload: Record<string, unknown>) => void;
@@ -166,9 +170,12 @@ function handOwner(
 
 export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const mobile = useMobileLayout();
-  const [handExpanded, setHandExpanded] = useState(false);
+  const [handExpanded, setHandExpanded] = useState(
+    rehearsal?.handExpanded ?? false,
+  );
   const [handPage, setHandPage] = useState(0);
   const boardSweepDirection = useRef<number | null>(null);
+  const handNavigation = useRef(0);
   const boardSweepRef = useRef<HTMLElement>(null);
   const boardContentRef = useRef<HTMLDivElement>(null);
   const revealAfterDraw = useRef(false);
@@ -254,7 +261,9 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const meldMotion = useMeldMotion(
     mobileMotion.snapshot,
     boardRef,
-    opening.reduced || mobile || rehearsal?.meldAnimate === false,
+    opening.reduced ||
+      (mobile && privateFooter) ||
+      rehearsal?.meldAnimate === false,
     rehearsal?.meldSpeed ?? 1,
     rehearsal?.meldPaused ?? false,
     viewed,
@@ -290,6 +299,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     rehearsal?.meldSpeed ?? 1,
     mobile || footMotion.active,
     mobileMotion.blocking || footMotion.active,
+    privateFooter ? undefined : incomingHandOwner?.id,
+    handNavigation.current,
   );
   const scoring = useLiveScoring(
     tableMotion.snapshot,
@@ -299,6 +310,9 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     opening.reduced,
   );
   const snapshot = scoring.snapshot;
+  const review = Boolean(
+    snapshot && ["round_over", "finished"].includes(snapshot.phase),
+  );
   const footerPlayer =
     scoring.enabled && !scoring.done
       ? snapshot?.players.find((player) => player.id === snapshot.viewerId)
@@ -307,7 +321,24 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const footerMembers =
     snapshot?.players.filter((player) => player.team === footerPlayer?.team) ??
     [];
-  const footerTitle = `${viewingOwnHand ? "Your" : `${footerPlayer?.name}’s`} ${footerPlayer?.inFoot ? "foot" : "hand"}`;
+  const footerTitle = `${viewingOwnHand ? "Your" : `${footerPlayer?.name}’s`} ${review ? "Cards" : footerPlayer?.inFoot ? "foot" : "hand"}`;
+  const revealedCards = review ? footerPlayer?.roundCards : undefined;
+  const footerHandEvent =
+    !review && tableMotion.handEvent?.playerId === footerPlayer?.id
+      ? tableMotion.handEvent
+      : undefined;
+  const concealedHand = useConcealedHand({
+    scope: `${snapshot?.code}:${snapshot?.round}:${footerPlayer?.id}`,
+    count: viewingOwnHand || review ? 0 : (footerPlayer?.handCount ?? 0),
+    action: footerHandEvent,
+    disabled:
+      review ||
+      opening.reduced ||
+      Boolean(opening.state) ||
+      Boolean(rehearsal && !rehearsal.handAnimate),
+    speed: rehearsal?.meldSpeed ?? 1,
+    board: boardRef,
+  });
   const gatheringViewedFoot =
     (viewingOwnHand && footMotion.gathering) ||
     Boolean(
@@ -462,6 +493,12 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   }, [rehearsal?.drawReplay]);
   const setup =
     rehearsal?.setup ?? Boolean(opening.state && opening.state.step <= 4);
+  const openingInProgress = Boolean(
+    opening.state ||
+      rehearsal?.openingActive ||
+      snapshot?.phase === "choose" ||
+      (snapshot?.opening && !snapshot.opening.complete),
+  );
   const scoringInProgress = scoring.enabled && !scoring.done;
   const mobileGame =
     mobile &&
@@ -511,7 +548,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   ]);
   useLayoutEffect(() => {
     setHandPage(0);
-    setHandExpanded(false);
+    setHandExpanded(rehearsal?.handExpanded ?? false);
   }, [footerPlayer?.id, handScope]);
   useEffect(() => {
     if (mobileGame && scoringInProgress) setHandExpanded(true);
@@ -712,6 +749,14 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     if (!snapshot) return;
     if (!myTurn) browsingOwnTurn.current = false;
     if (!isRehearsal) writeStorage("handandfoot.room.v1", snapshot.code);
+    if (openingInProgress) {
+      const owner = snapshot.players.find(
+        (player) => player.id === snapshot.viewerId,
+      );
+      if (owner) setViewed(owner.team);
+      setViewedHandPlayerId(null);
+      return;
+    }
     if (
       !footMotion.active &&
       !playingMeld &&
@@ -729,6 +774,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   }, [
     snapshot?.token,
     snapshot?.actorId,
+    openingInProgress,
     follow,
     footMotion.active,
     playingMeld,
@@ -946,12 +992,13 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   }
   const side = snapshot?.sides[viewed] || snapshot?.sides[0];
   function browse(delta: number) {
+    if (!snapshot || openingInProgress) return;
     mobileMotion.cancel();
-    if (!snapshot) return;
     meldMotion.cancel();
     bookClosing.cancel();
     tableMotion.cancel();
     boardSweepDirection.current = delta;
+    handNavigation.current += 1;
     setViewedHandPlayerId(null);
     setViewed(
       (old) => (old + delta + snapshot.sides.length) % snapshot.sides.length,
@@ -960,11 +1007,13 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     else setFollow(false);
   }
   function viewBoard(id: number) {
+    if (openingInProgress) return;
     mobileMotion.cancel();
     meldMotion.cancel();
     bookClosing.cancel();
     tableMotion.cancel();
     boardSweepDirection.current = null;
+    handNavigation.current += 1;
     setViewedHandPlayerId(null);
     setViewed(id);
     if (myTurn) browsingOwnTurn.current = true;
@@ -1036,6 +1085,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   if (snapshot.phase === "lobby")
     return <Lobby snapshot={snapshot} busy={busy} error={error} act={act} />;
 
+  const canConcede =
+    snapshot.playMode === "practice" && snapshot.phase !== "finished";
   const stagedIds = new Set(drafts.flatMap((draft) => draft.cardIds));
   const newMeldCount = drafts.filter(
     (draft) => !draft.meldId && !draft.redThree,
@@ -1132,7 +1183,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       ? tableMotion.pickupSource
       : undefined;
   const footerFoot =
-    footerPlayer && (!footerPlayer.inFoot || footerFootSource) ? (
+    !review && footerPlayer && (!footerPlayer.inFoot || footerFootSource) ? (
       <FootPreview
         topCard={
           footerFootSource?.topCard ??
@@ -1208,10 +1259,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const boardPlayers = snapshot.players.filter(
     (player) => player.team === side?.id,
   );
-  const review = ["round_over", "finished"].includes(snapshot.phase);
   const selectedRed =
     selected.length > 0 && selected.every((id) => cardMap.get(id)?.redThree);
-  const singleRed = selectedRed && selected.length === 1;
   const canStageRedThrees =
     canStage && !pickup && !needsSecondDraw && ownSide.opened && selectedRed;
   const stagedRedCount = drafts
@@ -1548,6 +1597,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             <button
               className="board-arrow previous"
               aria-label="Previous board"
+              disabled={openingInProgress}
               onClick={() => browse(-1)}
             >
               <Icon name="arrow" />
@@ -1604,6 +1654,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                 previousDealerId={motion?.previousDealerId}
                 profileIcon={user?.profile_icon}
                 onView={viewBoard}
+                disabled={openingInProgress}
                 showLeader={!review || totalsLanded}
               />
             </div>
@@ -1632,6 +1683,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             <button
               className="board-arrow"
               aria-label="Next board"
+              disabled={openingInProgress}
               onClick={() => browse(1)}
             >
               <Icon name="arrow" />
@@ -1675,6 +1727,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                     className={item.id === viewed ? "active" : ""}
                     aria-label={`View ${item.id === viewer?.team ? "your" : `${item.name}’s`} board`}
                     aria-pressed={item.id === viewed}
+                    disabled={openingInProgress && item.id !== viewer?.team}
                     onClick={() => viewBoard(item.id)}
                   />
                 ))}
@@ -1720,8 +1773,18 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
               (scoringInProgress || (mobileGame && footMotion.active))
             }
             title={footerTitle}
-            ariaLabel={viewingOwnHand ? "Your private hand" : footerTitle}
+            ariaLabel={
+              review
+                ? footerTitle
+                : viewingOwnHand
+                  ? "Your private hand"
+                  : footerTitle
+            }
             foot={footerFoot}
+            publicPlayerId={viewingOwnHand ? undefined : footerPlayer?.id}
+            publicSlots={
+              viewingOwnHand || review ? undefined : concealedHand.slots
+            }
             playerPicker={
               footerMembers.length > 1 && (
                 <label className="hand-owner-picker">
@@ -1731,6 +1794,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                     value={footerPlayer?.id}
                     onChange={(event) => {
                       boardSweepDirection.current = null;
+                      handNavigation.current += 1;
                       setViewedHandPlayerId(event.target.value);
                       if (myTurn) browsingOwnTurn.current = true;
                       else setFollow(false);
@@ -1767,23 +1831,37 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                       !drawMotion.hiddenIds.has(card.id) &&
                       !mobileMotion.handHiddenIds.has(card.id),
                   )
-                : Array.from(
+                : (revealedCards ??
+                  Array.from(
                     { length: footerPlayer?.handCount ?? 0 },
                     () => undefined,
-                  )
+                  ))
             }
             count={
               viewingOwnHand
                 ? snapshot.hand.length - drawMotion.hiddenIds.size
-                : (footerPlayer?.handCount ?? 0)
+                : (revealedCards?.length ??
+                  (review
+                    ? (footerPlayer?.handCount ?? 0)
+                    : concealedHand.count))
             }
           >
             {viewingOwnHand ? (
               <>
                 <div className="hand-heading">
+                  {scoringInProgress && (
+                    <button
+                      type="button"
+                      className="button score-skip-button"
+                      onClick={scoring.skip}
+                    >
+                      Skip animation
+                    </button>
+                  )}
                   <div className="hand-info">
                     <span className="eyebrow">
-                      {rehearsal?.handCaption ??
+                      {(review ? "YOUR CARDS" : undefined) ??
+                        rehearsal?.handCaption ??
                         (scoring.beat?.gathered && snapshot.scoringFoot?.length
                           ? "HAND + FOOT"
                           : undefined) ??
@@ -2103,16 +2181,18 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                           className="button small secondary"
                           disabled={
                             !canStage ||
-                            selected.length !== 1 ||
+                            (selected.length !== 1 && !selectedRed) ||
                             pickup ||
                             needsSecondDraw ||
                             snapshot.phase !== "play" ||
-                            (drafts.length > 0 && (!singleRed || canGoOut))
+                            (drafts.length > 0 && (!selectedRed || canGoOut))
                           }
                           onClick={() =>
                             void act(
-                              singleRed && !canGoOut ? "red_three" : "discard",
-                              singleRed && !canGoOut
+                              selectedRed && !canGoOut
+                                ? "red_three"
+                                : "discard",
+                              selectedRed && !canGoOut
                                 ? { cardIds: selected, expose: false }
                                 : { cardId: selected[0] },
                             )
@@ -2120,41 +2200,20 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                         >
                           {canGoOut
                             ? discardLabel
-                            : singleRed
+                            : selectedRed
                               ? "Replace"
                               : "Discard"}
                         </button>
                       </DrawFirstHint>
                     </div>
-                    {selectedRed &&
-                      !pickup &&
-                      (selected.length > 1 || !ownSide.opened) && (
-                        <div className="red-three-actions">
-                          {selected.length > 1 && (
-                            <>
-                              <span>Red threes:</span>
-                              <button
-                                className="text-button"
-                                disabled={!canStage}
-                                onClick={() =>
-                                  void act("red_three", {
-                                    cardIds: selected,
-                                    expose: false,
-                                  })
-                                }
-                              >
-                                Replace from stack
-                              </button>
-                            </>
-                          )}
-                          {!ownSide.opened && (
-                            <span>
-                              Complete your side’s opening meld to lay down red
-                              threes.
-                            </span>
-                          )}
-                        </div>
-                      )}
+                    {selectedRed && !pickup && !ownSide.opened && (
+                      <div className="red-three-actions">
+                        <span>
+                          Complete your side’s opening meld to lay down red
+                          threes.
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
                 {error && (
@@ -2174,7 +2233,18 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
               <PublicHand
                 playerId={footerPlayer!.id}
                 title={footerTitle}
-                count={footerPlayer!.handCount}
+                count={
+                  revealedCards?.length ??
+                  (review ? footerPlayer!.handCount : concealedHand.count)
+                }
+                slots={review ? undefined : concealedHand.slots}
+                drawKey={
+                  footerHandEvent &&
+                  ["draw", "pickup"].includes(footerHandEvent.kind)
+                    ? footerHandEvent.id
+                    : undefined
+                }
+                cards={revealedCards}
                 mobile={mobileGame}
                 foot={footerFoot}
               />
@@ -2208,12 +2278,17 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                           "Guest games do not count toward account wins. "}
                       <Link
                         className="text-link"
-                        to={`/leaderboard?mode=${snapshot.playMode}`}
+                        to={`/leaderboard?category=${resultCategory(snapshot.playMode, snapshot.botDifficulty)}`}
                       >
                         View{" "}
-                        {snapshot.playMode === "practice"
-                          ? "Against Bots"
-                          : "Multiplayer"}{" "}
+                        {
+                          CATEGORY_LABELS[
+                            resultCategory(
+                              snapshot.playMode,
+                              snapshot.botDifficulty,
+                            )
+                          ]
+                        }{" "}
                         leaderboard
                       </Link>
                     </p>
@@ -2325,7 +2400,9 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
             />,
           )}
         {tableMotion.flight &&
-          motionLayer(<TableCards flight={tableMotion.flight} />)}
+          motionLayer(
+            <TableCards flight={tableMotion.flight} board={boardRef} />,
+          )}
         {footPickup && (
           <FootPickupNotice
             key={`${snapshot.code}:${snapshot.round}:${footPickup.id}`}
@@ -2357,12 +2434,13 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
               className="leave-dialog"
               role="dialog"
               aria-modal="true"
-              aria-label="Leave table"
+              aria-label={canConcede ? "Concede" : "Leave table"}
             >
-              <h2>Leave the table?</h2>
+              <h2>{canConcede ? "Concede the game?" : "Leave the table?"}</h2>
               <p>
-                A bot will take over your seat. The other players can keep
-                playing.
+                {canConcede
+                  ? "Are you sure you want to concede?"
+                  : "A bot will take over your seat. The other players can keep playing."}
               </p>
               <div>
                 <button
@@ -2377,7 +2455,7 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
                   disabled={busy}
                   onClick={() => void act("leave")}
                 >
-                  Leave table
+                  {canConcede ? "Concede" : "Leave table"}
                 </button>
               </div>
             </section>

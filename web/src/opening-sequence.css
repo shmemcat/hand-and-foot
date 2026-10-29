@@ -25,7 +25,7 @@
     "navigation"
     "hand";
   grid-template-rows:
-    auto 52px minmax(390px, auto) 72px
+    auto 52px minmax(390px, auto) var(--table-browser-height, 72px)
     var(--table-hand-height, 214px);
 }
 .opening-board > .game-page > .game-header {

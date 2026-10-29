@@ -28,6 +28,9 @@ export function Preview() {
         Available only on the local development server.
       </p>
       <div className="setup-form">
+        <Link className="button secondary" to="/preview/board">
+          Desktop table · full stacks & all controls
+        </Link>
         <Link className="button secondary" to="/preview/mobile">
           Mobile table · hand drawer & long hands
         </Link>
@@ -66,6 +69,9 @@ export function Preview() {
         </Link>
         <Link className="button secondary" to="/preview/scoring">
           Score count · debt, books & card values
+        </Link>
+        <Link className="button secondary" to="/preview/scoring/glows">
+          Scoring highlights · five pink glows
         </Link>
         <Link className="button secondary" to="/preview/records">
           Round record · completed rounds & scores

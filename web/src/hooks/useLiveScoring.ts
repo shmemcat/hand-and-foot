@@ -21,10 +21,12 @@ export function useLiveScoring(
     scenario: ScoringScenario;
   } | null>(null);
   const [step, setStep] = useState(0);
+  const [skippedScope, setSkippedScope] = useState<string | null>(null);
   const [hidden, setHidden] = useState(document.hidden);
   const review = useRef<Snapshot["scoring"]>(null);
   const eligible = enabled && incoming?.phase === "scoring";
   const active = eligible && origin?.scope === scope;
+  const skipped = active && skippedScope === scope;
   if (active && incoming?.scoring) review.current = incoming.scoring;
   useLayoutEffect(() => {
     if (!eligible) {
@@ -55,6 +57,7 @@ export function useLiveScoring(
       },
     });
     setStep(0);
+    setSkippedScope(null);
   }, [eligible, scope, incoming?.scoring, origin?.scope]);
   const accepted = active ? review.current : null;
   const beats = useMemo(
@@ -69,7 +72,7 @@ export function useLiveScoring(
     [origin, accepted?.revision],
   );
   const index = Math.min(step, Math.max(0, beats.length - 1));
-  const beat = active ? beats[index] : undefined;
+  const beat = active && !skipped ? beats[index] : undefined;
   const key = beat
     ? `${scope}:${index}:${beat.kind}:${beat.reconciled}:${beat.base}:${beat.cardValue}`
     : "";
@@ -128,6 +131,9 @@ export function useLiveScoring(
     key,
     paused: hidden,
     waiting: beat?.kind === "wait",
-    done: beat?.kind === "total",
+    done: skipped || beat?.kind === "total",
+    skip: () => {
+      if (active) setSkippedScope(scope);
+    },
   };
 }

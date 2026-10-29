@@ -46,6 +46,27 @@ it.each([2, 3, 4, 5, 6])(
   },
 );
 
+it("lets the host change bot difficulty without changing the empty-seat option", async () => {
+  const command = vi.fn().mockResolvedValue(undefined);
+  render(page(fixture(), command));
+  expect(
+    (screen.getByRole("radio", { name: "Medium" }) as HTMLInputElement).checked,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("radio", { name: "Hard" }));
+  expect(command).toHaveBeenCalledWith("lobby_options", {
+    botDifficulty: "hard",
+  });
+  await act(async () => {});
+});
+
+it("shows the selected difficulty to guests without allowing them to change it", () => {
+  const current = fixture();
+  render(page({ ...current, viewerId: "guest", botDifficulty: "easy" }));
+  const radio = screen.getByRole("radio", { name: "Easy" }) as HTMLInputElement;
+  expect(radio.checked).toBe(true);
+  expect(radio.closest("fieldset")?.disabled).toBe(true);
+});
+
 it("copies the code and URL independently and announces success", async () => {
   const copy = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {

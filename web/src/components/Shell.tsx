@@ -14,6 +14,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isHome = location.pathname === "/";
   const isTable =
     location.pathname.startsWith("/room/") ||
+    location.pathname === "/preview/board" ||
     location.pathname === "/preview/mobile" ||
     location.pathname === "/preview/opening" ||
     location.pathname === "/preview/draw" ||
@@ -38,6 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       "/leaderboard": "Leaderboard",
       "/about": "About",
       "/preview": "Preview",
+      "/preview/board": "Full Desktop Board",
       "/preview/mobile": "Mobile Table",
       "/preview/user": "User Preview",
       "/preview/opening": "Opening Rehearsal",

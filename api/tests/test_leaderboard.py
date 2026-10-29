@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 from handandfoot_server.application import ROOT
 from handandfoot_server.models import DeletedAccount, MatchResult, db
 from test_accounts import app
+from handandfoot_server.achievements import achievement_count
+from handandfoot_server.models import AchievementUnlock
 
 
 def record(app, uid, *, at=None, mode="practice", won=True, extra=()):
@@ -59,3 +61,32 @@ def test_rankings_use_current_profiles_and_fail_honestly_on_outage(app):
     app.extensions["accounts"].unavailable = True
     response = client.get(ROOT + "/leaderboard")
     assert response.status_code == 503 and response.json["code"] == "ACCOUNTS_UNAVAILABLE"
+
+
+def test_achievement_tiers_are_cumulative_and_unknown_unlocks_do_not_count():
+    for value, expected in [(0, 0), (10, 1), (50, 2), (200, 3)]:
+        summary = {"unlocks": ["geezer", "geezer", "unknown"], "counters": {
+            "games": value, "wins": 0, "clean_books": value, "dirty_books": 0, "going_out": 0, "red_threes": 0}}
+        assert achievement_count(summary) == 1 + 2 * expected
+
+
+def test_achievement_top_ten_combines_modes_and_includes_settings_only(app):
+    with app.app_context():
+        for uid in range(1, 16):
+            db.session.add(AchievementUnlock(user_id=uid, achievement_id="geezer"))
+        db.session.add(DeletedAccount(user_id=1, request_id=uuid.uuid4().hex))
+        db.session.commit()
+    app.extensions["accounts"].revoked.add("2")
+    for i in range(10):
+        record(app, 14, won=False, mode="practice" if i % 2 else "online")
+    record(app, None)  # Browser guests never rank.
+    response = app.test_client().get(ROOT + "/leaderboard?mode=achievements")
+    assert response.status_code == 200
+    assert response.json["monthly"] == []
+    rows = response.json["all_time"]
+    assert len(rows) == 10
+    assert rows[0] == dict(rank=1, username="Player14", profile_icon="cat", achievement_count=4)
+    assert [row["rank"] for row in rows] == list(range(1, 11))
+    assert not {"Player1", "Player2"} & {row["username"] for row in rows}
+    app.extensions["accounts"].unavailable = True
+    assert app.test_client().get(ROOT + "/leaderboard?mode=achievements").status_code == 503

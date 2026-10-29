@@ -42,6 +42,8 @@ export function GameMenu({
       (player) => player.id === snapshot.viewerId && player.team === side.id,
     ),
   );
+  const canConcede =
+    snapshot.playMode === "practice" && snapshot.phase !== "finished";
   return (
     <details className="game-menu" ref={menu}>
       <summary aria-label="Game information and scores" title="Game menu">
@@ -91,12 +93,12 @@ export function GameMenu({
         <h3>Your progress</h3>
         <dl className="game-menu-facts">
           <div>
-            <dt>Opening meld</dt>
-            <dd>At least {ownSide?.opening ?? 50} points</dd>
+            <dt>Minimum to open</dt>
+            <dd>{ownSide?.opening ?? 50} points</dd>
           </div>
           <div>
-            <dt>Opening</dt>
-            <dd>{ownSide?.opened ? "Open" : "Not yet"}</dd>
+            <dt>Opening meld</dt>
+            <dd>{ownSide?.opened ? "Played" : "Not yet played"}</dd>
           </div>
           <div>
             <dt>Clean books</dt>
@@ -115,7 +117,7 @@ export function GameMenu({
             onLeave();
           }}
         >
-          Leave table
+          {canConcede ? "Concede" : "Leave table"}
         </button>
       </div>
     </details>

@@ -53,7 +53,12 @@ function Table({
         </div>
       </header>
       <h2>Your board</h2>
-      <output data-actor={view.actorId}>{view.phase}</output>
+      <output
+        data-actor={view.actorId}
+        data-opponent-hand={view.players[1].handCount}
+      >
+        {view.phase}
+      </output>
       {view.hand.map((card) => (
         <div className="hand-card" data-card-id={card.id} key={card.id}>
           <Card card={card} />
@@ -189,6 +194,34 @@ it("shows a private two-card draw only as backs above the divider while watching
   expect(view.container.querySelectorAll(".hand-card")).toHaveLength(
     source.hand.length,
   );
+});
+
+it("presents each count in a batched draw and discard before settling the final count", () => {
+  const source = before();
+  const oldCount = source.players[1].handCount;
+  const view = render(<Table snapshot={source} />);
+  view.rerender(
+    <Table
+      snapshot={{
+        ...source,
+        players: source.players.map((player, index) =>
+          index === 1 ? { ...player, handCount: oldCount + 1 } : player,
+        ),
+        tableEvents: [draw, discard],
+      }}
+    />,
+  );
+  const count = () =>
+    Number(
+      view.container
+        .querySelector("output")
+        ?.getAttribute("data-opponent-hand"),
+    );
+  expect(count()).toBe(oldCount + 2);
+  act(() => vi.advanceTimersByTime(DRAW_FLIGHT_MS + DRAW_STAGGER_MS));
+  expect(count()).toBe(oldCount + 1);
+  act(() => vi.advanceTimersByTime(DISCARD_FLIGHT_MS));
+  expect(count()).toBe(oldCount + 1);
 });
 
 it("plays batched draw and discard cues in order without replaying polling snapshots or rejoining history", () => {

@@ -7,6 +7,7 @@ import { Icon } from "./Icons";
 import { ProfileIcon } from "./ProfileIcon";
 import { LoginWarning } from "./LoginWarning";
 import { TableDialog } from "./TableProgressDialog";
+import { BotDifficulty } from "./BotDifficulty";
 import "../lobby.css";
 
 export function Lobby({
@@ -228,6 +229,16 @@ export function Lobby({
             </section>
           )}
           <div className="lobby-start">
+            {missing > 0 && fillBots && (
+              <BotDifficulty
+                className="lobby-empty-seats"
+                value={snapshot.botDifficulty ?? "medium"}
+                disabled={busy || !isHost}
+                onChange={(botDifficulty) =>
+                  void run("lobby_options", { botDifficulty })
+                }
+              />
+            )}
             {missing > 0 && (
               <fieldset className="lobby-empty-seats">
                 <legend>Empty seats</legend>

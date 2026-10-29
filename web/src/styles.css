@@ -1191,6 +1191,7 @@ legend {
   box-shadow: 0 -8px 20px color-mix(in srgb, var(--panel) 80%, transparent);
 }
 .hand-heading {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   grid-template-areas: "info draft foot";
@@ -1198,6 +1199,29 @@ legend {
   gap: 20px;
   min-height: 32px;
   margin-bottom: 5px;
+}
+.button.score-skip-button {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 1;
+  width: auto;
+  height: 100%;
+  min-height: 0;
+  padding: 0 12px;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  animation: score-skip-appear 180ms ease-out both;
+}
+@keyframes score-skip-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .hand-info {
   grid-area: info;
@@ -1302,6 +1326,22 @@ legend {
 .hand-card {
   position: relative;
   flex-shrink: 0;
+}
+.hand-card[data-concealed-hidden="true"] {
+  visibility: hidden;
+}
+.public-hand-cards,
+.hand-drawer-peek {
+  position: relative;
+}
+.hand-card[data-concealed-leaving="true"] {
+  opacity: 0;
+  transition: opacity var(--concealed-fade-duration, 180ms) ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hand-card[data-concealed-leaving="true"] {
+    transition: none;
+  }
 }
 .hand-scroll .card {
   width: 65px;

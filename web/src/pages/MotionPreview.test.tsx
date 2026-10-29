@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { MotionPreview } from "./MotionPreview";
+import { Room } from "./Room";
+import { turnMotionExample } from "../lib/turnMotionExamples";
 import {
   RED_REPLACEMENT_MS,
   REPLACEMENT_DRAW_MS,
@@ -62,6 +64,7 @@ beforeEach(() => {
         );
       }
       if (this.matches(".game-header")) return new DOMRect(0, 100, 1000, 140);
+      if (this.matches(".hand-scroll")) return new DOMRect(0, 650, 1000, 200);
       if (this.matches(".board-carousel"))
         return new DOMRect(0, 280, 1000, 480);
       return new DOMRect(
@@ -271,3 +274,323 @@ it("switches previews cleanly while cards are in flight", () => {
     ),
   ).toBeNull();
 });
+
+it("draws only anonymous backs into the left of the opponent hand", () => {
+  const view = show("public");
+  const slots = () => [
+    ...view.container.querySelectorAll<HTMLElement>(
+      ".public-hand-cards [data-public-slot]",
+    ),
+  ];
+  const original = slots().map((slot) => slot.dataset.publicSlot);
+  play();
+  expect(
+    document.querySelectorAll('.table-card-flight[data-concealed="true"]'),
+  ).toHaveLength(2);
+  expect(document.querySelector(".table-card-flight .card-art")).toBeNull();
+  expect(
+    document.querySelector('.table-flight-layer[data-public="false"]'),
+  ).toBeTruthy();
+  expect(
+    slots()
+      .slice(2)
+      .map((slot) => slot.dataset.publicSlot),
+  ).toEqual(original);
+  expect(
+    slots()
+      .slice(0, 2)
+      .every((slot) => slot.dataset.concealedHidden === "true"),
+  ).toBe(true);
+  expect(slots().every((slot) => !slot.dataset.cardId)).toBe(true);
+  act(() => vi.advanceTimersByTime(750));
+  expect(slots()).toHaveLength(11);
+  expect(
+    view.container.querySelector('[data-concealed-hidden="true"]'),
+  ).toBeNull();
+  expect(
+    view.container.querySelector(".public-hand-cards .card-art"),
+  ).toBeNull();
+});
+
+it("runs the token play, anonymous fade, and hand collapse together", () => {
+  const view = show("public");
+  fireEvent.change(screen.getByLabelText("Animation example"), {
+    target: { value: "meld" },
+  });
+  play();
+  expect(document.querySelectorAll(".meld-card-flight")).toHaveLength(3);
+  expect(
+    view.container.querySelectorAll(".public-hand-cards [data-public-slot]"),
+  ).toHaveLength(6);
+  expect(
+    view.container.querySelector('[data-concealed-leaving="true"]'),
+  ).toBeNull();
+  expect(
+    view.container.querySelectorAll('[data-concealed-ghost="true"]'),
+  ).toHaveLength(3);
+  expect(handMoves.some((move) => move.duration === 620)).toBe(true);
+  act(() => vi.advanceTimersByTime(180));
+  expect(
+    view.container.querySelectorAll(".public-hand-cards .hand-card"),
+  ).toHaveLength(6);
+  expect(handMoves.some((move) => move.duration === 620)).toBe(true);
+  expect(
+    view.container.querySelector(".public-hand-cards .card-art"),
+  ).toBeNull();
+});
+
+it("discards from the right edge face down, then flips the public discard face up", () => {
+  const view = show("public");
+  fireEvent.change(screen.getByLabelText("Animation example"), {
+    target: { value: "discard" },
+  });
+  const last = view.container
+    .querySelector(".public-hand-cards .hand-card:last-child")!
+    .getAttribute("data-public-slot");
+  play();
+  act(() => vi.advanceTimersByTime(0));
+  const flight = document.querySelector(
+    '.table-card-flight[data-concealed="true"]',
+  )!;
+  expect(flight.querySelector(".table-card-front .card-art")).toBeNull();
+  expect(flight.querySelector(".table-card-back .card-art")).toBeTruthy();
+  expect(flight.querySelector('[data-turn="true"]')).toBeTruthy();
+  expect(
+    view.container
+      .querySelector('[data-concealed-leaving="true"]')
+      ?.getAttribute("data-public-slot"),
+  ).toBe(last);
+  act(() => vi.advanceTimersByTime(600));
+  expect(
+    view.container.querySelectorAll(".public-hand-cards .hand-card"),
+  ).toHaveLength(8);
+  expect(document.querySelector(".table-card-flight")).toBeNull();
+  expect(
+    view.container
+      .querySelector(".discard-face .card")
+      ?.getAttribute("aria-label"),
+  ).toBe("10 of hearts");
+});
+
+it.each([false, true])(
+  "clips another board's draw at the divider (mobile: %s)",
+  (mobile) => {
+    if (mobile)
+      vi.mocked(window.matchMedia).mockImplementation(
+        (query) =>
+          ({
+            matches: query === "(max-width: 768px)",
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+          }) as unknown as MediaQueryList,
+      );
+    const view = show("public");
+    fireEvent.change(screen.getByLabelText("Animation example"), {
+      target: { value: "offscreen" },
+    });
+    const count = view.container.querySelectorAll(
+      ".public-hand-cards .hand-card",
+    ).length;
+    play();
+    expect(
+      document.querySelector('.table-flight-layer[data-public="true"]'),
+    ).toBeTruthy();
+    expect(
+      document.querySelectorAll('.table-card-flight[data-local="false"]'),
+    ).toHaveLength(2);
+    expect(
+      view.container.querySelectorAll(".public-hand-cards .hand-card"),
+    ).toHaveLength(count);
+  },
+);
+
+function setMobile(mobile: boolean) {
+  vi.mocked(window.matchMedia).mockImplementation(
+    (query) =>
+      ({
+        matches:
+          query === (mobile ? "(max-width: 768px)" : "(min-width: 769px)"),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }) as unknown as MediaQueryList,
+  );
+}
+
+it("starts the public hand collapse even when a play arrives before the draw flight ends", () => {
+  const before = turnMotionExample("public", "two", false);
+  const drawn = turnMotionExample("public", "two", true);
+  const melds = turnMotionExample("public", "meld", true).sides[1].melds;
+  const after = {
+    ...drawn,
+    sides: drawn.sides.map((side) =>
+      side.id === 1 ? { ...side, melds } : side,
+    ),
+    players: drawn.players.map((player, index) =>
+      index === 1 ? { ...player, handCount: 8 } : player,
+    ),
+  };
+  const content = (snapshot: typeof before) => (
+    <MemoryRouter>
+      <Room
+        rehearsal={{
+          snapshot,
+          onChoose: () => {},
+          viewedTeam: 1,
+          followTurn: false,
+          tableAnimate: true,
+          handAnimate: true,
+        }}
+      />
+    </MemoryRouter>
+  );
+  const view = render(content(before));
+  view.rerender(content(drawn));
+  expect(
+    document.querySelectorAll('.table-card-flight[data-event-kind="draw"]'),
+  ).toHaveLength(2);
+  view.rerender(content(after));
+  expect(document.querySelectorAll(".meld-card-flight")).toHaveLength(3);
+  expect(
+    view.container.querySelectorAll(".public-hand-cards [data-public-slot]"),
+  ).toHaveLength(8);
+  expect(
+    view.container.querySelectorAll(
+      '.public-hand-cards [data-concealed-hidden="true"]',
+    ),
+  ).toHaveLength(2);
+  expect(
+    view.container.querySelectorAll('[data-concealed-ghost="true"]'),
+  ).toHaveLength(3);
+});
+
+it.each([false, true])(
+  "replaces red threes from the right and draws anonymous replacements on the left (mobile: %s)",
+  (mobile) => {
+    setMobile(mobile);
+    const view = show("public");
+    fireEvent.change(screen.getByLabelText("Animation example"), {
+      target: { value: "replace-two" },
+    });
+    play();
+    const replacement = () =>
+      document.querySelector('.table-card-flight[data-replacement="true"]');
+    expect(
+      replacement()?.querySelector(".table-card-front .card-art"),
+    ).toBeNull();
+    expect(
+      replacement()
+        ?.querySelector(".table-card-back .card")
+        ?.getAttribute("aria-label"),
+    ).toBe("3 of hearts, red three");
+    expect(replacement()?.querySelector('[data-turn="true"]')).toBeTruthy();
+    act(() => vi.advanceTimersByTime(RED_REPLACEMENT_MS));
+    expect(
+      replacement()
+        ?.querySelector(".table-card-back .card")
+        ?.getAttribute("aria-label"),
+    ).toBe("3 of diamonds, red three");
+    act(() => vi.advanceTimersByTime(RED_REPLACEMENT_MS));
+    expect(replacement()).toBeNull();
+    expect(
+      document.querySelectorAll('.table-card-flight[data-event-kind="draw"]'),
+    ).toHaveLength(2);
+    expect(document.querySelector(".table-card-flight .card-art")).toBeNull();
+    expect(
+      view.container.querySelectorAll(
+        '.public-hand-cards [data-concealed-hidden="true"]',
+      ),
+    ).toHaveLength(2);
+    act(() => vi.advanceTimersByTime(750));
+    expect(
+      view.container.querySelectorAll(".public-hand-cards [data-public-slot]"),
+    ).toHaveLength(9);
+    expect(
+      view.container.querySelector('[data-concealed-hidden="true"]'),
+    ).toBeNull();
+  },
+);
+
+it.each([false, true])(
+  "plays the public discard straight to the meld and only removes cards spent from the hand (mobile: %s)",
+  (mobile) => {
+    setMobile(mobile);
+    const view = show("public");
+    fireEvent.change(screen.getByLabelText("Animation example"), {
+      target: { value: "pickup" },
+    });
+    const from = view.container
+      .querySelector(".discard-face .card")!
+      .getBoundingClientRect();
+    play();
+    const pickup = document.querySelector<HTMLElement>(
+      '.meld-card-flight[data-card-id="public-pickup"]',
+    )!;
+    expect(pickup).toBeTruthy();
+    expect(pickup.style.left).toBe(`${from.left}px`);
+    expect(pickup.style.top).toBe(`${from.top}px`);
+    expect(pickup.querySelector(".card")?.getAttribute("aria-label")).toBe(
+      "J of hearts",
+    );
+    expect(
+      document.querySelector('.table-card-flight[data-event-kind="pickup"]'),
+    ).toBeNull();
+    expect(
+      view.container.querySelectorAll(".public-hand-cards [data-public-slot]"),
+    ).toHaveLength(7);
+    act(() => vi.advanceTimersByTime(800));
+    expect(
+      document.querySelectorAll('.table-card-flight[data-event-kind="draw"]'),
+    ).toHaveLength(1);
+    expect(document.querySelector(".table-card-flight .card-art")).toBeNull();
+    act(() => vi.advanceTimersByTime(660));
+    expect(
+      view.container.querySelectorAll(".public-hand-cards [data-public-slot]"),
+    ).toHaveLength(8);
+  },
+);
+
+it.each(
+  [false, true].flatMap((mobile) =>
+    ["two", "meld", "discard", "replace-two", "pickup"].map(
+      (example) => [example, mobile] as const,
+    ),
+  ),
+)(
+  "settles %s when changing boards and does not replay when returning (mobile: %s)",
+  (example, mobile) => {
+    setMobile(mobile);
+    const view = show("public");
+    fireEvent.change(screen.getByLabelText("Animation example"), {
+      target: { value: example },
+    });
+    play();
+    act(() => vi.advanceTimersByTime(120));
+    fireEvent.click(screen.getByRole("button", { name: "Next board" }));
+    expect(
+      document.querySelector(
+        '.table-card-flight,.meld-card-flight,[data-concealed-ghost="true"]',
+      ),
+    ).toBeNull();
+    expect(screen.getByRole("region", { name: "Hazel’s hand" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
+    expect(screen.getByRole("region", { name: "Poppy’s hand" })).toBeTruthy();
+    expect(
+      document.querySelector(
+        '.table-card-flight,.meld-card-flight,[data-concealed-hidden="true"],[data-concealed-ghost="true"]',
+      ),
+    ).toBeNull();
+    const count =
+      example === "two"
+        ? 11
+        : example === "meld"
+          ? 6
+          : example === "pickup"
+            ? 7
+            : example === "discard"
+              ? 8
+              : 9;
+    expect(
+      view.container.querySelectorAll(".public-hand-cards [data-public-slot]"),
+    ).toHaveLength(mobile ? Math.min(10, count) : count);
+  },
+);

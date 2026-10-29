@@ -186,7 +186,15 @@ def test_bots_wait_for_the_live_opening_then_resume_and_next_round_has_a_new_dea
     assert ready["opening"]["complete"]
     app.extensions["tick"]()
     begun = http.get(f'{ROOT}/rooms/{room["code"]}').json
-    assert begun["phase"] == "play" and begun["stockCount"] == before["stockCount"] - 2
+    if begun["pickupDrawPending"]:
+        # A legal discard pickup starts play without drawing from the stock yet.
+        assert begun["phase"] == "draw" and begun["stockCount"] == before["stockCount"]
+        assert begun["discardCount"] == before["discardCount"] - 1
+        app.extensions["tick"]()
+        begun = http.get(f'{ROOT}/rooms/{room["code"]}').json
+        assert begun["phase"] == "play" and begun["stockCount"] == before["stockCount"] - 1
+    else:
+        assert begun["phase"] == "play" and begun["stockCount"] == before["stockCount"] - 2
     with app.app_context():
         row = db.session.get(Room, room["code"])
         data = copy.deepcopy(row.payload)

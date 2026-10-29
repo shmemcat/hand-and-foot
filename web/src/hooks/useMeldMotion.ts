@@ -55,6 +55,7 @@ export type MeldFlight = {
   before: Snapshot;
   speed: number;
   boardHeight: number;
+  viewedTeam?: number;
   divider?: number;
   cards: { card: Card; from: CardPosition; to: CardPosition; meldId: string }[];
 };
@@ -99,6 +100,7 @@ export function useMeldMotion(
       incoming &&
       sameTable(flight.before, incoming) &&
       flight.token === incoming.token &&
+      flight.viewedTeam === viewedTeam &&
       (incoming.phase === "play" ||
         (incoming.phase === "draw" && incoming.pickupDrawPending)) &&
       flight.cards.every(
@@ -182,9 +184,7 @@ export function useMeldMotion(
       (incoming.actorId === incoming.viewerId ||
         incoming.players.some(
           (player) =>
-            player.id === incoming.actorId &&
-            player.bot &&
-            player.team === viewedTeam,
+            player.id === incoming.actorId && player.team === viewedTeam,
         ))
     ) {
       const viewer = incoming.players.find(
@@ -201,6 +201,15 @@ export function useMeldMotion(
         ),
       ]);
       const own = incoming.actorId === incoming.viewerId;
+      const publicPickup = (incoming.tableEvents ?? []).some(
+        (event) =>
+          event.kind === "pickup" &&
+          event.playerId === incoming.actorId &&
+          event.card?.id === prior.snapshot.discard?.id &&
+          !(prior.snapshot.tableEvents ?? []).some(
+            (old) => old.id === event.id,
+          ),
+      );
       const fromCards = own
         ? [
             ...prior.snapshot.hand,
@@ -227,16 +236,19 @@ export function useMeldMotion(
           item.cards.some((item) => item.id === card.id),
         );
         if ((!meld && !red) || oldMeldIds.has(card.id)) continue;
-        const from = own
-          ? prior.sources.get(card.id)
-          : header
-            ? {
-                left: header.left + header.width / 2 - 31,
-                top: header.bottom - 14,
-                width: 62,
-                height: 87,
-              }
-            : undefined;
+        const from =
+          publicPickup && card.id === prior.snapshot.discard?.id
+            ? prior.sources.get(card.id)
+            : own
+              ? prior.sources.get(card.id)
+              : header
+                ? {
+                    left: header.left + header.width / 2 - 31,
+                    top: header.bottom - 14,
+                    width: 62,
+                    height: 87,
+                  }
+                : undefined;
         const pile = red
           ? board.current.querySelector<HTMLElement>(
               `.red-three-pile[data-red-three-team-id="${viewer!.team}"]`,
@@ -263,6 +275,7 @@ export function useMeldMotion(
           before: prior.snapshot,
           speed,
           boardHeight: prior.boardHeight,
+          viewedTeam,
           cards,
         };
         current.current = next;

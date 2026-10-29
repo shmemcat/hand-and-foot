@@ -55,8 +55,10 @@
 }
 @media (min-width: 769px) {
   .game-page {
-    --table-piles-height: 460px;
-    --table-hand-height: 226px;
+    --table-piles-height: 420px;
+    --table-hand-height: 215px;
+    --table-browser-height: 62px;
+    --table-settlement-height: 49px;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
@@ -65,7 +67,9 @@
       "table"
       "navigation"
       "hand";
-    grid-template-rows: auto 52px auto 72px var(--table-hand-height);
+    grid-template-rows: auto 52px auto var(--table-browser-height) var(
+        --table-hand-height
+      );
   }
   .game-page > .game-header {
     grid-area: header;
@@ -716,7 +720,7 @@
   background: transparent;
   color: var(--text);
 }
-.board-player:hover {
+.board-player:hover:enabled {
   background: color-mix(in srgb, var(--primary) 6%, transparent);
 }
 .hand-owner-picker {
@@ -853,14 +857,16 @@
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  padding-bottom: 2px;
+  padding: 0;
   border-radius: 50%;
   background: var(--secondary);
   color: var(--button-text);
-  font:
-    800 9px/1 Figtree,
-    Arial,
-    sans-serif;
+}
+.dealer-marker > svg {
+  display: block;
+  width: 6px;
+  height: 7px;
+  fill: currentColor;
 }
 .game-page .player-lane {
   display: flex;
@@ -879,11 +885,25 @@
   padding-top: 8px;
 }
 @media (min-width: 769px) {
+  .table-frame:has(.game-page) .site-nav {
+    margin-bottom: 8px;
+  }
+  .board-carousel > .tableau {
+    padding-top: 0;
+  }
+  .board-carousel .melds {
+    gap: 10px;
+  }
+  .game-page .player-lane {
+    /* Row spacing stays inside the fixed pile viewport. */
+    flex: none;
+  }
   .player-board-nav {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     max-width: 100%;
+    padding: 6px 6px 20px;
   }
   .board-player {
     max-width: 100%;
@@ -896,7 +916,7 @@
   }
   /* Keep open melds in their lower row before the first book is completed. */
   .game-page .melds:not(:has(.closed-books)) > .open-piles {
-    margin-top: 152px;
+    margin-top: 142px;
   }
 }
 .board-carousel .pile-group {
@@ -1175,7 +1195,7 @@
   align-items: end;
   gap: 0;
   padding: 0 0 12px;
-  min-height: 72px;
+  min-height: var(--table-browser-height, 72px);
 }
 .board-footer-summary {
   position: relative;
@@ -1183,7 +1203,7 @@
   grid-row: 1;
   justify-self: start;
   align-self: end;
-  min-height: 59px;
+  min-height: var(--table-settlement-height, 59px);
   display: flex;
   align-items: center;
   visibility: hidden;

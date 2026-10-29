@@ -744,6 +744,20 @@
     height: 66px;
     overflow: visible;
   }
+  .mobile-game.live-scoring .score-skip-button {
+    height: 24px;
+    padding-inline: 5px;
+  }
+  .mobile-game.live-scoring
+    .hand-heading:has(> .score-skip-button)
+    .draft-summary-slot {
+    padding-top: 24px;
+  }
+  .mobile-game.live-scoring
+    .hand-heading:has(> .score-skip-button)
+    .score-running-count > small {
+    font-size: 9px;
+  }
   .mobile-game.live-scoring .score-running-count > span:first-child {
     grid-column: 2;
     align-self: end;
