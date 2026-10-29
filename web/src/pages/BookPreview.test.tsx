@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Room } from "./Room";
@@ -13,6 +13,9 @@ vi.mock("../context/SoundContext", () => ({
 }));
 vi.mock("party-js", () => ({
   default: { confetti: vi.fn(), variation: { range: () => 90 } },
+}));
+vi.mock("../components/BoardHeightAudit", () => ({
+  BoardHeightAudit: () => null,
 }));
 beforeEach(() => {
   vi.useFakeTimers();
@@ -268,10 +271,11 @@ it("replays the real closing sequence without accumulating cards and resets mid-
       <BookPreview />
     </MemoryRouter>,
   );
+  const controls = within(view.container.querySelector(".draw-review-bar")!);
   const handCount = view.container.querySelectorAll(".hand-card").length;
   for (let replay = 0; replay < 2; replay++) {
     fireEvent.click(
-      screen.getByRole("button", {
+      controls.getByRole("button", {
         name: replay ? "Replay closing" : "Play closing",
       }),
     );
@@ -285,10 +289,10 @@ it("replays the real closing sequence without accumulating cards and resets mid-
       handCount - 1,
     );
   }
-  fireEvent.click(screen.getByRole("button", { name: "Replay closing" }));
+  fireEvent.click(controls.getByRole("button", { name: "Replay closing" }));
   advance(100);
   advance(MELD_FLIGHT_MS / 0.5);
-  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  fireEvent.click(controls.getByRole("button", { name: "Reset" }));
   expect(view.container.querySelector(".book-closing-layer")).toBeNull();
   expect(view.container.querySelectorAll(".hand-card")).toHaveLength(handCount);
 });
