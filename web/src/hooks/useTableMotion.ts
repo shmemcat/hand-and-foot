@@ -7,7 +7,10 @@ import {
   type RefObject,
 } from "react";
 import type { Card, Snapshot, TableEvent } from "../types";
-import { afterCardAnimations } from "../lib/cardAnimations";
+import {
+  afterCardAnimations,
+  BOARD_TRANSITION_MS,
+} from "../lib/cardAnimations";
 import { footGatherDuration } from "../lib/footMotion";
 import type { CardPosition } from "./useMeldMotion";
 import { publicHandSlots, visiblePublicHandSlots } from "./useConcealedHand";
@@ -65,12 +68,14 @@ export function useTableMotion(
   suspended = false,
   viewedPlayerId?: string,
   navigationKey = 0,
+  followTurn = false,
 ) {
   const [desktop, setDesktop] = useState(
     () => window.matchMedia("(min-width: 769px)").matches,
   );
   const [queue, setQueue] = useState<TableFlight[]>([]);
   const [landedId, setLandedId] = useState<string | null>(null);
+  const [readyId, setReadyId] = useState<string | null>(null);
   const previous = useRef<{
     snapshot: Snapshot;
     positions: Map<string, CardPosition>;
@@ -119,6 +124,13 @@ export function useTableMotion(
     flight?.event.faceDown && (reduced || landedId === flight.event.id),
   );
   const settled = Boolean(flight && landedId === flight.event.id);
+  const waitingForBoard = Boolean(
+    flight &&
+      followTurn &&
+      flight.event.kind === "draw" &&
+      !flight.concealed &&
+      readyId !== flight.event.id,
+  );
   // Scrolling can settle a card, but cannot end its turn ahead of the flight clock.
   const cancel = useCallback(() => {
     if (flight?.event.kind === "discard") setLandedId(flight.event.id);
@@ -352,7 +364,52 @@ export function useTableMotion(
     };
   });
   useEffect(() => {
-    if (!flight) return;
+    if (!flight || !waitingForBoard) return;
+    let canceled = false;
+    // Queued draws may arrive while a foot pickup still holds the previous footer.
+    // Follow the queued actor, finish that board's sweep, then measure its hand.
+    const timer = window.setTimeout(
+      () =>
+        afterCardAnimations(
+          board.current,
+          ".hand-dock, .tableau-content, .tableau",
+          () => {
+            if (canceled) return;
+            const hand = board.current?.querySelector(
+              `[data-public-player="${flight.event.playerId}"]`,
+            );
+            const targets = hand
+              ? publicHandSlots(board.current)
+                  .slice(0, flight.event.count)
+                  .map((slot) => position(slot.querySelector(".card") ?? slot))
+              : [];
+            if (targets.length === flight.event.count)
+              setQueue((old) =>
+                old.map((item) =>
+                  item.event.id === flight.event.id
+                    ? {
+                        ...item,
+                        concealed: true,
+                        local: true,
+                        targets,
+                        to: targets[0],
+                      }
+                    : item,
+                ),
+              );
+            setReadyId(flight.event.id);
+          },
+          false,
+        ),
+      BOARD_TRANSITION_MS,
+    );
+    return () => {
+      canceled = true;
+      clearTimeout(timer);
+    };
+  }, [flight?.event.id, waitingForBoard]);
+  useEffect(() => {
+    if (!flight || waitingForBoard) return;
     let cancelled = false;
     const complete = () => {
       if (cancelled) return;
@@ -370,7 +427,7 @@ export function useTableMotion(
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [flight?.event.id, holding]);
+  }, [flight?.event.id, holding, waitingForBoard]);
   useEffect(() => {
     const media = window.matchMedia("(min-width: 769px)");
     const change = () => setDesktop(media.matches);
@@ -504,7 +561,10 @@ export function useTableMotion(
       : presented;
   return {
     snapshot,
-    flight: holding || settled || flight?.event.kind === "foot" ? null : flight,
+    flight:
+      holding || settled || waitingForBoard || flight?.event.kind === "foot"
+        ? null
+        : flight,
     pickup: flight?.event.kind === "foot" ? flight.event : null,
     pickupSource: pickupOwner
       ? {

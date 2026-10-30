@@ -20,6 +20,9 @@ def sync(data, now):
                 if engine.opening_pending(game):
                     if player["id"] not in game.get("openingReady", []):
                         decision = ["opening"]
+                elif engine.turn_pending(game):
+                    if player["id"] not in game["turnPresentation"]["ready"]:
+                        decision = ["turn_presentation", game["turnPresentation"]["id"]]
                 elif game["players"][game["actor"]]["id"] == player["id"]:
                     decision = ["turn", game["token"]]
             elif phase == "scoring":

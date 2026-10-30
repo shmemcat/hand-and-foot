@@ -72,8 +72,9 @@ def score_side(game, side, went_out):
     # Older scoring records retain the original public card IDs as a fallback.
     qualified = review.get("redThreeQualified", len(red_ids) >= 3)
     red_broken = f'reds:{side["id"]}' in review["usedPiles"] or any(i in review["canceled"] for i in red_ids)
-    if qualified:
-        cards += retained * 5
+    # Played reds always have a five-point card value, separate from their bonus
+    # or penalty. Spent reds contribute through redCredit instead.
+    cards += retained * 5
     red_points = (len(red_ids) * FAMILY.red_three if not red_broken else 0) if qualified else -retained * FAMILY.red_three
     books = sum(meld["bonus"] for meld in side["melds"] if meld["id"] not in review["broken"])
     going_out = FAMILY.going_out_bonus if went_out else 0

@@ -47,20 +47,29 @@ def test_completed_scoring_restores_every_board_for_every_viewer(mode, phase):
         assert all("roundCards" not in p for p in engine.project(game, player["id"])["players"])
 
 
-def test_scoring_reveals_the_full_foot_only_to_its_owner():
-    game = rig()
-    own = game["players"][0]
-    own["foot"] = [game["stock"].pop() for _ in range(11)]
-    ids = set(own["foot"])
-    assert engine.project(game, own["id"])["scoringFoot"] is None
+@pytest.mark.parametrize("mode,count", [("individual", 6), ("partnership", 4), ("partnership", 6)])
+def test_scoring_reveals_combined_hand_and_foot_only_to_the_scoring_side(mode, count):
+    game = rig(mode=mode, count=count)
+    for player in game["players"]:
+        player["hand"] = take(game, "A")
+        player["foot"] = take(game, "4", 2)
+        before = engine.project(game, player["id"])
+        assert before["scoringHand"] is None
+        assert before["scoringFoot"] is None
     engine.finish_round(game, None, "The stack ran out.")
-    view = engine.project(game, own["id"])
-    assert {card["id"] for card in view["scoringFoot"]} == ids
-    for player in game["players"][1:]:
-        other = engine.project(game, player["id"])
-        assert ids.isdisjoint(card["id"] for card in other["scoringFoot"])
-        assert next(p for p in other["players"] if p["id"] == own["id"])["footTop"] == view["footTop"]
-        assert not any(card_id in str(other) for card_id in own["foot"][1:])
+    for player in game["players"]:
+        view = engine.project(game, player["id"])
+        teammates = [p for p in game["players"] if p["team"] == player["team"]]
+        assert view["hand"] == [game["cards"][i] for i in player["hand"]]
+        assert view["scoringHand"] == [game["cards"][i] for p in teammates for i in p["hand"]]
+        assert view["scoringFoot"] == [game["cards"][i] for p in teammates for i in p["foot"]]
+        for opponent in (p for p in game["players"] if p["team"] != player["team"]):
+            assert not any(card_id in str(view) for card_id in [*opponent["hand"], *opponent["foot"][1:]])
+    engine.deal_round(game)
+    for player in game["players"]:
+        view = engine.project(game, player["id"])
+        assert view["scoringHand"] is None
+        assert view["scoringFoot"] is None
 
 
 @pytest.mark.parametrize("fixture", fixtures.SCORING_FIXTURES)

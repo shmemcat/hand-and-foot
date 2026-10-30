@@ -133,7 +133,7 @@ it("uses the live board with other player tokens disabled without opening a room
     view.container.querySelector(".game-page.individual-game .game-header"),
   ).toBeTruthy();
   expect(
-    view.container.querySelector(".board-carousel .player-board-nav"),
+    view.container.querySelector(".game-header .player-board-nav"),
   ).toBeTruthy();
   expect(view.container.querySelector(".hand-dock")).toBeNull();
   const other = screen.getByRole<HTMLButtonElement>("button", {

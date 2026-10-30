@@ -64,13 +64,43 @@ def test_discard_cannot_be_the_seventh_card_even_with_other_cards_in_the_draft(d
 
 
 @pytest.mark.parametrize("difficulty", bots.DIFFICULTIES)
-@pytest.mark.parametrize("rank", ["3", "2", "Joker"])
-def test_special_discards_are_never_picked_up(difficulty, rank):
+@pytest.mark.parametrize("suit", ["hearts", "clubs"])
+def test_threes_are_never_picked_up(difficulty, suit):
     game = rig()
     game["phase"] = "draw"
-    game["discard"] = take(game, rank)
+    game["discard"] = take(game, "3", suit=suit)
     game["players"][0]["hand"] = take(game, "K", 3)
     assert bots.decide(view(game), difficulty) == {"type": "draw"}
+
+
+@pytest.mark.parametrize("difficulty", ["medium", "hard"])
+@pytest.mark.parametrize("wild", ["2", "Joker"])
+def test_bots_pick_up_a_useful_discarded_wild_even_with_another_wild_in_hand(difficulty, wild):
+    game = rig()
+    game["phase"] = "draw"
+    game["discard"] = take(game, wild)
+    game["players"][0]["hand"] = take(game, "A", 2) + take(game, wild) + take(game, "4")
+    command = bots.decide(view(game), difficulty)
+    assert command["type"] == "pickup"
+    result = engine.apply(game, 0, command)
+    assert result["pickupDrawPending"]
+    assert result["sides"][0]["opened"]
+
+
+@pytest.mark.parametrize("difficulty", bots.DIFFICULTIES)
+@pytest.mark.parametrize("in_foot", [False, True])
+def test_bots_replace_a_lone_red_three_instead_of_discarding_it(difficulty, in_foot):
+    game = rig()
+    game["sides"][0]["opened"] = True
+    game["players"][0]["inFoot"] = in_foot
+    book(game, "A")
+    book(game, "K", dirty=True)
+    red = take(game, "3", suit="hearts")[0]
+    game["players"][0]["hand"] = [red]
+    command = bots.decide(view(game), difficulty)
+    assert command == {"type": "red_three", "cardId": red, "expose": False}
+    result = engine.apply(game, 0, command)
+    assert result["phase"] == "play"
 
 
 def test_easy_draws_even_when_a_useful_discard_is_available():

@@ -210,8 +210,9 @@ export const SCORING_SCENARIOS: ScoringScenario[] = [
   },
   {
     id: "short-reds",
-    label: "Two reds at round end · −600 penalty",
-    reason: "Only two reds were exposed at round end. They did not qualify.",
+    label: "Two reds · 10 card points − 600 penalty = −590",
+    reason:
+      "Two played red threes are worth 10 card points and a separate −600 penalty.",
     hand: [],
     foot: [],
     melds: [],
@@ -522,21 +523,12 @@ export function scoringSequence(
       title:
         redBonus === 0
           ? `${state.reds.length} qualified reds remain · no bonus or penalty. Count 5 points each next.`
-          : `${state.reds.length} red 3s · ${redBonus < 0 ? "−" : "+"}${Math.abs(redBonus)}${redBonus < 0 ? " penalty. No 5-point raw card value." : " bonus."}`,
+          : `${state.reds.length} red 3s · ${redBonus < 0 ? "−" : "+"}${Math.abs(redBonus)} ${redBonus < 0 ? "penalty" : "bonus"}. Count 5 card points each next.`,
       duration: 1500,
       activePile: "reds",
       base: state.base + redBonus,
       delta: redBonus,
       penalizedReds: redBonus < 0 ? [...state.reds] : [],
-      transfers:
-        redBonus < 0
-          ? state.reds.map((face) => ({
-              card: face,
-              source: "table",
-              target: "count",
-            }))
-          : [],
-      reds: redBonus < 0 ? [] : state.reds,
       lines: [
         ...state.lines,
         {

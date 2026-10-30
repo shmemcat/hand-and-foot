@@ -23,7 +23,7 @@ export function Rules() {
           {[
             ["setup", "The Deal"],
             ["turn", "Your Turn"],
-            ["piles", "Piles & Books"],
+            ["melds", "Melds & Books"],
             ["scoring", "Scoring"],
           ].map(([id, label]) => (
             <button
@@ -41,187 +41,264 @@ export function Rules() {
           <section id="rules-setup" hidden={section !== "setup"}>
             <h2 id="setup">The Deal</h2>
             <p>
-              Play individually with 2–6 people, or with 4 or 6 people in teams
-              of 2. Bot seats count as players. Use one more deck than the
-              number of players, with two Jokers per deck.
+              The goal is to score points by playing cards from your hand, then
+              your foot. Build melds into books, and try to empty both before
+              the other players do. Play individually with 2–6 players, or in
+              teams of two with 4 or 6 players. The deck uses one more deck than
+              the number of players, including two Jokers in each deck.
             </p>
             <p>
-              Each player receives two piles of 11 cards. Inspect the top and
-              bottom card of each, then choose which pile to play first. That is
-              your <strong>hand</strong>; the other pile is your{" "}
-              <strong>foot</strong>. Everyone can see each foot’s top card and
-              hover over the foot to preview it. Browse another player’s board
-              to see their card count and face-down hand. The remaining cards
-              stay private until played.
+              Each player is dealt two groups of 11 cards. Look at the top and
+              bottom card of each group and choose one as your{" "}
+              <strong>hand</strong>. Set the other aside as your{" "}
+              <strong>foot</strong>; you will play it after emptying your hand.
+              Your cards are private, except for the top card of your foot. The
+              undealt cards form the draw deck, with a face-up discard beside
+              it.
             </p>
             <RulesDealExample />
             <p>
-              A random dealer is chosen for the first round. The player to the
-              dealer’s left leads; the dealer rotates each new round. Play
-              toward <strong>10,000 points</strong>. The highest score at the
-              end of the round wins once a side reaches the target; equal
-              highest scores share the win.
+              In a partnership game, you and your partner share an opening meld,
+              melds, books, red threes, and a score. You each keep your own hand
+              and foot, and take separate turns. Your team’s score includes both
+              partners’ played cards and leftover cards.
+            </p>
+            <p>
+              The player to the dealer’s left goes first, and play continues
+              around the table. The dealer moves one seat each round. Keep
+              playing rounds until a player or team reaches{" "}
+              <strong>10,000 points</strong>. Finish that round, then the
+              highest score wins. A tie for the highest score is a shared win.
             </p>
           </section>
           <section id="rules-turn" hidden={section !== "turn"}>
             <h2 id="turn">Your turn</h2>
             <ol>
               <li>
-                <strong>Draw two</strong> from the stack, or take just the top
-                discard and play it immediately in a legal meld. After playing
-                the discard, draw one card from the deck before playing more
-                cards or discarding.
+                <strong>Draw.</strong> Take two cards from the deck. Or take
+                just the top discard, play it immediately in a valid meld, then
+                draw one card from the deck before continuing.
               </li>
               <li>
-                <strong>Play your cards.</strong> Start matching piles, build
-                straight flushes, or add to your side’s existing piles. Partners
-                share piles; either partner can add to either lane on their own
-                turn.
+                <strong>Play cards if you can.</strong> Start new melds or add
+                cards to your existing melds and books. In a partnership game,
+                either partner can add to the team’s melds on their own turn.
+                You may also replace or play red threes, as explained under
+                Melds &amp; Books.
               </li>
               <li>
-                <strong>Discard one card</strong> to finish. You must also
-                discard a final card when going out.
+                <strong>Discard one card</strong> to end your turn. Keep a card
+                for this, even when going out. You may not discard a red three.
               </li>
             </ol>
             <div className="rule-callout">
-              <strong>Catch-up draw:</strong> if your side is more than 5,000
-              points behind the lowest-scoring other side, draw{" "}
-              <strong>three</strong> cards from the stack instead of two.
-              Partners use their shared score. A gap of exactly 5,000 does not
-              qualify. The extra card applies to the normal stack draw;
-              top-discard pickup and red-three replacements stay the same.
+              <strong>Catch-up draw:</strong> if you are more than 5,000 points
+              behind every opponent, draw <strong>three</strong> cards from the
+              deck instead of two. Teams compare their shared scores. You still
+              draw only one card after taking the top discard.
             </div>
+            <h3>Opening</h3>
             <p>
-              When your side opens, stage all qualifying piles and play them
-              together. The total must be <strong>at least 50 points</strong>,
-              at least <strong>90</strong> once your cumulative score exceeds
-              3,000, and at least <strong>120</strong> at 6,000 or above. Red
-              threes do not count toward opening and can only be laid down after
-              your side has opened.
+              Your first play each round is your <strong>opening</strong>. Play
+              one or more valid melds together, with enough card points to meet
+              your opening minimum. Use your score from the previous rounds:
+            </p>
+            <ul>
+              <li>
+                3,000 points or less: open with at least <strong>50</strong>.
+              </li>
+              <li>
+                More than 3,000 but less than 6,000: at least{" "}
+                <strong>90</strong>.
+              </li>
+              <li>
+                6,000 or more: at least <strong>120</strong>.
+              </li>
+            </ul>
+            <p>
+              Only card values count toward this minimum, including a discard
+              you pick up and play. Book bonuses and red threes do not count.
+              After opening, you can play more melds without meeting another
+              point minimum that round.
+            </p>
+            <p>
+              <strong>In teams, only one partner needs to open.</strong> Once
+              either partner meets the team’s opening minimum, both partners can
+              play new melds, add to shared melds, and lay down red threes on
+              their own turns. The other partner does not need a separate
+              opening.
             </p>
             <RulesOpeningExample />
-            <div className="rule-callout">
-              <strong>The sixth-card rule:</strong> when a pile already has six
-              cards, play the seventh card from your hand. You cannot take the
-              top discard to finish that book. The bottom card turns sideways,
-              or tilts when space is tight, to mark this restriction.
-            </div>
+            <h3>Taking the discard</h3>
             <p>
-              To start a matching pile with the discard, combine it with cards
-              from your hand to make a valid meld. One matching natural card
-              plus a joker or a two is enough: the discard counts toward the
-              required natural majority. A wild or a three cannot be picked up.
-              Taking the discard and playing it is one move: a rejected pickup
-              leaves all your cards where they were.
+              You may take the top discard only if you play it right away,
+              either in a new meld of at least three cards or in an existing
+              meld. Threes cannot be picked up. If you have not opened yet, your
+              play must also meet the opening minimum. You take only the top
+              card, leaving the rest of the discard behind.
             </p>
+            <div className="rule-callout">
+              <strong>The seventh card must come from your hand.</strong> If a
+              meld already has six cards, you cannot add the top discard to it.
+              Complete that book with a card from your hand.
+            </div>
             <RulesPickupExample />
-          </section>
-          <section id="rules-piles" hidden={section !== "piles"}>
-            <h2 id="piles">Piles &amp; books</h2>
+            <h3>Going out</h3>
             <p>
-              Start a pile with at least three cards of the same rank. A{" "}
-              <strong>clean book</strong> has at least seven natural cards and
-              earns a 500-point bonus. A <strong>dirty book</strong> has at
-              least seven cards, including wilds, and earns 300. Natural cards
-              must always outnumber wilds, from the initial meld through the
-              completed book; equal counts are never allowed. For example, two
-              naturals and one wild can start a pile. Twos and Jokers are wild
-              in ordinary piles. A pile of twos treats the twos as naturals:
-              seven twos make a clean book, and twos with Jokers make a dirty
-              book if the twos outnumber the Jokers. Joker-only piles and
-              matching piles of threes are not allowed.
+              To go out, empty your foot by playing your cards and discarding
+              your last card. You must have at least one clean matching book and
+              one dirty matching book. Partners can build these together; either
+              partner can then go out. Straight flushes do not replace either
+              required book. Going out ends the round and earns
+              <strong> 100 bonus points</strong>.
+            </p>
+          </section>
+          <section id="rules-melds" hidden={section !== "melds"}>
+            <h2 id="melds">Melds &amp; books</h2>
+            <p>
+              <strong>A valid meld contains at least 3 cards.</strong> A
+              matching meld uses cards of the same rank, such as three kings.
+              Twos and Jokers are <strong>wild</strong> and can stand in for
+              matching cards. The matching cards, called naturals, must always
+              outnumber the wilds in the meld’s current count. Two kings and one
+              Joker are valid; one king and two Jokers are not.
+            </p>
+            <p>
+              A matching meld becomes a <strong>book</strong> at seven cards. A{" "}
+              <strong>clean book</strong> contains only naturals and earns a
+              <strong> 500-point bonus</strong>. A <strong>dirty book</strong>{" "}
+              contains at least one wild and earns a
+              <strong> 300-point bonus</strong>. Naturals must still outnumber
+              wilds in a dirty book.
             </p>
             <RulesBooksExamples />
             <p>
-              A matching book is complete at seven cards. You may keep adding
-              cards that preserve its type, or start another pile of the same
-              rank. A completed clean book only accepts matching natural cards;
-              adding a wild cannot turn it dirty. A completed dirty book accepts
-              matching naturals or wilds, as long as naturals still outnumber
-              wilds. Twos remain natural in a book of twos, so a completed clean
-              book of twos accepts more twos but no Jokers. A{" "}
-              <strong>straight flush</strong> is consecutive natural cards in
-              one suit, starting no lower than four and ending no higher than
-              ace. You can build it from three cards; seven completes it for a{" "}
-              <strong>1,300-point bonus</strong>. Each card beyond seven adds{" "}
-              <strong>50 more bonus points</strong>. Straight flushes cannot
-              contain wilds.
+              You may add cards to a completed book, or start another meld of
+              the same rank. A completed clean book accepts only matching
+              naturals; you cannot turn it dirty by adding a wild. A dirty book
+              accepts matching naturals or wilds, as long as naturals still
+              outnumber wilds.
+            </p>
+            <p>
+              You can also make a meld of twos. In that meld, twos count as
+              naturals and Jokers are wild. Seven twos make a clean book. Add
+              Jokers and it is dirty, with more twos than Jokers required. A
+              completed clean book of twos accepts more twos, but no Jokers. You
+              cannot make a meld of only Jokers or a matching meld of threes.
+            </p>
+            <h3>Straight flushes</h3>
+            <p>
+              A <strong>straight flush</strong> is a meld of consecutive cards
+              in one suit, such as the four, five, and six of hearts. Start with
+              at least three cards and extend it at either end, from four up to
+              ace. No wilds, gaps, or repeated ranks are allowed. Seven cards
+              earn a <strong>1,300-point bonus</strong>, with
+              <strong> 50 more bonus points</strong> for each card beyond seven.
             </p>
             <RulesStraightExample />
             <h3>Into your foot</h3>
             <p>
-              Play the last card in your hand and you pick up your foot
-              immediately, continuing the same turn. Discard the last card
-              instead and your turn ends, then you pick up your foot. A side
-              needs at least one clean and one dirty matching book before a
-              player can go out. Going out first earns 100 points.
+              If you play every card in your hand, pick up your foot and keep
+              playing on the same turn. If you discard your last hand card, pick
+              up your foot and wait until your next turn to play it. After
+              taking the top discard, draw the required deck card before moving
+              on to your foot.
             </p>
-            <h3>Threes</h3>
+            <h3>Red threes</h3>
             <p>
-              After drawing, you can replace a red three from the stack, without
-              ending the turn. Put the red three on the discard pile, draw its
-              replacement, and keep playing. Your final discard covers it when
-              you end the turn. Red threes cannot be picked up. Replacement is
-              allowed before opening. Once your side has completed its opening
-              meld, you can instead lay it down for your side without
-              replacement. Select any number of red threes to lay them down
-              together. A shared pile with at least three red threes at round
-              end qualifies for <strong>+300 each</strong> and 5 raw points
-              each. Breaking that pile for reconciliation loses the entire
-              bonus; its reds still count as 5 each and cannot become penalties.
-              A pile with fewer than three at round end costs{" "}
-              <strong>−300 each</strong>. Replacing a red three and laying one
-              down are separate choices. Black threes are discard-only and cost
-              100 points if left unplayed.
+              After drawing for your turn, choose whether to replace a red three
+              from your hand or play it.{" "}
+              <strong>You may not discard red threes.</strong>
+            </p>
+            <ul>
+              <li>
+                <strong>Replace it:</strong> put it on the discard and draw a
+                replacement card from the deck. This does not end your turn. You
+                may replace red threes even before opening.
+              </li>
+              <li>
+                <strong>Play it:</strong> once you or your partner has opened,
+                lay it face up with your played red threes. You do not draw a
+                replacement. You may play them one at a time or together;
+                partners combine their red threes.
+              </li>
+            </ul>
+            <p>
+              Every played red three is worth <strong>5 card points</strong>.
+              Its bonus or penalty is separate: if you have at least three
+              played at the end of the round, add <strong>+300 each</strong>. If
+              you have only one or two, each has a <strong>−300 penalty</strong>
+              . The 5 card points still count in either case. Any red three left
+              in your hand or foot is <strong>−300</strong> and earns no card
+              points.
+            </p>
+            <p>
+              If played red threes are used to cover leftover cards during
+              scoring, a group of three or more loses its entire red-three
+              bonus. Those reds still have a value of 5 each and do not turn
+              into penalties. For a group of only one or two, each red used
+              removes its −300 penalty.
+            </p>
+            <h3>Black threes</h3>
+            <p>
+              <strong>Black threes can only be discarded.</strong> You cannot
+              meld them or use them for anything else. Each black three left in
+              your hand or foot costs <strong>100 points</strong>.
             </p>
             <RulesThreesExamples />
           </section>
           <section id="rules-scoring" hidden={section !== "scoring"}>
             <h2 id="scoring">Scoring</h2>
+            <p>
+              A round ends when someone goes out or the deck runs out of cards
+              needed for a draw. Cards you played earn points; cards left in
+              your hand or foot count against you. Partners count their cards
+              together.
+            </p>
             <RulesCardValues />
             <p>
-              A round ends when someone goes out or the stack can no longer
-              supply a draw. Both the remaining hand and the unplayed foot
-              become debt. First use the value of played cards to cover that
-              debt, then add the bonuses from books that survived.
+              <strong>Played red threes count in two ways.</strong> Each is
+              worth 5 card points, plus a separate bonus or penalty. Those 5
+              points can cover leftover cards or add to your card total, whether
+              the red three has a +300 bonus, a −300 penalty, or neither.
+            </p>
+            <p>
+              For example, two played red threes with no other cards on the
+              board and nothing left in your hand or foot give you
+              <strong> 10 card points − 600 penalty = −590 points</strong>.
             </p>
             <ol>
               <li>
-                <strong>Debt is covered automatically.</strong> Scoring uses
-                public piles to cover as much debt as possible while losing the
-                fewest points. Unfinished piles have no book bonus to risk.
-                Using any card from a complete book breaks that book’s bonus, so
-                scoring compares the combined loss across books, straight
-                flushes, and red threes before opening them.
+                <strong>Count your leftover cards.</strong> Add the values of
+                every card left in your hand and foot. Red threes are −300 each
+                and black threes are −100 each.
               </li>
               <li>
-                <strong>Watch the count.</strong> Your foot joins your hand,
-                cards reconcile into the settlement pile, then surviving books
-                and card values are counted. Cards keep their normal appearance.
-                When a card is worth more than the last bit of debt, only the
-                debt owed is deducted, but its book still breaks.
+                <strong>Cover those points with your melds.</strong> Match the
+                points from leftover cards against card points you played,
+                including 5 points for each played red three. Using a red three
+                removes its −300 penalty, or loses the whole group’s bonus if
+                you played three or more. Using any card from a book breaks the
+                book and loses its entire bonus, even if seven or more cards
+                remain. This also applies to straight flushes. A partly used
+                card keeps its unused points, but its book still breaks.
               </li>
               <li>
-                <strong>Settle red threes.</strong> Qualification is fixed at
-                round end, before reconciliation. If at least three were
-                exposed, breaking the pile forfeits its entire +300-per-red
-                bonus. The reds remain worth 5 each toward debt or the raw card
-                count, even if fewer than three remain. A pile that started
-                scoring with only one or two reds still has a −300-per-red
-                penalty and no raw card value. Red threes left in your hand or
-                foot still create 300 points of debt each. An ace left in hand
-                costs 20: break three qualified reds for 15, forfeit their +900
-                bonus, and finish at −5 with no red penalties.
+                <strong>Count what is left.</strong> Add your unused card points
+                and the bonuses for unbroken books, then include your red-three
+                points or penalties. Subtract any leftover-card points you could
+                not cover. Add 100 if you or your partner went out.
               </li>
               <li>
-                <strong>See the score.</strong> Played card points minus all
-                leftover-card debt, plus red-three debt credits, remaining book
-                bonuses, remaining red-three points, and the going-out bonus
-                make the round total. Uncovered debt stays a deduction. Shared
-                scores settle automatically too. The count finishes and opens
-                the round results without scoring choices or confirmation.
+                <strong>Add the round total to your score.</strong> Your total
+                can be negative. Keep playing rounds until someone reaches
+                10,000, then the highest score wins.
               </li>
             </ol>
+            <p>
+              The game handles the count automatically, covering as many
+              leftover points as possible while keeping the most bonus points.
+            </p>
           </section>
         </article>
       </div>

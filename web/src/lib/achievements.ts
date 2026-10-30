@@ -20,6 +20,7 @@ type Definition = {
   id: string;
   name: string;
   description: string;
+  flavorText?: string;
   icon: string;
   secret?: boolean;
   counter?: string;
@@ -217,7 +218,10 @@ export const ACHIEVEMENTS: Definition[] = [
     "Finish a game that began between midnight and 5 a.m.",
     "owl",
   ),
-  secret("geezer", "Geezer", "Turn the music off.", "music-off"),
+  {
+    ...secret("geezer", "Locked in", "Turn the music off.", "music-off"),
+    flavorText: "Gotta turn the music down to see better",
+  },
   secret(
     "new_year",
     "Auld Lang Syne",

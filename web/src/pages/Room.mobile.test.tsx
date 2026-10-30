@@ -458,12 +458,18 @@ it("keeps red-three replacement on its own draw flight without an overlapping mo
 });
 
 it.each(
-  (["round_over", "finished"] as const).flatMap((phase) =>
-    [false, true].map((skipAnimation) => ({ phase, skipAnimation })),
+  (["individual", "partnership"] as const).flatMap((scoringMode) =>
+    (["round_over", "finished"] as const).flatMap((phase) =>
+      [false, true].map((skipAnimation) => ({
+        scoringMode,
+        phase,
+        skipAnimation,
+      })),
+    ),
   ),
 )(
-  "restores the mobile drawer after $phase results are hidden (skip animation: $skipAnimation)",
-  async ({ phase, skipAnimation }) => {
+  "restores the mobile drawer after $scoringMode $phase results are hidden (skip animation: $skipAnimation)",
+  async ({ scoringMode, phase, skipAnimation }) => {
     vi.useFakeTimers();
     vi.mocked(window.matchMedia).mockImplementation(
       (query) =>
@@ -476,6 +482,15 @@ it.each(
         }) as unknown as MediaQueryList,
     );
     const source = mobileCountingSnapshot();
+    source.scoringMode = scoringMode;
+    if (scoringMode === "partnership") {
+      source.players = source.players.map((player, index) => ({
+        ...player,
+        team: index % 3,
+      }));
+      source.sides = source.sides.slice(0, 3);
+      source.players[3].redThrees = source.players[0].redThrees.splice(1);
+    }
     const remainingCards = [...source.hand, ...(source.scoringFoot ?? [])];
     vi.mocked(getRoom).mockResolvedValue(source);
     vi.mocked(command).mockResolvedValue({
@@ -515,6 +530,8 @@ it.each(
       </MemoryRouter>,
     );
     await act(async () => {});
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Your debt is covered.")).toBeNull();
     const counter = screen.getByRole("group", {
       name: "Running round score",
     });
@@ -532,7 +549,11 @@ it.each(
         .getByRole("button", { name: /your hand.*cards/i })
         .hasAttribute("disabled"),
     ).toBe(true);
-    expect(command).not.toHaveBeenCalled();
+    expect(command).toHaveBeenCalledExactlyOnceWith(
+      source,
+      "score_confirm",
+      {},
+    );
     expect(
       screen.queryByRole("button", {
         name: /Pause count|Confirm score/,

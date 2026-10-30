@@ -92,8 +92,10 @@ export function Card({
       />
     </>
   );
+  // A new physical card must not inherit the previous face's SVG color transitions.
   return onClick ? (
     <button
+      key={card?.id ?? "back"}
       type="button"
       className={className}
       aria-label={card ? cardName(card) : "Face-down card"}
@@ -105,6 +107,7 @@ export function Card({
     </button>
   ) : (
     <div
+      key={card?.id ?? "back"}
       className={className}
       role="img"
       aria-label={card ? cardName(card) : "Face-down card"}

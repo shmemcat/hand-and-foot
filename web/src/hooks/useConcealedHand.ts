@@ -48,7 +48,14 @@ export function useConcealedHand({
 
   useLayoutEffect(() => {
     if (!active || disabled || document.hidden) {
-      setState({ scope, slots: make(count) });
+      setState({
+        scope,
+        slots: make(count).map((slot, index) => ({
+          ...slot,
+          hidden:
+            !disabled && !document.hidden && drawing && index < action!.count,
+        })),
+      });
       return;
     }
     if (count > live.length) {

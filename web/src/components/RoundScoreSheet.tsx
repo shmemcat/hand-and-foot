@@ -147,6 +147,9 @@ export function RoundScoreSheet({
             <div className="side-result" key={item.id}>
               <h3 className="score-player-name">
                 <ProfileIcon
+                  bot={snapshot.players
+                    .filter((player) => player.team === item.id)
+                    .every((player) => player.bot)}
                   name={item.id === viewer?.team ? profileIcon : undefined}
                 />
                 <span>{item.name}</span>
@@ -209,6 +212,9 @@ export function RoundScoreSheet({
                     <th scope="col" key={side.id}>
                       <span className="score-player-name">
                         <ProfileIcon
+                          bot={snapshot.players
+                            .filter((player) => player.team === side.id)
+                            .every((player) => player.bot)}
                           name={
                             side.id === viewer?.team ? profileIcon : undefined
                           }

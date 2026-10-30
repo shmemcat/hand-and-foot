@@ -118,6 +118,7 @@ it.each([
   "foot",
   "finish-wild",
   "overfull",
+  "burst",
 ] as BookExample[])(
   "keeps the desktop height under CSS control while closing %s",
   (example) => {
@@ -135,6 +136,18 @@ it.each([
     expect(board().style.minHeight).toBe("");
   },
 );
+
+it("reserves scroll width for the accepted rows during a six-card bot play", () => {
+  const view = render(room(bookExample("burst", false, 0, "bot")));
+  view.rerender(room(bookExample("burst", true, 0, "bot")));
+  const open = view.container.querySelector<HTMLElement>(".open-piles")!;
+  expect(open.style.getPropertyValue("--pile-count")).toBe("5");
+  expect(open.style.getPropertyValue("--resting-pile-count")).toBe("3");
+  expect(open.querySelectorAll(".meld-pile")).toHaveLength(5);
+  advance(MELD_FLIGHT_MS);
+  expect(open.style.getPropertyValue("--pile-count")).toBe("3");
+  expect(open.querySelectorAll(".meld-pile")).toHaveLength(3);
+});
 
 it("pauses slow closing, resumes it, and cancels cleanly when scrolling", () => {
   const before = bookExample("clean", false),

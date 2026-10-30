@@ -255,6 +255,11 @@
 .achievement-tooltip small {
   color: var(--muted);
 }
+.achievement-tooltip-flavor {
+  font-size: 11px;
+  opacity: 0.6;
+  font-weight: 500;
+}
 .achievement-tooltip-tier {
   font-size: 10px;
   font-weight: 900;

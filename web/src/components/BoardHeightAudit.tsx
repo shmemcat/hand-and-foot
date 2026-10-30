@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 
 type Range = { min: number; max: number };
+type ScrollState = { x: boolean; y: boolean; width: number; height: number };
+type ScrollRange = {
+  first: ScrollState;
+  last: ScrollState;
+  xFrames: number;
+  yFrames: number;
+  maxWidth: number;
+  maxHeight: number;
+};
 type Report = {
   status: "ready" | "sampling" | "complete";
   frames: number;
@@ -8,6 +17,7 @@ type Report = {
   meldFrames: number;
   footFrames: number;
   ranges: Record<string, Range>;
+  scroll: Record<string, ScrollRange>;
   changes: {
     frame: number;
     heights: Record<string, number>;
@@ -21,6 +31,7 @@ const emptyReport = (): Report => ({
   meldFrames: 0,
   footFrames: 0,
   ranges: {},
+  scroll: {},
   changes: [],
 });
 
@@ -78,6 +89,41 @@ export function BoardHeightAudit({
         result.ranges[selector] = range;
       }
       const key = JSON.stringify(heights);
+      for (const selector of [
+        "html",
+        ".player-lane",
+        ".closed-books",
+        ".open-piles",
+        ".hand-scroll",
+      ]) {
+        const node = document.querySelector(selector);
+        if (!node) continue;
+        const style = getComputedStyle(node);
+        const state = {
+          x:
+            node.scrollWidth > node.clientWidth + 1 &&
+            (selector === "html" || /auto|scroll/.test(style.overflowX)),
+          y:
+            node.scrollHeight > node.clientHeight + 1 &&
+            (selector === "html" || /auto|scroll/.test(style.overflowY)),
+          width: node.scrollWidth,
+          height: node.scrollHeight,
+        };
+        const range = result.scroll[selector] ?? {
+          first: state,
+          last: state,
+          xFrames: 0,
+          yFrames: 0,
+          maxWidth: state.width,
+          maxHeight: state.height,
+        };
+        range.last = state;
+        range.xFrames += Number(state.x);
+        range.yFrames += Number(state.y);
+        range.maxWidth = Math.max(range.maxWidth, state.width);
+        range.maxHeight = Math.max(range.maxHeight, state.height);
+        result.scroll[selector] = range;
+      }
       if (key !== previous) {
         result.changes.push({
           frame: result.frames,
@@ -105,6 +151,13 @@ export function BoardHeightAudit({
     0,
     ...Object.values(report.ranges).map(({ min, max }) => max - min),
   );
+  const scrollbarFlashes = Object.values(report.scroll).reduce(
+    (total, range) =>
+      total +
+      Number(range.xFrames > 0 && !range.first.x && !range.last.x) +
+      Number(range.yFrames > 0 && !range.first.y && !range.last.y),
+    0,
+  );
   return (
     <p
       role="status"
@@ -118,7 +171,7 @@ export function BoardHeightAudit({
     >
       Board height check:{" "}
       {report.status === "complete"
-        ? `${variation.toFixed(2)}px variation across ${report.frames} frames`
+        ? `${variation.toFixed(2)}px variation across ${report.frames} frames · ${scrollbarFlashes} scrollbar flashes`
         : report.status === "sampling"
           ? "measuring animation…"
           : "play an animation to measure"}

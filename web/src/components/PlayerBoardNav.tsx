@@ -101,6 +101,7 @@ export function PlayerBoardNav({
                       <span className="board-player-turn" aria-hidden="true" />
                     )}
                     <ProfileIcon
+                      bot={player.bot}
                       name={player.id === viewerId ? profileIcon : undefined}
                     />
                     <span className="board-player-text">{player.name}</span>

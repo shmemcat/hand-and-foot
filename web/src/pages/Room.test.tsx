@@ -205,7 +205,7 @@ it.each([4, 6])(
     vi.mocked(getRoom).mockResolvedValue(snapshot);
     openRoom();
     const board = await screen.findByRole("region", { name: "Your board" });
-    const nav = within(board).getByRole("navigation", { name: "Team boards" });
+    const nav = screen.getByRole("navigation", { name: "Team boards" });
     expect(within(nav).getAllByRole("button")).toHaveLength(capacity / 2);
     expect(nav.querySelectorAll(".board-player-score")).toHaveLength(
       capacity / 2,
@@ -348,16 +348,27 @@ it("lands a partner's red-three play in the team's combined pile", async () => {
   expect(reds.querySelectorAll(".card")).toHaveLength(3);
 });
 
-it.each([false, true])(
-  "settles debt and opens round results even while browsing (skip animation: %s)",
-  async (skipAnimation) => {
+it.each(
+  (["individual", "partnership"] as const).flatMap((scoringMode) =>
+    (["practice", "online"] as const).flatMap((playMode) =>
+      [false, true].map(
+        (skipAnimation) => [scoringMode, playMode, skipAnimation] as const,
+      ),
+    ),
+  ),
+)(
+  "animates %s %s scoring through round results while browsing (skip: %s)",
+  async (scoringMode, playMode, skipAnimation) => {
     vi.useFakeTimers();
-    const source = fixture();
+    const source =
+      scoringMode === "partnership" ? partnershipFixture() : fixture();
+    source.playMode = playMode;
     source.phase = "scoring";
     source.actorId = "bot";
     source.hand = source.hand.slice(0, 1);
     source.scoringFoot = [];
     source.sides[0].opened = true;
+    source.sides[0].melds = [];
     source.players[0].redThrees = Array.from({ length: 3 }, (_, i) => ({
       ...source.hand[0],
       id: `red-${i}`,
@@ -366,6 +377,15 @@ it.each([false, true])(
       redThree: true,
       value: -300,
     }));
+    if (scoringMode === "partnership") {
+      const partner = source.players.find(
+        (player) => player.team === 0 && player.id !== source.viewerId,
+      )!;
+      partner.redThrees = source.players[0].redThrees.splice(1);
+    }
+    const reds = source.players
+      .filter((player) => player.team === 0)
+      .flatMap((player) => player.redThrees);
     source.scoring = {
       team: 0,
       debt: 20,
@@ -385,7 +405,7 @@ it.each([false, true])(
           label: "Red threes",
           points: 15,
           bonusAtRisk: 900,
-          cardIds: source.players[0].redThrees.map((card) => card.id),
+          cardIds: reds.map((card) => card.id),
           redThree: true,
         },
       ],
@@ -448,6 +468,7 @@ it.each([false, true])(
       screen.getByRole("group", { name: "Running round score" }),
     ).toBeTruthy();
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Your debt is covered.")).toBeNull();
     expect(
       screen.queryByRole("button", {
         name: /Pause count|Confirm score|Cover automatically|cover debt|Use this pile/,
@@ -458,14 +479,16 @@ it.each([false, true])(
         .getByRole("button", { name: "Skip animation" })
         .closest(".hand-heading"),
     ).not.toBeNull();
-    expect(command).toHaveBeenCalledExactlyOnceWith(source, "score_auto", {});
+    expect(command).toHaveBeenNthCalledWith(1, source, "score_auto", {});
+    expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
+    expect(command).toHaveBeenCalledTimes(2);
     await act(async () => vi.advanceTimersByTime(1200));
     expect(
       screen.getByText(
         "Red threes open for reconciliation. Each is worth 5 points.",
       ),
     ).toBeTruthy();
-    expect(command).toHaveBeenCalledTimes(1);
+    expect(command).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole("button", { name: "Next board" }));
     if (skipAnimation) {
       fireEvent.click(screen.getByRole("button", { name: "Skip animation" }));
@@ -593,17 +616,23 @@ it.each(["individual", "partnership"] as const)(
         name: /Cover automatically|Use this pile|cover debt|confirm.*score/i,
       }),
     ).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(
-      within(
-        screen.getByRole("dialog", { name: "Settle your side’s score" }),
-      ).getByRole("status").textContent,
-    ).toContain("Covering leftover cards automatically");
+      screen.getByRole("group", { name: "Running round score" }),
+    ).toBeTruthy();
     await act(async () => vi.advanceTimersByTime(1499));
     expect(command).toHaveBeenCalledTimes(1);
     await act(async () => vi.advanceTimersByTime(1));
     expect(command).toHaveBeenCalledTimes(3);
     expect(command).toHaveBeenNthCalledWith(2, source, "score_auto", {});
     expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
+    expect(screen.queryByRole("dialog", { name: "Score sheet" })).toBeNull();
+    for (
+      let step = 0;
+      step < 40 && !screen.queryByRole("dialog", { name: "Score sheet" });
+      step++
+    )
+      await act(async () => vi.advanceTimersByTime(2000));
     expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
   },
 );
@@ -655,6 +684,9 @@ it.each(["round-partners", "game-partners"])(
     expect(command).toHaveBeenCalledTimes(1);
     await act(async () => vi.advanceTimersByTime(1));
     expect(command).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("dialog", { name: "Score sheet" })).toBeNull();
+    expect(screen.queryByText("Your debt is covered.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Skip animation" }));
     expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
   },
 );
@@ -1397,6 +1429,97 @@ it.each([2, 3])(
     expect(sound.play).toHaveBeenCalledExactlyOnceWith("select");
   },
 );
+
+it("animates all three opening melds when the hand strip adjusts its scroll", async () => {
+  vi.useFakeTimers();
+  const before = fixture();
+  before.phase = "play";
+  before.sides[0].opening = 120;
+  const groups = ["A", "K", "Q"].map((rank) =>
+    ["clubs", "hearts", "spades"].map((suit) => ({
+      ...before.hand[0],
+      id: `${rank}-${suit}`,
+      rank,
+      suit,
+      value: rank === "A" ? 20 : 10,
+    })),
+  );
+  const spare = Array.from({ length: 12 }, (_, index) => ({
+    ...before.hand[0],
+    id: `spare-${index}`,
+    rank: "4",
+    value: 5,
+  }));
+  before.hand = [...groups.flat(), ...spare];
+  const after: Snapshot = {
+    ...before,
+    revision: 2,
+    token: "three-opening-melds",
+    hand: spare,
+    sides: before.sides.map((side) =>
+      side.id
+        ? side
+        : {
+            ...side,
+            opened: true,
+            melds: groups.map((cards, index) => ({
+              id: `opening-${index}`,
+              creator: "you",
+              rank: cards[0].rank,
+              kind: "set",
+              complete: false,
+              dirty: false,
+              bonus: 0,
+              cards,
+            })),
+          },
+    ),
+  };
+  vi.mocked(getRoom).mockResolvedValue(before);
+  vi.mocked(command).mockResolvedValue(after);
+  await act(async () => openRoom());
+  const hand = screen.getByRole("region", { name: "Your private hand" });
+  for (const cards of groups) {
+    for (const card of cards)
+      fireEvent.click(
+        within(hand).getByRole("button", {
+          name: `${card.rank} of ${card.suit}`,
+        }),
+      );
+    fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
+  }
+  expect(hand.querySelectorAll(".staged-card")).toHaveLength(9);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Play draft" })),
+  );
+  expect(command).toHaveBeenCalledExactlyOnceWith(before, "meld", {
+    groups: groups.map((cards) => ({
+      cardIds: cards.map((card) => card.id),
+      kind: "set",
+    })),
+  });
+  expect(document.querySelectorAll(".meld-card-flight")).toHaveLength(9);
+  // Removing many cards can clamp the overflowing strip's scroll position.
+  fireEvent.scroll(hand.querySelector(".hand-scroll")!);
+  const flights = [
+    ...document.querySelectorAll<HTMLElement>(".meld-card-flight"),
+  ];
+  expect(flights).toHaveLength(9);
+  for (const [index, cards] of groups.entries())
+    expect(
+      flights
+        .filter((flight) => flight.dataset.meldId === `opening-${index}`)
+        .map((flight) => flight.dataset.cardId),
+    ).toEqual(cards.map((card) => card.id));
+  expect(hand.querySelectorAll(".hand-card")).toHaveLength(before.hand.length);
+  expect(hand.querySelectorAll('[data-meld-hidden="true"]')).toHaveLength(9);
+  await act(async () => vi.advanceTimersByTime(MELD_FLIGHT_MS - 1));
+  expect(document.querySelectorAll(".meld-card-flight")).toHaveLength(9);
+  await act(async () => vi.advanceTimersByTime(1));
+  expect(document.querySelector(".meld-flight-layer")).toBeNull();
+  expect(hand.querySelectorAll(".hand-card")).toHaveLength(spare.length);
+  expect(document.querySelector('[data-meld-hidden="true"]')).toBeNull();
+});
 
 it.each([false, true])(
   "slides an accepted live draft into the server-created meld (pickup: %s)",
@@ -2163,6 +2286,52 @@ it.each(
             ],
             kind: "set",
           },
+        ],
+      }),
+    );
+  },
+);
+
+it.each(["2", "Joker"])(
+  "stages and plays a discarded %s with two matching hand cards",
+  async (rank) => {
+    const snapshot = fixture();
+    snapshot.hand = snapshot.hand.slice(0, 2);
+    snapshot.discard = {
+      ...snapshot.hand[0],
+      id: "discard-wild",
+      rank,
+      suit: rank === "Joker" ? "joker" : "diamonds",
+      wild: true,
+      value: rank === "Joker" ? 50 : 20,
+    };
+    vi.mocked(getRoom).mockResolvedValue(snapshot);
+    vi.mocked(command).mockResolvedValue({ ...snapshot, revision: 2 });
+    openRoom();
+    const pickup = await screen.findByRole<HTMLButtonElement>("button", {
+      name: "Pick up and immediately play the top discard",
+    });
+    expect(pickup.disabled).toBe(false);
+    fireEvent.click(pickup);
+    const hand = within(
+      screen.getByRole("region", { name: "Your private hand" }),
+    );
+    for (const ace of hand.getAllByRole<HTMLButtonElement>("button", {
+      name: /^A of/,
+    })) {
+      expect(ace.disabled).toBe(false);
+      fireEvent.click(ace);
+    }
+    const stage = screen.getByRole<HTMLButtonElement>("button", {
+      name: "Stage meld",
+    });
+    expect(stage.disabled).toBe(false);
+    fireEvent.click(stage);
+    fireEvent.click(screen.getByRole("button", { name: "Play draft" }));
+    await waitFor(() =>
+      expect(command).toHaveBeenCalledWith(snapshot, "pickup", {
+        groups: [
+          { cardIds: ["ace-clubs", "ace-hearts", "discard-wild"], kind: "set" },
         ],
       }),
     );

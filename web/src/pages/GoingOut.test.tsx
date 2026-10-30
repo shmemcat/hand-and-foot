@@ -99,6 +99,26 @@ async function show(snapshot: Snapshot) {
   });
 }
 
+it("replaces a final red three instead of offering to discard and go out", async () => {
+  const snapshot = fixture();
+  snapshot.hand = [
+    { ...card("last-red", "3"), suit: "hearts", value: -300, redThree: true },
+  ];
+  vi.mocked(command).mockResolvedValue({ ...snapshot, revision: 1 });
+  await show(snapshot);
+  fireEvent.click(
+    hand().getByRole("button", { name: "3 of hearts, red three" }),
+  );
+  expect(screen.queryByRole("button", { name: "Discard & go out" })).toBeNull();
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Replace" }));
+  });
+  expect(command).toHaveBeenCalledWith(snapshot, "red_three", {
+    cardIds: ["last-red"],
+    expose: false,
+  });
+});
+
 it("blocks an all-but-one draft without both books and lets the player correct it", async () => {
   const before = fixture(6);
   await show(before);

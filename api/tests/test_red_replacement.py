@@ -23,7 +23,7 @@ def test_replaced_reds_stay_on_discard_until_a_final_discard_covers_them(count):
     # A red three is never a legal pickup, even if a client submits it directly.
     attempted = copy.deepcopy(result)
     attempted.update(phase="draw", actor=1, openingComplete=True)
-    with pytest.raises(ValueError, match="three or a wild card"):
+    with pytest.raises(ValueError, match="Threes cannot"):
         engine.apply(attempted, 1, {"type": "pickup", "groups": []})
     covered = engine.apply(result, 0, {"type": "discard", "cardId": tail[0]})
     assert covered["discard"] == previous + reds + [tail[0]]
@@ -31,6 +31,29 @@ def test_replaced_reds_stay_on_discard_until_a_final_discard_covers_them(count):
     assert engine.project(covered, "1")["discard"]["id"] == tail[0]
     engine.assert_conservation(result)
     engine.assert_conservation(covered)
+
+
+@pytest.mark.parametrize("final", [False, True])
+def test_red_threes_cannot_be_discarded_even_when_going_out(final):
+    from test_engine import book
+
+    game = rig()
+    game["sides"][0]["opened"] = True
+    red = take(game, "3", suit="hearts")[0]
+    player = game["players"][0]
+    player["hand"] = [red] + ([] if final else take(game, "4"))
+    if final:
+        player["inFoot"] = True
+        book(game, "A")
+        book(game, "K", dirty=True)
+    before = copy.deepcopy(game)
+    with pytest.raises(ValueError, match="may not discard red threes"):
+        engine.apply(game, 0, {"type": "discard", "cardId": red})
+    assert game == before
+    replaced = engine.apply(game, 0, {"type": "red_three", "cardId": red, "expose": False})
+    assert replaced["phase"] == "play"
+    assert replaced["players"][0]["hand"] and red not in replaced["players"][0]["hand"]
+    engine.assert_conservation(replaced)
 
 
 def test_replacement_events_show_only_the_discarded_reds_and_keep_drawn_faces_private():

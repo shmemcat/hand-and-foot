@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useLiveScoring } from "./useLiveScoring";
 import {
   SCORING_SCENARIOS,
+  scoringHeldCards,
   scoringSequence,
   scoringSnapshot,
 } from "../lib/scoringSequence";
@@ -52,8 +53,150 @@ function round(): Snapshot {
   };
   return snapshot;
 }
+
+it.each([0, 3])(
+  "uses the single-player sequence for both partners' hands, feet and reds (viewer seat %s)",
+  (seat) => {
+    const source = round();
+    source.scoringMode = "partnership";
+    source.players = source.players.map((player, index) => ({
+      ...player,
+      team: index % 3,
+    }));
+    source.sides = source.sides.slice(0, 3);
+    source.viewerId = source.players[seat].id;
+    const ownHand = source.hand;
+    const partnerHand = [{ ...ownHand[0], id: "partner-ace" }];
+    source.scoringHand = [...ownHand, ...partnerHand];
+    source.hand = seat === 0 ? ownHand : partnerHand;
+    source.scoringFoot = ["own-foot", "partner-foot"].map((id) => ({
+      ...ownHand[0],
+      id,
+      rank: "4",
+      value: 5,
+    }));
+    source.footTop = source.scoringFoot[seat === 0 ? 0 : 1];
+    const reds = source.players[0].redThrees;
+    source.players[0].redThrees = reds.slice(0, 1);
+    source.players[3].redThrees = reds.slice(1);
+    source.scoring = {
+      ...source.scoring!,
+      debt: 50,
+      remaining: 35,
+      options: [],
+      usedPiles: ["reds:0"],
+      canceled: reds.map((card) => card.id),
+      score: {
+        ...source.scoring!.score,
+        debt: 50,
+        cards: 0,
+        redThrees: 0,
+        redCredit: 15,
+        total: -35,
+        uncovered: 35,
+      },
+    };
+    const expected = scoringSequence(
+      {
+        id: "partners",
+        label: "Partners",
+        reason: source.scoring.reason,
+        hand: source.scoringHand,
+        foot: source.scoringFoot,
+        melds: [],
+        reds,
+        goingOut: 0,
+      },
+      { pileIds: ["reds:0"], complete: true, qualified: true },
+    );
+    const view = renderHook(() => useLiveScoring(source, true, false));
+    for (const beat of expected) {
+      expect(view.result.current.beat).toEqual(beat);
+      const held = new Set(scoringHeldCards(beat).map((card) => card.id));
+      expect(
+        view.result.current.snapshot?.players
+          .filter((player) => player.team === 0)
+          .flatMap((player) => player.redThrees),
+      ).toEqual(beat.reds.filter((card) => !held.has(card.id)));
+      if (beat.kind !== "total")
+        act(() => vi.advanceTimersByTime(beat.duration));
+    }
+    expect(
+      view.result.current.beat!.base + view.result.current.beat!.cardValue,
+    ).toBe(-35);
+    expect(view.result.current.done).toBe(true);
+    expect(source.scoring.confirmed).toBe(false);
+  },
+);
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
+
+it.each(["round_over", "finished"] as const)(
+  "keeps counting locally when %s is ready and releases results on the last beat",
+  (phase) => {
+    const source = round();
+    const view = renderHook(
+      ({ snapshot }) => useLiveScoring(snapshot, true, false),
+      { initialProps: { snapshot: source } },
+    );
+    act(() => vi.advanceTimersByTime(1200));
+    expect(view.result.current.waiting).toBe(true);
+    const result: Snapshot = {
+      ...source,
+      phase,
+      scoring: null,
+      history: [
+        {
+          round: source.round,
+          reason: source.scoring!.reason,
+          scores: [
+            {
+              ...source.scoring!.score,
+              cards: 0,
+              redThrees: 0,
+              redCredit: 15,
+              canceled: source.players[0].redThrees.map((card) => card.id),
+              uncovered: 5,
+              total: -5,
+            },
+          ],
+        },
+      ],
+    };
+    view.rerender({ snapshot: result });
+    expect(view.result.current.snapshot?.phase).toBe("scoring");
+    expect(view.result.current.snapshot?.scoring?.confirmed).toBe(true);
+    expect(view.result.current.beat?.kind).toBe("break");
+    for (let step = 0; step < 100; step++) {
+      const beat = view.result.current.beat;
+      if (!beat) break;
+      expect(view.result.current.snapshot?.phase).toBe("scoring");
+      if (beat.kind === "count") expect(beat.base + beat.cardValue).toBe(-5);
+      act(() => vi.advanceTimersByTime(beat.duration - 1));
+      expect(view.result.current.snapshot?.phase).toBe("scoring");
+      act(() => vi.advanceTimersByTime(1));
+    }
+    expect(view.result.current.snapshot).toBe(result);
+    expect(view.result.current.enabled).toBe(false);
+    expect(view.result.current.beat).toBeUndefined();
+  },
+);
+
+it("opens an already prepared result immediately when counting is skipped", () => {
+  const source = round();
+  source.scoring!.options = [];
+  const view = renderHook(
+    ({ snapshot }) => useLiveScoring(snapshot, true, false),
+    { initialProps: { snapshot: source } },
+  );
+  const result: Snapshot = { ...source, phase: "round_over", scoring: null };
+  view.rerender({ snapshot: result });
+  expect(view.result.current.snapshot?.phase).toBe("scoring");
+  act(() => view.result.current.skip());
+  expect(view.result.current.snapshot).toBe(result);
+  expect(view.result.current.enabled).toBe(false);
+  expect(view.result.current.beat).toBeUndefined();
+});
 
 it.each(["round_over", "finished"] as const)(
   "restores the full round board and removes counting presentation when %s arrives",

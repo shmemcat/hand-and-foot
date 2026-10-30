@@ -123,6 +123,9 @@ export function RoundRecordDialog({
                         <div className="round-record-player-heading">
                           <span className="round-record-name">
                             <ProfileIcon
+                              bot={snapshot.players
+                                .filter((player) => player.team === score.team)
+                                .every((player) => player.bot)}
                               name={
                                 score.team === viewerTeam
                                   ? profileIcon

@@ -46,6 +46,16 @@
   .mobile-game .game-header {
     padding: 7px 0 13px;
   }
+  .game-page .choose-piles > div {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+  }
+  .game-page .choose-piles .choose-pile {
+    width: min(100%, 280px);
+    min-width: 0;
+  }
   .mobile-game .round-controls {
     display: block;
     position: relative;

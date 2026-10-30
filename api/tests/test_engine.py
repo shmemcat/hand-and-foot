@@ -638,14 +638,46 @@ def test_red_three_qualification_survives_debt_reconciliation():
 
 
 @pytest.mark.parametrize("count", [1, 2, 3, 4])
-def test_round_end_qualified_red_threes_add_raw_five_points(count):
+def test_round_end_played_red_threes_add_five_card_points_separately_from_bonus_or_penalty(count):
     game = rig()
     game["players"][0]["redThrees"] = take(game, "3", count, "hearts")
     engine.finish_round(game, None, "Test round")
     score = scoring.project_review(game, 0)["score"]
-    assert score["cards"] == (count * 5 if count >= 3 else 0)
+    assert score["cards"] == count * 5
     assert score["redThrees"] == count * (300 if count >= 3 else -300)
     assert score["total"] == score["cards"] + score["redThrees"]
+
+
+def test_two_played_red_threes_with_no_other_cards_finish_at_minus_590():
+    game = rig(mode="individual")
+    game["players"][0]["redThrees"] = take(game, "3", 2, "hearts")
+    engine.finish_round(game, None, "Test round")
+    for seat in range(len(game["players"])):
+        game = engine.apply(game, seat, {"type": "score_confirm"})
+    score = game["history"][-1]["scores"][0]
+    assert score["cards"] == 10
+    assert score["redThrees"] == -600
+    assert score["debt"] == 0
+    assert score["total"] == -590
+    assert game["sides"][0]["score"] == -590
+    engine.assert_conservation(game)
+
+
+@pytest.mark.parametrize("count", [1, 2])
+@pytest.mark.parametrize("debt", [0, 5, 10, 15])
+def test_covering_leftover_cards_with_short_reds_keeps_card_value_and_penalty_separate(count, debt):
+    game = rig(mode="individual")
+    game["players"][0]["redThrees"] = take(game, "3", count, "hearts")
+    game["players"][0]["hand"] = take(game, "4", debt // 5)
+    engine.finish_round(game, None, "Test round")
+    game = engine.apply(game, 0, {"type": "score_auto"})
+    remaining_reds = max(0, count - debt // 5)
+    score = scoring.project_review(game, 0)["score"]
+    assert score["cards"] == remaining_reds * 5
+    assert score["redCredit"] == min(debt, count * 5)
+    assert score["redThrees"] == -remaining_reds * 300
+    assert score["total"] == count * 5 - debt - remaining_reds * 300
+    engine.assert_conservation(game)
 
 
 @pytest.mark.parametrize("spent,remaining", [(1, 2), (2, 1)])
@@ -717,7 +749,8 @@ def test_a_private_red_three_cannot_qualify_an_exposed_pile_of_two():
     review = scoring.project_review(game, 0)
     assert review["redThreeQualified"] is False
     assert review["score"]["redThrees"] == -600
-    assert review["score"]["total"] == -900
+    assert review["score"]["cards"] == 10
+    assert review["score"]["total"] == -890
 
 
 def test_older_scoring_records_use_the_original_public_red_count_for_qualification():

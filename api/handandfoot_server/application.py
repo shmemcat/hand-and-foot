@@ -597,6 +597,14 @@ def create_app(config=None):
                     raise ValueError("Start the table first.")
                 seat = next(i for i, p in enumerate(players(data)) if p["id"] == player["id"])
                 data["game"] = engine.apply(data["game"], seat, values)
+                # Scores need no bot pacing: each client owns its counting animation.
+                if action == "score_confirm" and data["game"]["phase"] == "scoring":
+                    for bot_seat, bot in enumerate(data["game"]["players"]):
+                        team = bot["team"]
+                        if (bot["bot"] and not data["game"]["scoring"]["sides"][team]["confirmed"]
+                                and all(p["bot"] for p in data["game"]["players"] if p["team"] == team)):
+                            data["game"] = engine.apply(data["game"], bot_seat, {"type": "score_auto"})
+                            data["game"] = engine.apply(data["game"], bot_seat, {"type": "score_confirm"})
             db.session.add(Receipt(code=code, action_id=action_id, principal=actor(), fingerprint=fingerprint, revision=data["revision"] + 1))
             save(row, data)
             result = {"left": True} if action == "leave" else projection(data, actor())
@@ -733,7 +741,7 @@ def create_app(config=None):
                     if game["phase"] == "choose":
                         bot_seat = next((i for i, p in enumerate(game["players"]) if p["bot"] and not p["chosen"]), None)
                     elif game["phase"] in ("draw", "play") and game["players"][game["actor"]]["bot"]:
-                        if game["phase"] != "draw" or not engine.opening_pending(game):
+                        if game["phase"] != "draw" or not (engine.opening_pending(game) or engine.turn_pending(game)):
                             bot_seat = game["actor"]
                     elif game["phase"] == "scoring":
                         team = next((side["team"] for side in game["scoring"]["sides"] if not side["confirmed"] and all(p["bot"] for p in game["players"] if p["team"] == side["team"])), None)

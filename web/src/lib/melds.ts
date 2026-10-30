@@ -65,11 +65,8 @@ export function pickupPlayableCards(
   melds: readonly Meld[],
   selectedIds: readonly string[] = [],
 ): Set<string> {
-  if (discard.wild || discard.rank === "3") return new Set();
+  if (discard.rank === "3") return new Set();
   const selected = hand.filter((card) => selectedIds.includes(card.id));
-  const naturals = hand.filter(
-    (card) => !card.wild && card.rank === discard.rank,
-  );
   const targets = [
     undefined,
     ...melds.filter((meld) => meld.cards.length !== 6),
@@ -84,26 +81,42 @@ export function pickupPlayableCards(
       ...selected,
       card,
     ]);
-    const matching = unique([...required, ...naturals]);
-    // A matching pair can use an unselected wild to become a complete meld.
-    if (matching.length < 3) {
-      const wild = hand.find(
-        (item) => item.wild && !matching.some((old) => old.id === item.id),
-      );
-      if (wild) matching.push(wild);
+    if (!meld || meld.kind === "set") {
+      // A discarded wild can join any matching rank, including a meld of twos.
+      const ranks = meld
+        ? [meld.rank]
+        : discard.wild
+          ? [
+              ...new Set(
+                hand
+                  .filter((item) => !item.wild || item.rank === "2")
+                  .map((item) => item.rank),
+              ),
+            ]
+          : [discard.rank];
+      for (const rank of ranks) {
+        const naturals = hand.filter((item) => item.rank === rank);
+        const matching = unique([...required, ...naturals]);
+        // A matching pair can use an unselected wild to become a complete meld.
+        if (matching.length < 3) {
+          const wild = hand.find(
+            (item) => item.wild && !matching.some((old) => old.id === item.id),
+          );
+          if (wild) matching.push(wild);
+        }
+        if (
+          meld
+            ? canExtendMeld(
+                meld,
+                matching.filter(
+                  (item) => !meld.cards.some((old) => old.id === item.id),
+                ),
+              )
+            : isValidMeld(matching, "set")
+        )
+          return true;
+      }
     }
-    if (
-      (!meld || meld.kind === "set") &&
-      (meld
-        ? canExtendMeld(
-            meld,
-            matching.filter(
-              (item) => !meld.cards.some((old) => old.id === item.id),
-            ),
-          )
-        : isValidMeld(matching, "set"))
-    )
-      return true;
     if (meld && meld.kind !== "run") return false;
     if (
       required.some(

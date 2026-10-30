@@ -10,6 +10,9 @@ import {
   footGatherDuration,
 } from "../lib/footMotion";
 import { DISCARD_FLIGHT_MS } from "../hooks/useTableMotion";
+import { DRAW_FLIGHT_MS, DRAW_STAGGER_MS } from "../hooks/useDrawMotion";
+import { publicHandSlots } from "../hooks/useConcealedHand";
+import { BOARD_TRANSITION_MS } from "../lib/cardAnimations";
 import { MELD_FLIGHT_MS } from "../hooks/useMeldMotion";
 import { MOBILE_PLAY_MS } from "../hooks/useMobilePlayMotion";
 import { BOOK_CLOSE_MS } from "../hooks/useBookClosing";
@@ -589,3 +592,241 @@ it("does not replay an old pickup announcement or sound on rejoining", async () 
   expect(document.querySelector(".foot-pickup-notice")).toBeNull();
   expect(sound.play).not.toHaveBeenCalledWith("deal");
 });
+
+it.each([false, true])(
+  "locks both draw piles until the foot and the next board's actual animation finish (mobile: %s)",
+  async (onMobile) => {
+    if (onMobile) mobile();
+    const [before] = pair("discard");
+    before.playMode = "online";
+    before.actorId = before.players[1].id;
+    const after: Snapshot = {
+      ...before,
+      revision: 1,
+      token: "waiting-for-foot-and-board",
+      actorId: before.viewerId,
+      phase: "draw",
+      players: before.players.map((player, index) =>
+        index === 1
+          ? { ...player, inFoot: true, footCount: 0, handCount: 11 }
+          : player,
+      ),
+      turnPresentation: { id: "foot-pickup", ready: [], complete: false },
+      tableEvents: [
+        {
+          id: "last-discard",
+          kind: "discard",
+          playerId: before.players[1].id,
+          count: 1,
+          card: before.discard,
+          faceDown: false,
+        },
+        {
+          id: "foot-pickup",
+          kind: "foot",
+          playerId: before.players[1].id,
+          count: 11,
+          card: null,
+          faceDown: false,
+        },
+      ],
+    };
+    const ready: Snapshot = {
+      ...after,
+      revision: 2,
+      token: "ready-to-draw",
+      turnPresentation: {
+        ...after.turnPresentation!,
+        ready: [after.viewerId],
+        complete: true,
+      },
+    };
+    vi.mocked(command).mockResolvedValue(ready);
+    await show(before);
+    await refresh(after);
+    const deck = screen.getByRole("button", {
+      name: "Draw 2 cards from the stack",
+    }) as HTMLButtonElement;
+    const discard = screen.getByRole("button", {
+      name: "Pick up and immediately play the top discard",
+    }) as HTMLButtonElement;
+    expect(deck.disabled).toBe(true);
+    expect(discard.disabled).toBe(true);
+    await advance(DISCARD_FLIGHT_MS);
+    expect(document.querySelector(".foot-pickup-notice")).toBeTruthy();
+    await advance(footGatherDuration(11));
+    expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
+    let finish!: () => void;
+    const finished = new Promise<Animation>((resolve) => {
+      finish = () => resolve({} as Animation);
+    });
+    document.querySelector(".hand-dock")!.getAnimations = () => [
+      { finished } as Animation,
+    ];
+    await advance(BOARD_TRANSITION_MS);
+    fireEvent.click(deck);
+    fireEvent.click(discard);
+    expect(command).not.toHaveBeenCalled();
+    expect(discard.getAttribute("aria-pressed")).toBe("false");
+    expect(deck.disabled).toBe(true);
+    expect(discard.disabled).toBe(true);
+    await act(async () => finish());
+    expect(command).toHaveBeenCalledExactlyOnceWith(after, "turn_ready", {
+      presentationId: "foot-pickup",
+    });
+    expect(deck.disabled).toBe(false);
+    expect(discard.disabled).toBe(false);
+    await refresh({ ...ready, revision: 3 });
+    await advance(BOARD_TRANSITION_MS);
+    expect(command).toHaveBeenCalledOnce();
+  },
+);
+
+it.each(
+  [false, true].flatMap((onMobile) =>
+    [false, true].flatMap((ownFoot) =>
+      ["batched", "during", "after"].map(
+        (arrival) => [onMobile, ownFoot, arrival] as const,
+      ),
+    ),
+  ),
+)(
+  "draws face down into the next hand after a foot pickup (mobile: %s, own foot: %s, draw: %s)",
+  async (onMobile, ownFoot, arrival) => {
+    if (onMobile) mobile();
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        if (this.matches(".game-header")) return new DOMRect(0, 0, 1000, 300);
+        if (this.closest(".hand-card")) {
+          const slot = this.closest(".hand-card")!;
+          const index = [...slot.parentElement!.children].indexOf(slot);
+          return new DOMRect(100 + index * 70, 600, 62, 87);
+        }
+        return new DOMRect(400, 100, 62, 87);
+      },
+    );
+    const [before, localAfter] = pair("discard");
+    before.playMode = "online";
+    const owner = before.players[ownFoot ? 0 : 1];
+    const next = before.players[ownFoot ? 1 : 2];
+    before.actorId = owner.id;
+    owner.handCount = 1;
+    const discarded = { ...before.hand[0], id: "foot-discard" };
+    const after: Snapshot = {
+      ...(ownFoot ? localAfter : before),
+      revision: 1,
+      token: "foot-picked-up",
+      playMode: "online",
+      phase: "draw",
+      actorId: next.id,
+      discard: ownFoot ? before.hand[0] : discarded,
+      discardCount: before.discardCount + 1,
+      players: before.players.map((player) =>
+        player.id === owner.id
+          ? { ...player, handCount: 11, footCount: 0, inFoot: true }
+          : player,
+      ),
+      tableEvents: [
+        {
+          id: "foot-discard",
+          kind: "discard",
+          playerId: owner.id,
+          count: 1,
+          card: ownFoot ? before.hand[0] : discarded,
+          faceDown: false,
+        },
+        {
+          id: "foot-pickup",
+          kind: "foot",
+          playerId: owner.id,
+          count: 11,
+          card: null,
+          faceDown: false,
+        },
+      ],
+    };
+    const drawn: Snapshot = {
+      ...after,
+      revision: 2,
+      token: "next-player-drew",
+      phase: "play",
+      players: after.players.map((player) =>
+        player.id === next.id
+          ? { ...player, handCount: player.handCount + 2 }
+          : player,
+      ),
+      tableEvents: [
+        ...after.tableEvents!,
+        {
+          id: "next-draw",
+          kind: "draw",
+          playerId: next.id,
+          count: 2,
+          card: null,
+          faceDown: false,
+        },
+      ],
+    };
+    await show(before);
+    if (ownFoot) {
+      vi.mocked(command).mockResolvedValue(
+        arrival === "batched" ? drawn : after,
+      );
+      if (onMobile)
+        fireEvent.click(
+          screen.getByRole("button", { name: /your hand.*open hand/i }),
+        );
+      await enter("discard");
+      if (onMobile) {
+        await advance(MOBILE_PLAY_MS);
+        await advance(FOOT_SETTLE_MS);
+      } else await advance(MELD_FLIGHT_MS + FOOT_SETTLE_MS);
+    } else {
+      await refresh(arrival === "batched" ? drawn : after);
+      await advance(DISCARD_FLIGHT_MS);
+    }
+    expect(document.querySelector(".foot-pickup-notice")).toBeTruthy();
+    if (arrival === "during") await refresh(drawn);
+    expect(
+      document.querySelector('.table-card-flight[data-event-kind="draw"]'),
+    ).toBeNull();
+    await advance(footGatherDuration(11));
+    if (arrival === "after") await refresh(drawn);
+    const region = screen.getByRole("region", { name: `${next.name}’s hand` });
+    expect(document.querySelector(".foot-pickup-notice")).toBeNull();
+    if (arrival !== "after") {
+      await advance(BOARD_TRANSITION_MS - 1);
+      expect(document.querySelector(".table-card-flight")).toBeNull();
+      await advance(1);
+    }
+    expect(
+      document.querySelector('.table-flight-layer[data-public="false"]'),
+    ).toBeTruthy();
+    const flights = [
+      ...document.querySelectorAll<HTMLElement>(
+        '.table-card-flight[data-event-kind="draw"]',
+      ),
+    ];
+    expect(flights).toHaveLength(2);
+    expect(flights.every((flight) => flight.dataset.concealed === "true")).toBe(
+      true,
+    );
+    expect(document.querySelector(".table-card-flight .card-art")).toBeNull();
+    expect(
+      flights.map((flight) => flight.style.getPropertyValue("--table-y")),
+    ).toEqual(["500px", "500px"]);
+    expect(
+      flights.map((flight) => flight.style.getPropertyValue("--table-x")),
+    ).toEqual(["-300px", "-230px"]);
+    expect(
+      publicHandSlots(region).filter(
+        (slot) => slot.dataset.concealedHidden === "true",
+      ),
+    ).toHaveLength(2);
+    await advance(DRAW_FLIGHT_MS + DRAW_STAGGER_MS - 1);
+    expect(document.querySelectorAll(".table-card-flight")).toHaveLength(2);
+    await advance(1);
+    expect(document.querySelector(".table-card-flight")).toBeNull();
+    expect(region.querySelector('[data-concealed-hidden="true"]')).toBeNull();
+  },
+);

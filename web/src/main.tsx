@@ -12,6 +12,7 @@ import { Preview } from "./pages/Preview";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { User } from "./pages/User";
 import { AchievementEvents } from "./components/AchievementEvents";
+import { AchievementNotifications } from "./components/AchievementNotifications";
 import { PreferencesProvider } from "./context/PreferencesContext";
 import { TurnSoundProvider } from "./context/TurnSoundContext";
 import "./styles.css";
@@ -336,6 +337,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <PreferencesProvider>
           <SoundProvider>
             <TurnSoundProvider>
+              <AchievementNotifications />
               <AchievementEvents />
               <Shell>
                 <AppRoutes />

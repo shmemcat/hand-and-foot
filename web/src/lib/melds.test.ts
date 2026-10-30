@@ -232,11 +232,52 @@ it("preserves a completed clean book while allowing pickup into a separate dirty
   expect(canExtendMeld(clean, [discard, ...hand])).toBe(false);
 });
 
-it("rejects pickup guidance for a three or a wild discard", () => {
+it("rejects pickup guidance for a three", () => {
   expect(
     pickupPlayableCards(cards("8", "8"), { ...discard, rank: "3" }, []).size,
   ).toBe(0);
+});
+
+it.each(["2", "Joker"])(
+  "offers matching pairs for a discarded %s and follows the selected rank",
+  (rank) => {
+    const top = { ...discard, rank, wild: true };
+    const hand = cards("K", "K", "Q", "Q", "A", "Joker", "3");
+    expect([...pickupPlayableCards(hand, top, [])]).toEqual(
+      hand.slice(0, 4).map((card) => card.id),
+    );
+    expect([...pickupPlayableCards(hand, top, [], [hand[0].id])]).toEqual(
+      hand.slice(0, 2).map((card) => card.id),
+    );
+    expect(pickupPlayableCards(cards("K", "Joker"), top, []).size).toBe(0);
+  },
+);
+
+it.each(["2", "Joker"])("allows a discarded %s in a meld of twos", (rank) => {
+  const hand = cards("2", "2");
+  expect([
+    ...pickupPlayableCards(hand, { ...discard, rank, wild: true }, []),
+  ]).toEqual(hand.map((card) => card.id));
+});
+
+it("preserves book restrictions when suggesting hand cards for a discarded wild", () => {
+  const top = { ...discard, rank: "Joker", wild: true };
+  const hand = cards("8").map((card) => ({ ...card, id: `hand-${card.id}` }));
+  expect([
+    ...pickupPlayableCards(hand, top, [pickupPile(["8", "8", "8"])]),
+  ]).toEqual([hand[0].id]);
+  for (const count of [6, 7]) {
+    expect(
+      pickupPlayableCards(hand, top, [pickupPile(Array(count).fill("8"))]).size,
+    ).toBe(0);
+  }
+  const joker = cards("Joker").map((card) => ({
+    ...card,
+    id: `hand-${card.id}`,
+  }));
   expect(
-    pickupPlayableCards(cards("8", "8"), { ...discard, wild: true }, []).size,
+    pickupPlayableCards(joker, top, [
+      pickupPile(["8", "8", "8", "8", "Joker", "Joker", "Joker"]),
+    ]).size,
   ).toBe(0);
 });

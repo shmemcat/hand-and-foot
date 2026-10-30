@@ -75,7 +75,7 @@ export function RulesDealExample() {
   return (
     <figure
       className="rules-card-example"
-      aria-label="Two starting piles of eleven cards"
+      aria-label="Two starting groups of eleven cards"
     >
       <div className="rules-deal-piles">
         {piles.map((pile, index) => (
@@ -85,12 +85,12 @@ export function RulesDealExample() {
               <Card />
               <Card card={pile[1]} />
             </div>
-            <span>Pile {index + 1} · 11 cards</span>
+            <span>Choice {index + 1} · 11 cards</span>
           </div>
         ))}
       </div>
       <figcaption>
-        <strong>Choose your hand; save the other pile as your foot.</strong>
+        <strong>Choose your hand; save the other cards as your foot.</strong>
         <span>
           Only the top and bottom cards can be inspected before choosing. The
           other nine stay hidden.
@@ -134,14 +134,14 @@ export function RulesPickupExample() {
   return (
     <figure
       className="rules-card-example"
-      aria-label="Legal discard pickup with one matching natural card and a joker"
+      aria-label="Legal pickup of a discarded Joker with two matching natural cards"
     >
       <div className="rules-example-equation">
         <div>
           <CardRow
             cards={faces("pickup-hand", [
               ["7", "clubs"],
-              ["Joker", "joker"],
+              ["7", "hearts"],
             ])}
           />
           <span>From your hand</span>
@@ -150,12 +150,12 @@ export function RulesPickupExample() {
           +
         </span>
         <div>
-          <CardRow cards={faces("pickup-discard", [["7", "hearts"]])} />
+          <CardRow cards={faces("pickup-discard", [["Joker", "joker"]])} />
           <span>Top discard</span>
         </div>
       </div>
       <figcaption>
-        <strong>One seven + a joker + the discard = a valid dirty meld</strong>
+        <strong>Two sevens + a discarded Joker = a valid dirty meld</strong>
         <span>
           The two natural sevens outnumber the wild. Play all three together,
           meet any opening minimum, then draw one card from the deck before
@@ -206,7 +206,7 @@ export function RulesThreesExamples() {
     <div className="rules-threes-examples">
       <Example
         title="Three exposed reds"
-        caption="+900 bonus and 15 card points, if the pile survives scoring."
+        caption="+900 bonus and 15 card points. Using any red to cover leftover cards loses the whole bonus."
         cards={faces("qualified-reds", [
           ["3", "hearts"],
           ["3", "diamonds"],
@@ -215,7 +215,7 @@ export function RulesThreesExamples() {
       />
       <Example
         title="Only two exposed reds"
-        caption="−600 penalty. No card points."
+        caption="10 card points and a separate −600 penalty: −590 total."
         cards={faces("short-reds", [
           ["3", "hearts"],
           ["3", "diamonds"],
@@ -223,10 +223,18 @@ export function RulesThreesExamples() {
       />
       <Example
         title="Two leftover black threes"
-        caption="−200 in hand or foot debt. Black threes cannot be melded."
+        caption="−200 if left in your hand or foot. Black threes can only be discarded."
         cards={faces("black-threes", [
           ["3", "clubs"],
           ["3", "spades"],
+        ])}
+      />
+      <Example
+        title="Two leftover red threes"
+        caption="−600 if left in your hand or foot. Replace or play red threes; you may not discard them."
+        cards={faces("leftover-reds", [
+          ["3", "hearts"],
+          ["3", "diamonds"],
         ])}
       />
     </div>
@@ -245,11 +253,12 @@ export function RulesCardValues() {
       ],
     },
     {
-      label: "Fours through eights",
+      label: "Fours through eights & played red threes",
       points: "5",
       cards: [
         ["4", "diamonds"],
         ["8", "spades"],
+        ["3", "hearts"],
       ],
     },
     {

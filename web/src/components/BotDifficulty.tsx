@@ -1,11 +1,4 @@
 import type { BotDifficulty as Difficulty } from "../types";
-import "../bot-difficulty.css";
-
-const descriptions: Record<Difficulty, string> = {
-  easy: "Straightforward play while you learn.",
-  medium: "Balanced play with planned melds and discard pickups.",
-  hard: "Plans further ahead and watches opponents’ open piles.",
-};
 
 export function BotDifficulty({
   value,
@@ -34,7 +27,6 @@ export function BotDifficulty({
           </label>
         ))}
       </div>
-      <p className="bot-difficulty-hint">{descriptions[value]}</p>
     </fieldset>
   );
 }

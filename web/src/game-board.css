@@ -54,7 +54,9 @@
   }
 }
 @media (min-width: 769px) {
-  .game-page {
+  .game-page,
+  .opening-board > .game-page {
+    --table-deck-clearance: 178px;
     --table-piles-height: 420px;
     --table-hand-height: 215px;
     --table-browser-height: 62px;
@@ -63,19 +65,22 @@
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "header"
-      "hint"
       "table"
       "navigation"
       "hand";
-    grid-template-rows: auto 52px auto var(--table-browser-height) var(
+    grid-template-rows: 128px auto var(--table-browser-height) var(
         --table-hand-height
       );
   }
   .game-page > .game-header {
     grid-area: header;
   }
-  .game-page > .turn-message {
-    grid-area: hint;
+  .game-page > .turn-message,
+  .opening-board > .game-page > .turn-message {
+    grid-area: header;
+    align-self: start;
+    pointer-events: none;
+    z-index: 22;
   }
   .game-page > .board-carousel {
     grid-area: table;
@@ -97,9 +102,6 @@
     scrollbar-width: thin;
     scrollbar-color: var(--emblem) transparent;
   }
-  .game-page > .turn-message {
-    min-height: 82px;
-  }
   .game-page > .hand-dock {
     min-height: 180px;
   }
@@ -112,6 +114,58 @@
   .game-page .melds {
     /* Completed books stay compact regardless of how many cards they contain. */
     min-height: var(--table-piles-height);
+  }
+  .game-page > .game-header {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 38px minmax(0, 1fr);
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+  .game-header > .round-controls,
+  .game-header > .game-menu {
+    grid-area: 1 / 1;
+    align-self: start;
+    justify-self: end;
+  }
+  .game-header > .round-controls {
+    display: block;
+    margin: 3px 54px 0 0;
+  }
+  .game-header > .piles-row {
+    grid-area: 1 / 1 / 3;
+    justify-self: start;
+    z-index: 1;
+  }
+  .desktop-player-navigation {
+    grid-area: 2 / 1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+  .desktop-player-navigation::before,
+  .desktop-player-navigation::after {
+    content: "";
+    flex: 1 0 0;
+  }
+  .desktop-player-navigation::before {
+    /* Equal spacers center the row until the left one must clear the deck. */
+    min-width: var(--table-deck-clearance);
+  }
+  .desktop-player-navigation > .player-board-nav {
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: 0;
+    max-width: calc(100% - var(--table-deck-clearance));
+    margin: 0;
+  }
+  .desktop-player-navigation .board-player-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .desktop-player-navigation .board-player-score {
+    white-space: nowrap;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -917,18 +971,112 @@
   padding-top: 8px;
 }
 @media (min-width: 769px) {
+  .game-page > .turn-message {
+    min-height: 38px;
+    padding: 5px var(--table-deck-clearance);
+  }
+  .board-carousel .tableau-heading {
+    margin: 0;
+  }
+  .game-header > .score-running-count {
+    top: 44px;
+    right: 0;
+    width: 160px;
+  }
+  .game-header:has(> .score-running-count) .desktop-player-navigation::after {
+    min-width: 160px;
+  }
+  .game-header:has(> .score-running-count)
+    .desktop-player-navigation
+    > .player-board-nav {
+    max-width: calc(100% - var(--table-deck-clearance) - 160px);
+  }
+  .draw-flight-layer,
+  .meld-flight-layer,
+  .meld-stack-cover-layer,
+  .book-closing-layer,
+  .table-flight-layer,
+  .score-motion-layer {
+    overflow: clip;
+  }
   .table-frame:has(.game-page) .site-nav {
-    margin-bottom: 8px;
+    margin-bottom: 20px;
   }
   .board-carousel > .tableau {
     padding-top: 0;
   }
   .board-carousel .melds {
     gap: 10px;
+    height: 100%;
+    min-height: 0;
   }
   .game-page .player-lane {
     /* Row spacing stays inside the fixed pile viewport. */
     flex: none;
+    overflow: hidden;
+  }
+  .game-page .board-carousel .pile-group {
+    --pile-min-width: 126px;
+    display: block;
+    max-width: none;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--emblem) transparent;
+    padding-inline: 6px;
+  }
+  .game-page .pile-row-content {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: var(--pile-gap);
+    width: min(
+      100%,
+      calc(var(--pile-count) * (176px + var(--pile-gap)) - var(--pile-gap))
+    );
+    min-width: max(
+      0px,
+      calc(
+        var(--resting-pile-count, var(--pile-count)) *
+          (var(--pile-min-width) + var(--pile-gap)) - var(--pile-gap)
+      )
+    );
+    margin-inline: auto;
+    /* Moving piles must not enlarge the row's resting scrollable bounds. */
+    overflow: clip;
+  }
+  .game-page .board-carousel .closed-books {
+    --pile-min-width: 78px;
+    flex: 0 0 138px;
+  }
+  .game-page .closed-books:has(.red-three-pile) {
+    --pile-min-width: 90px;
+  }
+  .game-page .closed-books:has(.straight-book) {
+    --pile-min-width: 110px;
+  }
+  .game-page .board-carousel .open-piles {
+    flex: 1 1 0;
+  }
+  .game-page .pile-row-content > .meld-pile,
+  .game-page .pile-row-content > .red-three-pile {
+    flex: 1 0 var(--pile-min-width);
+    min-width: var(--pile-min-width);
+    max-width: 176px;
+  }
+  .game-page .closed-books.dense-books .meld-kind {
+    min-height: 0;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  .game-page .open-piles .meld-count {
+    margin-top: 8px;
+  }
+  .game-page .closed-books .meld-count,
+  .game-page .closed-books .red-three-pile > .meld-count {
+    margin-top: 6px;
   }
   .player-board-nav {
     display: flex;
@@ -949,7 +1097,7 @@
   /* Keep open melds and their empty state below the reserved completed-book row. */
   .game-page .melds:not(:has(.closed-books)) > .open-piles,
   .game-page .melds > .empty-lane {
-    margin-top: 142px;
+    margin-top: 148px;
   }
 }
 .board-carousel .pile-group {

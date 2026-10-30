@@ -1,8 +1,6 @@
 import { useId, useState } from "react";
 import type { Achievement } from "../lib/achievements";
-import { ProfileIcon } from "./ProfileIcon";
-import { Icon } from "./Icons";
-import { achievementIconData } from "../lib/achievementIconData";
+import { AchievementIcon } from "./AchievementIcon";
 import { Sparkle } from "./Sparkle";
 
 export function AchievementBadge({
@@ -45,20 +43,8 @@ export function AchievementBadge({
         )}
         {hidden ? (
           <span aria-hidden="true">?</span>
-        ) : achievement.icon === "music-off" ? (
-          <Icon name="music-off" />
-        ) : achievementIconData[achievement.icon] ? (
-          <svg
-            viewBox={achievementIconData[achievement.icon].viewBox}
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            {achievementIconData[achievement.icon].paths.map((path, index) => (
-              <path key={index} d={path} />
-            ))}
-          </svg>
         ) : (
-          <ProfileIcon name={achievement.icon} />
+          <AchievementIcon name={achievement.icon} />
         )}
       </button>
       <span
@@ -69,10 +55,17 @@ export function AchievementBadge({
       {open && (
         <div className="achievement-tooltip" id={id} role="tooltip">
           {!hidden && achievement.tier && (
-            <small className="achievement-tooltip-tier">{achievement.tier}</small>
+            <small className="achievement-tooltip-tier">
+              {achievement.tier}
+            </small>
           )}
           <strong>{name}</strong>
           <span>{description}</span>
+          {!hidden && achievement.flavorText && (
+            <span className="achievement-tooltip-flavor">
+              {achievement.flavorText}
+            </span>
+          )}
           {!hidden && achievement.progress && (
             <small>{achievement.progress}</small>
           )}

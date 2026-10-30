@@ -18,6 +18,7 @@ import {
   GameApiError,
 } from "../lib/api";
 import { removeStorage, writeStorage, readStorage } from "../lib/storage";
+import { useAchievementRefresh } from "../hooks/useAchievementRefresh";
 import {
   canExtendMeld,
   detectMeldKind,
@@ -46,9 +47,7 @@ import { FootPickupNotice } from "../components/FootPickupNotice";
 import { MeldPile } from "../components/MeldPile";
 import { Book, Icon } from "../components/Icons";
 import { PageTitle } from "../components/PageTitle";
-import { LoginWarning } from "../components/LoginWarning";
 import { Lobby } from "../components/Lobby";
-import { ScoringReview } from "../components/ScoringReview";
 import { RoundScoreSheet } from "../components/RoundScoreSheet";
 import { RoundRecordDialog } from "../components/RoundRecordDialog";
 import { ResultsToggle } from "../components/ResultsToggle";
@@ -83,6 +82,7 @@ import { usePileLayoutMotion } from "../hooks/usePileLayoutMotion";
 import { useMeldStackMotion } from "../hooks/useMeldStackMotion";
 import { useFootMotion } from "../hooks/useFootMotion";
 import { useTableMotion } from "../hooks/useTableMotion";
+import { useTurnReady } from "../hooks/useTurnReady";
 import { useRedThreeCelebration } from "../hooks/useRedThreeCelebration";
 import { useSound } from "../context/SoundContext";
 import { useAuth } from "../context/AuthContext";
@@ -186,9 +186,10 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const { code = "" } = useParams();
   const navigate = useNavigate();
   const sound = useSound();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [roomSnapshot, setSnapshot] = useState<Snapshot | null>(null);
   const isRehearsal = Boolean(rehearsal);
+  useAchievementRefresh(roomSnapshot, Boolean(user) && !isRehearsal);
   const motionLayer = (children: ReactNode) =>
     rehearsal?.portalMotion ? createPortal(children, document.body) : children;
   const [error, setError] = useState("");
@@ -224,11 +225,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const [totalsLanded, setTotalsLanded] = useState(false);
   const [scoringBoardHeight, setScoringBoardHeight] = useState(0);
   const settlingScore = useRef("");
-  const [joining, setJoining] = useState(false);
   const [removed, setRemoved] = useState(false);
-  const [joinName, setJoinName] = useState(() =>
-    readStorage("handandfoot.name.v1", ""),
-  );
+  const refreshing = useRef<{ code: string } | null>(null);
   const [leaving, setLeaving] = useState(false);
   const live = useRef(true);
   const roomSocket = useRef<Socket | undefined>(undefined);
@@ -305,12 +303,11 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     mobileMotion.blocking || footMotion.active,
     privateFooter ? undefined : incomingHandOwner?.id,
     handNavigation.current,
+    follow,
   );
   const scoring = useLiveScoring(
     tableMotion.snapshot,
-    (!isRehearsal || Boolean(rehearsal?.liveScoring)) &&
-      tableMotion.snapshot?.playMode === "practice" &&
-      tableMotion.snapshot?.scoringMode === "individual",
+    !isRehearsal || Boolean(rehearsal?.liveScoring),
     opening.reduced,
   );
   const snapshot = scoring.snapshot;
@@ -322,6 +319,17 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       ? snapshot?.players.find((player) => player.id === snapshot.viewerId)
       : handOwner(snapshot, viewed, viewedHandPlayerId, follow);
   const viewingOwnHand = footerPlayer?.id === snapshot?.viewerId;
+  const turnReady = useTurnReady(
+    isRehearsal ? null : roomSnapshot,
+    accept,
+    boardRef,
+    footMotion.active ||
+      tableMotion.blocking ||
+      playingMeld ||
+      Boolean(opening.state) ||
+      (follow && footerPlayer?.id !== roomSnapshot?.actorId),
+    opening.reduced,
+  );
   const footerMembers =
     snapshot?.players.filter((player) => player.team === footerPlayer?.team) ??
     [];
@@ -363,8 +371,9 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   usePileLayoutMotion(boardRef, {
     scope: `${snapshot?.code}:${snapshot?.round}:${snapshot?.viewerId}:${viewed}:${rehearsal?.pileMotionKey ?? ""}`,
     enabled: Boolean(
-      snapshot?.playMode === "practice" &&
-        snapshot?.scoringMode === "individual",
+      scoring.enabled ||
+        (snapshot?.playMode === "practice" &&
+          snapshot?.scoringMode === "individual"),
     ),
     reduced:
       opening.reduced ||
@@ -632,10 +641,36 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     },
   );
   const refresh = useCallback(async () => {
+    if (refreshing.current?.code === code) return;
+    const pending = { code };
+    refreshing.current = pending;
     try {
-      const incoming = await getRoom(code);
+      let incoming: Snapshot;
+      try {
+        incoming = await getRoom(code);
+      } catch (error) {
+        if (
+          !(error instanceof GameApiError) ||
+          error.status !== 403 ||
+          error.code === "SEAT_REMOVED" ||
+          error.message !== "Join this table before viewing it."
+        )
+          throw error;
+        if (!live.current || currentCode.current !== code) return;
+        incoming = await request<Snapshot>(
+          `/rooms/${encodeURIComponent(code)}/join`,
+          {
+            name:
+              user?.name ||
+              readStorage("handandfoot.name.v1", "").trim() ||
+              "Guest",
+            seat: null,
+          },
+        );
+        if (live.current && currentCode.current === code) setError("");
+      }
+      if (!live.current || currentCode.current !== code) return;
       accept(incoming);
-      setJoining(false);
     } catch (error) {
       if (live.current && currentCode.current === code) {
         if (error instanceof GameApiError && error.status === 403) {
@@ -644,23 +679,19 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
           setDrafts([]);
           if (error.code === "SEAT_REMOVED") setRemoved(true);
         }
-        setError(
-          error instanceof GameApiError &&
-            error.status === 403 &&
-            error.message === "Join this table before viewing it."
-            ? ""
-            : (error as Error).message,
-        );
-        setJoining(true);
+        if (error instanceof GameApiError && error.code === "TABLE_IN_PROGRESS")
+          navigate("/play", { replace: true });
+        setError((error as Error).message);
       }
+    } finally {
+      if (refreshing.current === pending) refreshing.current = null;
     }
-  }, [code, accept]);
+  }, [code, accept, user?.name, navigate]);
   useEffect(() => {
-    if (isRehearsal) return;
+    if (isRehearsal || authLoading) return;
     live.current = true;
     setSnapshot(null);
     setError("");
-    setJoining(false);
     setRemoved(false);
     setDrafts([]);
     setSelected([]);
@@ -704,7 +735,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       socket?.disconnect();
       roomSocket.current = undefined;
     };
-  }, [code, refresh, isRehearsal]);
+  }, [code, refresh, isRehearsal, authLoading]);
   useEffect(() => {
     if (roomSnapshot?.viewerId && !isRehearsal) {
       // An invite visitor connects before joining; subscribe again once seated.
@@ -725,6 +756,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
         Boolean(rehearsal?.onDraw && snapshot.phase === "draw")) &&
       !opening.state &&
       (!roomSnapshot?.opening || roomSnapshot.opening.complete) &&
+      !turnReady.blocking &&
       viewer &&
       snapshot.actorId === viewer.id &&
       ["draw", "play"].includes(snapshot.phase),
@@ -738,7 +770,6 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     !playingMeld &&
     !footMotion.active &&
     !tableMotion.blocking &&
-    !joining &&
     !scoresOpen &&
     !recordOpen &&
     !leaving &&
@@ -850,7 +881,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       }
       return;
     }
-    if (!roomSnapshot || busy) return;
+    if (!roomSnapshot || busy || (turnReady.blocking && type !== "leave"))
+      return;
     if (
       (drawMotion.active ||
         playingMeld ||
@@ -922,34 +954,12 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       setBusy(false);
     }
   }
-  async function join() {
-    setBusy(true);
-    setError("");
-    try {
-      accept(
-        await request<Snapshot>(`/rooms/${code}/join`, {
-          name: user?.name || joinName.trim() || "Guest",
-          seat: null,
-        }),
-      );
-      setJoining(false);
-      if (!user) writeStorage("handandfoot.name.v1", joinName);
-    } catch (error) {
-      if (error instanceof GameApiError && error.code === "TABLE_IN_PROGRESS")
-        navigate("/play", { replace: true });
-      setError((error as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   const automaticScoreCommand =
     snapshot?.scoring &&
     snapshot.scoring.remaining > 0 &&
     snapshot.scoring.options.length > 0
       ? "score_auto"
-      : !scoring.enabled || scoring.done
-        ? "score_confirm"
-        : null;
+      : "score_confirm";
   const canSettleScore = Boolean(
     snapshot?.phase === "scoring" &&
       snapshot.scoring &&
@@ -1050,43 +1060,19 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   if (!snapshot)
     return (
       <div className="page narrow-page">
-        <PageTitle>{joining ? "JOIN GAME" : "GAME"}</PageTitle>
-        {joining ? (
-          <>
-            <p className="page-intro page-body">{code}</p>
-            <form
-              className="setup-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void join();
-              }}
-            >
-              {!user && (
-                <label className="placeholder-field">
-                  <span className="sr-only">Your name</span>
-                  <input
-                    value={joinName}
-                    maxLength={24}
-                    onChange={(e) => setJoinName(e.target.value)}
-                    placeholder="Your Name"
-                    autoComplete="nickname"
-                  />
-                </label>
-              )}
-              <LoginWarning />
-              <button className="button" disabled={busy}>
-                Join Game
-              </button>
-            </form>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
+        <PageTitle>GAME</PageTitle>
+        {error ? (
+          <div className="page-body button-stack">
+            <p className="error" role="alert">
+              {error}
+            </p>
+            <button className="button" onClick={() => void refresh()}>
+              Try again
+            </button>
             <Link className="text-link" to="/play">
               Back to Play
             </Link>
-          </>
+          </div>
         ) : (
           <p className="page-intro page-body" role="status">
             Connecting to your game…
@@ -1177,11 +1163,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     !footMotion.active &&
     !tableMotion.blocking &&
     !needsSecondDraw &&
-    Boolean(
-      snapshot.discard &&
-        !snapshot.discard.wild &&
-        snapshot.discard.rank !== "3",
-    );
+    Boolean(snapshot.discard && snapshot.discard.rank !== "3");
   function cancelPickup() {
     setPickup(false);
     setDrafts([]);
@@ -1195,7 +1177,11 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       ? tableMotion.pickupSource
       : undefined;
   const footerFoot =
-    !review && footerPlayer && (!footerPlayer.inFoot || footerFootSource) ? (
+    !review &&
+    footerPlayer &&
+    (!footerPlayer.inFoot ||
+      footerFootSource ||
+      (scoring.enabled && footerPlayer.footCount > 0)) ? (
       <FootPreview
         topCard={
           footerFootSource?.topCard ??
@@ -1209,6 +1195,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const canGoOut = Boolean(
     viewer?.inFoot &&
       snapshot.hand.length === 1 &&
+      !snapshot.hand[0].redThree &&
       hasGoingOutBooks(ownSide.melds),
   );
   const discardLabel = canGoOut ? "Discard & go out" : "Discard";
@@ -1280,6 +1267,23 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     .filter((draft) => draft.redThree)
     .reduce((count, draft) => count + draft.cardIds.length, 0);
   const renderBoard = (motion?: Partial<OpeningPresentation>) => {
+    const playerNavigation = (
+      <PlayerBoardNav
+        sides={snapshot.sides}
+        players={snapshot.players}
+        viewed={viewed}
+        viewerId={snapshot.viewerId}
+        activePlayerId={
+          ["draw", "play"].includes(snapshot.phase) ? snapshot.actorId : null
+        }
+        dealerId={snapshot.dealerId}
+        previousDealerId={motion?.previousDealerId}
+        profileIcon={user?.profile_icon}
+        onView={viewBoard}
+        disabled={openingInProgress}
+        showLeader={!review || totalsLanded}
+      />
+    );
     const startingPiles = (
       <StartingPiles
         piles={snapshot.footPreview ?? []}
@@ -1302,6 +1306,12 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
         key={side?.id}
         players={boardPlayers}
         melds={side?.melds ?? []}
+        restingMelds={
+          incomingSnapshot?.sides.find((item) => item.id === side?.id)?.melds
+        }
+        restingRedCount={incomingSnapshot?.players
+          .filter((player) => player.team === side?.id)
+          .reduce((total, player) => total + player.redThrees.length, 0)}
         isYou={ownBoard}
         canTarget={canTargetMeld}
         onTarget={stage}
@@ -1518,6 +1528,9 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
               {rehearsal?.previewControls}
             </GameMenu>
           )}
+          {!mobile && (
+            <div className="desktop-player-navigation">{playerNavigation}</div>
+          )}
         </header>
         <div
           className={`turn-message ${nudge.shaking ? "inactivity-shake" : ""}`}
@@ -1653,23 +1666,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
           >
             <div className="tableau-heading">
               <h2 className="sr-only">{side?.name}</h2>
-              <PlayerBoardNav
-                sides={snapshot.sides}
-                players={snapshot.players}
-                viewed={viewed}
-                viewerId={snapshot.viewerId}
-                activePlayerId={
-                  ["draw", "play"].includes(snapshot.phase)
-                    ? snapshot.actorId
-                    : null
-                }
-                dealerId={snapshot.dealerId}
-                previousDealerId={motion?.previousDealerId}
-                profileIcon={user?.profile_icon}
-                onView={viewBoard}
-                disabled={openingInProgress}
-                showLeader={!review || totalsLanded}
-              />
+              {mobile && playerNavigation}
             </div>
             <div ref={boardContentRef} className="tableau-content">
               {openingTableau ? (
@@ -2279,12 +2276,6 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             )}
           </HandDock>
         )}
-        {snapshot.phase === "scoring" &&
-          snapshot.scoring &&
-          !recordOpen &&
-          !scoring.enabled && (
-            <ScoringReview snapshot={snapshot} error={error} />
-          )}
         {!recordOpen &&
           ((review && !resultsHidden) ||
             (scoresOpen && snapshot.phase !== "scoring")) && (
@@ -2454,9 +2445,9 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
             enabled={viewed === viewer?.team}
           />
         )}
-        {opening.error && (
+        {(opening.error || turnReady.error) && (
           <p role="status" className="connection-note">
-            {opening.error}
+            {opening.error || turnReady.error}
           </p>
         )}
         {leaving && (
@@ -2555,9 +2546,25 @@ function MobilePileSection({
   );
 }
 
+function DesktopPileRow({
+  mobile,
+  children,
+}: {
+  mobile: boolean;
+  children: ReactNode;
+}) {
+  return mobile ? (
+    <>{children}</>
+  ) : (
+    <div className="pile-row-content">{children}</div>
+  );
+}
+
 function BoardPiles({
   players,
   melds,
+  restingMelds = melds,
+  restingRedCount,
   isYou,
   canTarget,
   onTarget,
@@ -2575,6 +2582,8 @@ function BoardPiles({
 }: {
   players: Player[];
   melds: Meld[];
+  restingMelds?: Meld[];
+  restingRedCount?: number;
   isYou: boolean;
   canTarget: (meld: Meld) => boolean;
   onTarget: (id: string) => void;
@@ -2625,9 +2634,10 @@ function BoardPiles({
     Math.max(1, Math.ceil(melds.filter((meld) => meld.complete).length / 4)),
     setBookPage,
   );
-  const openSweepRef = useRef<HTMLDivElement>(null);
-  const bookSweepRef = useRef<HTMLDivElement>(null);
   const pileScope = players.map((player) => player.id).join(":");
+  const pileRevision = `${pileScope}:${melds.map((meld) => `${meld.id}:${meld.complete}`).join(":")}:${players.reduce((total, player) => total + player.redThrees.length, 0)}`;
+  const openSweepRef = useHorizontalWheel(!mobile, pileRevision);
+  const bookSweepRef = useHorizontalWheel(!mobile, pileRevision);
   usePageSweep(openSweepRef, mobile && !motionTarget, openPage, pileScope);
   usePageSweep(bookSweepRef, mobile && !motionTarget, bookPage, pileScope);
   const closed = melds.filter((meld) => meld.complete);
@@ -2639,9 +2649,22 @@ function BoardPiles({
   const closedRedThrees =
     redThrees.length >= 3 && !redThreeBonusLost && !redThreeClosing;
   const redOffset = Math.min(3, 12 / Math.max(1, redThrees.length - 1));
+  const redLayerStep = mobile
+    ? 25
+    : Math.min(25, 100 / Math.max(1, redThrees.length - 1));
   function piles(items: Meld[], label: string, includeRedThrees = false) {
     const count = items.length + Number(includeRedThrees);
     const isClosed = label === "Completed books";
+    const restingReds = restingRedCount ?? redThrees.length;
+    const restingClosedReds = restingReds >= 3 && !redThreeBonusLost;
+    const restingCount =
+      restingMelds.filter((meld) => meld.complete === isClosed).length +
+      Number(
+        isClosed
+          ? restingClosedReds
+          : (restingReds > 0 || canTargetRedThrees || stagedRedCount > 0) &&
+              !restingClosedReds,
+      );
     const pageSize = isClosed ? 4 : 3;
     const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
     const focusIndex = motionTarget
@@ -2699,121 +2722,129 @@ function BoardPiles({
             className={`pile-group ${count > 4 ? "crowded-piles" : ""} ${isClosed ? "closed-books" : "open-piles"} ${isClosed && count > 9 ? "dense-books" : ""}`}
             role="group"
             aria-label={label}
-            style={{ "--pile-count": count } as React.CSSProperties}
+            tabIndex={mobile ? undefined : 0}
+            style={
+              {
+                "--pile-count": count,
+                "--resting-pile-count": restingCount,
+              } as React.CSSProperties
+            }
           >
-            {visible.map((meld) => (
-              <MeldPile
-                key={meld.id}
-                meld={meld}
-                compact={mobile}
-                canTarget={canTarget(meld)}
-                onTarget={() => onTarget(meld.id)}
-                staged={drafts
-                  .filter((draft) => draft.meldId === meld.id)
-                  .reduce((n, draft) => n + draft.cardIds.length, 0)}
-                flyingIds={flyingIds}
-                cardPoints={cardPoints}
-              />
-            ))}
-            {includeRedThrees && (
-              <div
-                className={`red-three-pile ${canTargetRedThrees ? "legal-target" : ""}`}
-                role="group"
-                aria-label="Red threes"
-                data-red-three-player-id={
-                  players.length === 1 ? players[0].id : undefined
-                }
-                data-red-three-team-id={players[0]?.team}
-              >
-                <span className="meld-kind">
-                  {redThreeBonusLost ? "Broken reds" : "Red threes"}
-                </span>
-                {isClosed ? (
-                  <button
-                    className="red-three-stack"
-                    disabled={!canTargetRedThrees}
-                    aria-label={
-                      canTargetRedThrees
-                        ? "Add selected cards to red threes"
-                        : `Red threes, ${redThrees.length} cards`
-                    }
-                    onClick={onTargetRedThrees}
-                    style={{
-                      width: 62 + redOffset * (redThrees.length - 1),
-                    }}
-                  >
-                    {redThrees.map((card, index) => (
-                      <span
-                        style={{ left: index * redOffset }}
-                        key={card.id}
-                        data-card-id={card.id}
-                        data-meld-hidden={flyingIds.has(card.id)}
-                      >
-                        <Card card={card} small />
-                      </span>
-                    ))}
-                  </button>
-                ) : (
-                  <button
-                    className="red-three-stack meld-card-stack indexed-stack"
-                    disabled={!canTargetRedThrees}
-                    aria-label={
-                      canTargetRedThrees
-                        ? "Add selected cards to red threes"
-                        : `Red threes, ${redThrees.length} cards`
-                    }
-                    onClick={onTargetRedThrees}
-                  >
-                    <div
-                      className="meld-card-layers"
-                      style={
-                        {
-                          "--stack-height": `${106 + Math.max(0, redThrees.length - 1) * 25}px`,
-                        } as React.CSSProperties
+            <DesktopPileRow mobile={mobile}>
+              {visible.map((meld) => (
+                <MeldPile
+                  key={meld.id}
+                  meld={meld}
+                  compact={mobile}
+                  canTarget={canTarget(meld)}
+                  onTarget={() => onTarget(meld.id)}
+                  staged={drafts
+                    .filter((draft) => draft.meldId === meld.id)
+                    .reduce((n, draft) => n + draft.cardIds.length, 0)}
+                  flyingIds={flyingIds}
+                  cardPoints={cardPoints}
+                />
+              ))}
+              {includeRedThrees && (
+                <div
+                  className={`red-three-pile ${canTargetRedThrees ? "legal-target" : ""}`}
+                  role="group"
+                  aria-label="Red threes"
+                  data-red-three-player-id={
+                    players.length === 1 ? players[0].id : undefined
+                  }
+                  data-red-three-team-id={players[0]?.team}
+                >
+                  <span className="meld-kind">
+                    {redThreeBonusLost ? "Broken reds" : "Red threes"}
+                  </span>
+                  {isClosed ? (
+                    <button
+                      className="red-three-stack"
+                      disabled={!canTargetRedThrees}
+                      aria-label={
+                        canTargetRedThrees
+                          ? "Add selected cards to red threes"
+                          : `Red threes, ${redThrees.length} cards`
                       }
+                      onClick={onTargetRedThrees}
+                      style={{
+                        width: 62 + redOffset * (redThrees.length - 1),
+                      }}
                     >
-                      {!hasRedThrees && (
-                        <span
-                          className="red-three-empty-target"
-                          aria-hidden="true"
-                        >
-                          3 <Icon name="heart" />
-                        </span>
-                      )}
                       {redThrees.map((card, index) => (
-                        <div
-                          className="meld-card-layer"
-                          style={{ top: index * 25 }}
+                        <span
+                          style={{ left: index * redOffset }}
                           key={card.id}
                           data-card-id={card.id}
                           data-meld-hidden={flyingIds.has(card.id)}
                         >
-                          <Card
-                            card={card}
-                            indexed={index < redThrees.length - 1}
-                            pointsLeft={cardPoints?.[card.id]}
-                          />
-                        </div>
+                          <Card card={card} small />
+                        </span>
                       ))}
-                    </div>
-                  </button>
-                )}
-                <span className="meld-count">
-                  {redThrees.length}
-                  {stagedRedCount > 0 && (
-                    <span className="meld-staged-count">
-                      {" "}
-                      +{stagedRedCount}
-                    </span>
+                    </button>
+                  ) : (
+                    <button
+                      className="red-three-stack meld-card-stack indexed-stack"
+                      disabled={!canTargetRedThrees}
+                      aria-label={
+                        canTargetRedThrees
+                          ? "Add selected cards to red threes"
+                          : `Red threes, ${redThrees.length} cards`
+                      }
+                      onClick={onTargetRedThrees}
+                    >
+                      <div
+                        className="meld-card-layers"
+                        style={
+                          {
+                            "--stack-height": `${106 + Math.max(0, redThrees.length - 1) * redLayerStep}px`,
+                          } as React.CSSProperties
+                        }
+                      >
+                        {!hasRedThrees && (
+                          <span
+                            className="red-three-empty-target"
+                            aria-hidden="true"
+                          >
+                            3 <Icon name="heart" />
+                          </span>
+                        )}
+                        {redThrees.map((card, index) => (
+                          <div
+                            className="meld-card-layer"
+                            style={{ top: index * redLayerStep }}
+                            key={card.id}
+                            data-card-id={card.id}
+                            data-meld-hidden={flyingIds.has(card.id)}
+                          >
+                            <Card
+                              card={card}
+                              indexed={index < redThrees.length - 1}
+                              pointsLeft={cardPoints?.[card.id]}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </button>
                   )}
-                  {redThreeBonusLost
-                    ? " · 5 pts each"
-                    : redThrees.length < 3
-                      ? " / 3"
-                      : " cards"}
-                </span>
-              </div>
-            )}
+                  <span className="meld-count">
+                    {redThrees.length}
+                    {stagedRedCount > 0 && (
+                      <span className="meld-staged-count">
+                        {" "}
+                        +{stagedRedCount}
+                      </span>
+                    )}
+                    {redThreeBonusLost
+                      ? " · 5 pts each"
+                      : redThrees.length < 3
+                        ? " / 3"
+                        : " cards"}
+                  </span>
+                </div>
+              )}
+            </DesktopPileRow>
           </div>
         </MobilePileSection>
       )

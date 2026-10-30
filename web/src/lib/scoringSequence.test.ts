@@ -50,7 +50,9 @@ describe("physical end-of-round score count", () => {
       melds: typical.melds.filter((meld) => meld.id === "fives"),
     });
     expect(beats.find((beat) => beat.kind === "pair")?.activePile).toBe("reds");
-    expect(beats.at(-1)!.base + beats.at(-1)!.cardValue).toBe(-285);
+    expect(beats.at(-1)!.base).toBe(-300);
+    expect(beats.at(-1)!.cardValue).toBe(20);
+    expect(beats.at(-1)!.base + beats.at(-1)!.cardValue).toBe(-280);
   });
 
   it("waits after gathering the foot, and follows only accepted pile choices", () => {
@@ -123,7 +125,7 @@ describe("physical end-of-round score count", () => {
     ["uncovered", 0, -155, -155],
     ["red-threes", 0, 10, 10],
     ["ace-vs-reds", 0, -5, -5],
-    ["short-reds", -600, 0, -600],
+    ["short-reds", -600, 10, -590],
   ])("reconciles %s to base %i plus net cards %i", (id, base, cards, total) => {
     const scenario = SCORING_SCENARIOS.find((item) => item.id === id)!;
     const final = scoringSequence(scenario).at(-1)!;
@@ -138,7 +140,7 @@ describe("physical end-of-round score count", () => {
       (sum, card) => sum + debtCardValue(card),
       0,
     );
-    expect(final.cardValue).toBe(raw - debt - final.penalizedReds.length * 5);
+    expect(final.cardValue).toBe(raw - debt);
     expect(final.hand).toHaveLength(0);
     expect(final.melds).toHaveLength(0);
     expect(final.reds).toHaveLength(0);
@@ -260,7 +262,7 @@ describe("physical end-of-round score count", () => {
       target: "debt",
     });
   });
-  it("counts reds that were short at round end only as -300 penalties", () => {
+  it("counts two played red threes as ten card points and a separate minus-six-hundred penalty", () => {
     const beats = scoringSequence(
       SCORING_SCENARIOS.find((item) => item.id === "short-reds")!,
     );
@@ -269,17 +271,18 @@ describe("physical end-of-round score count", () => {
     )!;
     expect(penalty.delta).toBe(-600);
     expect(penalty.penalizedReds).toHaveLength(2);
-    expect(penalty.reds).toHaveLength(0);
-    expect(penalty.transfers).toHaveLength(2);
-    expect(penalty.title).toContain("No 5-point raw card value");
+    expect(penalty.reds).toHaveLength(2);
+    expect(penalty.transfers).toHaveLength(0);
+    expect(penalty.title).toContain("Count 5 card points each next");
     expect(
       beats
         .filter((beat) => beat.kind === "count")
         .flatMap((beat) => beat.transfers)
         .some((move) => move.card.redThree),
-    ).toBe(false);
-    expect(beats.at(-1)!.cardValue).toBe(0);
+    ).toBe(true);
+    expect(beats.at(-1)!.cardValue).toBe(10);
     expect(beats.at(-1)!.base).toBe(-600);
+    expect(beats.at(-1)!.base + beats.at(-1)!.cardValue).toBe(-590);
   });
   it("keeps qualification after breaking three reds, loses the whole bonus, and counts the remaining reds at five", () => {
     const beats = scoringSequence(
@@ -353,9 +356,7 @@ describe("physical end-of-round score count", () => {
         const counted = beat.lines
           .filter((line) => line.type === "cards" && line.points > 0)
           .reduce((sum, line) => sum + line.points, 0);
-        expect(
-          left + beat.reconciled + counted + beat.penalizedReds.length * 5,
-        ).toBe(raw);
+        expect(left + beat.reconciled + counted).toBe(raw);
         expect(beat.remaining).toBeGreaterThanOrEqual(0);
       }
       expect(beats[0].melds).toEqual(scenario.melds);

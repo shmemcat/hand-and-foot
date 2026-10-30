@@ -239,7 +239,7 @@ it("changes scenarios and reduced motion without playing old flights", () => {
     view.container.querySelector(".score-running-count")?.textContent,
   ).toContain("-155");
 });
-it("shows a red pile that was short at round end as a pure penalty", () => {
+it("shows two played red threes as ten card points minus a six-hundred-point penalty", () => {
   const view = show();
   fireEvent.change(screen.getByLabelText("Scoring scenario"), {
     target: { value: "short-reds" },
@@ -253,7 +253,7 @@ it("shows a red pile that was short at round end as a pure penalty", () => {
   fireEvent.click(screen.getByRole("button", { name: "Skip to total" }));
   expect(
     view.container.querySelector(".score-running-count")?.textContent,
-  ).toContain("-600");
+  ).toContain("-590");
   expect(view.container.querySelector(".red-three-stack")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Round scorecard" }));
   const scorecard = screen.getByRole("dialog", {
@@ -261,7 +261,7 @@ it("shows a red pile that was short at round end as a pure penalty", () => {
   });
   expect(scorecard.textContent).toContain("2 red 3s");
   expect(scorecard.textContent).toContain("−600");
-  expect(scorecard.textContent).not.toContain("× 5");
+  expect(scorecard.textContent).toContain("× 5");
 });
 it("shows the ace-versus-three-reds example as minus five without a red-three penalty", () => {
   const view = show();

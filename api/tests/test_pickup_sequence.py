@@ -17,6 +17,78 @@ def pickup_game(*, opened=False, score=0, hand_matches=2):
     return game, {"type": "pickup", "groups": [{"cardIds": [*matches, top]}]}
 
 
+@pytest.mark.parametrize("wild", ["2", "Joker"])
+@pytest.mark.parametrize("opened", [False, True])
+def test_a_discarded_wild_can_start_a_meld_and_counts_toward_opening(wild, opened):
+    game = rig()
+    game["phase"] = "draw"
+    game["sides"][0]["opened"] = opened
+    top = take(game, wild)[0]
+    naturals = take(game, "A", 2)
+    spare = take(game, "4")
+    lower = take(game, "5")
+    game["players"][0]["hand"] = naturals + spare
+    game["discard"] = lower + [top]
+    result = engine.apply(game, 0, {"type": "pickup", "groups": [{"cardIds": [top, *naturals]}]})
+    meld = result["sides"][0]["melds"][0]
+    assert meld["rank"] == "A" and meld["dirty"]
+    assert result["sides"][0]["opened"]
+    assert result["players"][0]["hand"] == spare
+    assert result["discard"] == lower
+    assert result["pickupDrawPending"]
+    drawn = engine.apply(result, 0, {"type": "draw"})
+    assert len(drawn["stock"]) == len(result["stock"]) - 1
+    engine.assert_conservation(drawn)
+
+
+@pytest.mark.parametrize("wild", ["2", "Joker"])
+@pytest.mark.parametrize("naturals,wilds,error", [
+    (3, 0, None),
+    (6, 0, "seventh card"),
+    (7, 0, "clean book"),
+    (5, 2, None),
+    (4, 3, "outnumber wilds"),
+])
+def test_a_discarded_wild_can_extend_melds_only_within_the_normal_limits(wild, naturals, wilds, error):
+    from handandfoot_server.rules import meld_details
+
+    game = rig()
+    game["phase"] = "draw"
+    game["sides"][0]["opened"] = True
+    ids = take(game, "K", naturals) + take(game, "Joker", wilds)
+    target = {"id": "target", "creator": "0", "kind": "set", "cardIds": ids,
+              **meld_details([game["cards"][i] for i in ids])}
+    game["sides"][0]["melds"] = [target]
+    top = take(game, wild)[0]
+    game["discard"] = [top]
+    game["players"][0]["hand"] = take(game, "4")
+    before = copy.deepcopy(game)
+    command = {"type": "pickup", "groups": [{"meldId": "target", "cardIds": [top]}]}
+    if error:
+        with pytest.raises(ValueError, match=error):
+            engine.apply(game, 0, command)
+        assert game == before
+    else:
+        result = engine.apply(game, 0, command)
+        assert top in result["sides"][0]["melds"][0]["cardIds"]
+        assert result["pickupDrawPending"]
+        engine.assert_conservation(result)
+
+
+def test_a_discarded_two_can_extend_a_clean_book_of_twos():
+    game = rig()
+    game["phase"] = "draw"
+    game["sides"][0]["opened"] = True
+    target = book(game, "2")
+    top = take(game, "2")[0]
+    game["discard"] = [top]
+    game["players"][0]["hand"] = take(game, "4")
+    result = engine.apply(game, 0, {"type": "pickup", "groups": [{"meldId": target["id"], "cardIds": [top]}]})
+    meld = result["sides"][0]["melds"][0]
+    assert not meld["dirty"] and len(meld["cardIds"]) == 8
+    engine.assert_conservation(result)
+
+
 @pytest.mark.parametrize("rank", RANKS)
 @pytest.mark.parametrize("wild", ["Joker", "2"])
 def test_pickup_can_start_a_valid_pile_with_one_matching_natural_and_a_wild(rank, wild):

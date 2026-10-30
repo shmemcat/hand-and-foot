@@ -202,7 +202,7 @@ def _meld_options(view, hand, difficulty, pickup, *, finish=False):
 
     def set_selections(rank, target=None):
         naturals = sorted((c for c in hand if c["rank"] == rank), key=lambda c: c["id"] != pickup)
-        wilds = sorted((c for c in hand if c["wild"] and c["rank"] != rank), key=lambda c: -c["value"])
+        wilds = sorted((c for c in hand if c["wild"] and c["rank"] != rank), key=lambda c: (c["id"] != pickup, -c["value"]))
         existing = target["cards"] if target else []
         old_naturals = sum(c["rank"] == rank for c in existing)
         old_wilds = len(existing) - old_naturals
@@ -310,7 +310,7 @@ def decide(view, difficulty=DEFAULT_DIFFICULTY):
     if view["phase"] == "draw":
         top = view.get("discard")
         if (difficulty != "easy" and not view.get("pickupDrawPending")
-                and top and not top["wild"] and top["rank"] != "3"
+                and top and top["rank"] != "3"
                 and view["stockCount"] >= view.get("drawCount", 2)):
             groups = _search_plan(view, difficulty, pickup=top["id"])
             if groups and (difficulty != "hard" or sum(len(g["cardIds"]) for g in groups) >= 3):
@@ -319,7 +319,7 @@ def decide(view, difficulty=DEFAULT_DIFFICULTY):
     player, side = _context(view)
     red = [card for card in view["hand"] if card["redThree"]]
     exposed = sum(len(p["redThrees"]) for p in view["players"] if p["team"] == player["team"])
-    if red and len(view["hand"]) > 1:
+    if red:
         if difficulty != "easy" and not side["opened"] and exposed + len(red) >= 3:
             groups = plan_melds(view, difficulty)
             if groups:

@@ -24,7 +24,8 @@ export type BookExample =
   | "straight"
   | "foot"
   | "finish-wild"
-  | "overfull";
+  | "overfull"
+  | "burst";
 type BookMode = "practice" | "online" | "partnership" | "bot" | "reduced";
 const face = (id: string, rank: string, suit = "hearts"): Card => ({
   id,
@@ -114,6 +115,10 @@ export function bookExample(
     book.bonus = 300;
   }
   const extra = face("closing-extra-card", "K", "diamonds");
+  const burstJacks = ["clubs", "hearts", "spades"].map((suit, i) =>
+    face(`burst-jack-${i}`, "J", suit),
+  );
+  const burstWild = face("burst-wild", "2", "diamonds");
   const second = set("second-closing-book", "Q", 6, played);
   second.dirty = true;
   second.bonus = played ? 300 : 0;
@@ -127,9 +132,11 @@ export function bookExample(
       ? [...book.cards, last]
       : example === "multiple"
         ? [last, secondLast, reds[2]]
-        : example === "overfull"
-          ? [last, extra]
-          : [last];
+        : example === "burst"
+          ? [last, secondLast, ...burstJacks, burstWild]
+          : example === "overfull"
+            ? [last, extra]
+            : [last];
   if (example === "dirty") {
     book.dirty = true;
     book.bonus = played ? 300 : 0;
@@ -144,7 +151,9 @@ export function bookExample(
   if (played) book.cards.push(last);
   if (example === "overfull" && played) book.cards.push(extra);
   let hand = [
-    ...base.hand.filter((card) => !card.redThree).slice(0, 4),
+    ...base.hand
+      .filter((card) => !card.redThree)
+      .slice(0, example === "burst" ? 5 : 4),
     ...(played ? [] : playedCards),
   ];
   if (example === "foot") hand = played ? FOOT_CARDS : [last];
@@ -155,7 +164,22 @@ export function bookExample(
       : [set("existing-book", "A", 7, true)]),
     ...(example === "reds" || (example === "whole" && !played) ? [] : [book]),
     ...(example === "last" ? [] : [set("remaining-open", "10", 3)]),
-    ...(example === "multiple" ? [second] : []),
+    ...(["multiple", "burst"].includes(example) ? [second] : []),
+    ...(example === "burst"
+      ? [
+          {
+            ...set("burst-eights", "8", 3),
+            cards: [
+              ...set("burst-eights", "8", 3).cards,
+              ...(played ? [burstWild] : []),
+            ],
+            dirty: played,
+          },
+          ...(played
+            ? [{ ...set("burst-jacks", "J", 3), cards: burstJacks }]
+            : []),
+        ]
+      : []),
     ...(dense
       ? Array.from({ length: example === "wrapped" ? 13 : 7 }, (_, i) =>
           set(
@@ -312,13 +336,14 @@ export function BookPreview() {
             <option value="crowded">
               Crowded open piles and completed books
             </option>
-            <option value="wrapped">Overflow rows of piles and books</option>
+            <option value="wrapped">Long rows of piles and books</option>
             <option value="straight">Complete a straight</option>
             <option value="foot">Complete a book and pick up foot</option>
             <option value="finish-wild">
               Finish a clean six-card pile with a wild
             </option>
             <option value="overfull">Add two cards to a six-card pile</option>
+            <option value="burst">Play six foot cards across four piles</option>
           </select>
         </label>
         <label>

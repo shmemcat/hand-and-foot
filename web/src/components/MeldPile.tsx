@@ -55,6 +55,14 @@ export function MeldPile({
   const cards = natural
     ? [...meld.cards.filter((card) => card.id !== natural.id), natural]
     : meld.cards;
+  // A completed book waits here for its incoming cards before closing. Keep
+  // that temporary upright stack within the six-card pile's existing footprint.
+  const layerStep =
+    !compact && !meld.complete && cards.length > 6
+      ? Math.min(25, 100 / (cards.length - 1))
+      : compact
+        ? 17
+        : 25;
   const cover = bookCover(meld);
   return (
     <div
@@ -90,14 +98,14 @@ export function MeldPile({
             className="meld-card-layers"
             style={
               {
-                "--stack-height": `${(compact ? 86 : 106) + (cards.length - 1) * (compact ? 17 : 25)}px`,
+                "--stack-height": `${(compact ? 86 : 106) + (cards.length - 1) * layerStep}px`,
               } as CSSProperties
             }
           >
             {cards.map((card, index) => (
               <div
                 className="meld-card-layer"
-                style={{ top: index * (compact ? 17 : 25) }}
+                style={{ top: index * layerStep }}
                 key={card.id}
                 data-card-id={card.id}
                 data-meld-hidden={flyingIds?.has(card.id)}

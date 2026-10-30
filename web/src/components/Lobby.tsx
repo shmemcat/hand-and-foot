@@ -143,6 +143,7 @@ export function Lobby({
                 >
                   <span className="lobby-profile">
                     <ProfileIcon
+                      bot={player?.bot}
                       name={mine ? user?.profile_icon : player?.profileIcon}
                     />
                   </span>
@@ -203,7 +204,7 @@ export function Lobby({
               <ul>
                 {waiting.map((player) => (
                   <li key={player.id}>
-                    <ProfileIcon name={player.profileIcon} />
+                    <ProfileIcon bot={player.bot} name={player.profileIcon} />
                     <span>
                       {player.name}
                       {player.id === snapshot.viewerId ? " (you)" : ""}

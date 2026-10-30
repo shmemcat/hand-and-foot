@@ -323,13 +323,24 @@ export function useMeldMotion(
     const changed = () => {
       if (current.current) cancel();
     };
+    const scroll = (event: Event) => {
+      // A shrinking hand can clamp its horizontal scroll during confirmation.
+      // The flight already owns its source positions; its table targets stay put.
+      if (
+        event.target instanceof Element &&
+        board.current?.contains(event.target) &&
+        event.target.matches(".hand-scroll")
+      )
+        return;
+      changed();
+    };
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("resize", changed);
-    window.addEventListener("scroll", changed, true);
+    window.addEventListener("scroll", scroll, true);
     return () => {
       document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("resize", changed);
-      window.removeEventListener("scroll", changed, true);
+      window.removeEventListener("scroll", scroll, true);
       current.current = null;
     };
   }, [cancel]);

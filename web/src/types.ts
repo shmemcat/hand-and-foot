@@ -115,6 +115,7 @@ export type Snapshot = {
   idleWarning?: boolean;
   developmentFixture?: boolean;
   opening?: { id: string; ready: string[]; complete: boolean } | null;
+  turnPresentation?: { id: string; ready: string[]; complete: boolean } | null;
   code: string;
   revision: number;
   token: string;
@@ -144,6 +145,7 @@ export type Snapshot = {
   hand: Card[];
   footPreview: Card[][] | null;
   footTop: Card | null;
+  scoringHand?: Card[] | null;
   scoringFoot?: Card[] | null;
   discard: Card | null;
   discardFaceDown?: boolean;
