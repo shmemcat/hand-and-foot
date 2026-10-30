@@ -3,6 +3,7 @@ import { useHorizontalWheel } from "../hooks/useHorizontalWheel";
 import { useSwipePages } from "../hooks/useSwipePages";
 import { Card } from "./Card";
 import { Icon } from "./Icons";
+import { HandInfo } from "./HandInfo";
 import type { ConcealedSlot } from "../hooks/useConcealedHand";
 import type { Card as Face } from "../types";
 
@@ -16,6 +17,7 @@ export function PublicHand({
   slots,
   drawKey,
   cards,
+  handTabs,
 }: {
   playerId: string;
   title: string;
@@ -25,6 +27,7 @@ export function PublicHand({
   slots?: ConcealedSlot[];
   drawKey?: string;
   cards?: Face[];
+  handTabs?: ReactNode;
 }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(count / 10));
@@ -48,12 +51,7 @@ export function PublicHand({
   return (
     <>
       <div className="hand-heading public-hand-heading">
-        <div className="hand-info">
-          <span className="eyebrow">{title.toLocaleUpperCase()}</span>
-          <span>
-            {count} {count === 1 ? "card" : "cards"}
-          </span>
-        </div>
+        {handTabs ?? <HandInfo title={title} count={count} />}
         {foot}
       </div>
       {visibleSlots.length ? (

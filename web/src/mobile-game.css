@@ -378,6 +378,37 @@
     height: 10px;
     transform: rotate(180deg);
   }
+  .has-hand-tabs .hand-drawer-label {
+    min-height: 32px;
+  }
+  .has-hand-tabs .hand-drawer-title {
+    visibility: hidden;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .hand-drawer-tabs {
+    position: absolute;
+    inset-inline: 0 80px;
+    bottom: 7px;
+    height: 32px;
+  }
+  .hand-drawer-tabs .hand-owner-tabs {
+    width: 100%;
+    gap: 4px;
+  }
+  .hand-drawer-tabs .hand-owner-tab {
+    flex: 0 1 auto;
+    padding-inline: 6px;
+  }
+  .hand-drawer-tabs .hand-info {
+    gap: 6px;
+    font-size: 11px;
+  }
+  .hand-drawer-tabs .eyebrow {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
   .mobile-hand-drawer[data-expanded="true"] .hand-drawer-view svg {
     transform: none;
   }
@@ -765,7 +796,8 @@
   }
   .mobile-game.live-scoring
     .hand-heading:has(> .score-skip-button)
-    .score-running-count > small {
+    .score-running-count
+    > small {
     font-size: 9px;
   }
   .mobile-game.live-scoring .score-running-count > span:first-child {

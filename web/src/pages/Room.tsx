@@ -28,6 +28,8 @@ import { goingOutRequirement, hasGoingOutBooks } from "../lib/goingOut";
 import { CATEGORY_LABELS, resultCategory } from "../lib/resultCategories";
 import { Card } from "../components/Card";
 import { HandDock } from "../components/HandDock";
+import { HandInfo } from "../components/HandInfo";
+import { HandTabs } from "../components/HandTabs";
 import { PublicHand } from "../components/PublicHand";
 import { useMobileLayout } from "../hooks/useMobileLayout";
 import { usePageSweep } from "../hooks/usePageSweep";
@@ -218,6 +220,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const [viewedHandPlayerId, setViewedHandPlayerId] = useState<string | null>(
     null,
   );
+  const focusHandTab = useRef(false);
   const [scoresOpen, setScoresOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(rehearsal?.recordOpen ?? false);
   const [resultsHidden, setResultsHidden] = useState(false);
@@ -319,6 +322,13 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       ? snapshot?.players.find((player) => player.id === snapshot.viewerId)
       : handOwner(snapshot, viewed, viewedHandPlayerId, follow);
   const viewingOwnHand = footerPlayer?.id === snapshot?.viewerId;
+  useLayoutEffect(() => {
+    if (!focusHandTab.current) return;
+    focusHandTab.current = false;
+    boardRef.current
+      ?.querySelector<HTMLButtonElement>('.hand-owner-tab[aria-pressed="true"]')
+      ?.focus({ preventScroll: true });
+  }, [footerPlayer?.id]);
   const turnReady = useTurnReady(
     isRehearsal ? null : roomSnapshot,
     accept,
@@ -1192,6 +1202,49 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
         owner={viewingOwnHand ? "Your" : `${footerPlayer.name}’s`}
       />
     ) : null;
+  const ownHandTitle =
+    (review ? "YOUR CARDS" : undefined) ??
+    rehearsal?.handCaption ??
+    (scoring.beat?.gathered && snapshot.scoringFoot?.length
+      ? "HAND + FOOT"
+      : undefined) ??
+    `YOUR ${viewer?.inFoot ? "FOOT" : "HAND"}`;
+  const ownHandCount = snapshot.hand.length - drawMotion.hiddenIds.size;
+  const footerCount = viewingOwnHand
+    ? ownHandCount
+    : (revealedCards?.length ??
+      (review ? (footerPlayer?.handCount ?? 0) : concealedHand.count));
+  const handTabs =
+    snapshot.scoringMode === "partnership" && footerMembers.length > 1 ? (
+      <HandTabs
+        hands={footerMembers.map((player) => ({
+          id: player.id,
+          title:
+            player.id === viewer?.id
+              ? ownHandTitle
+              : `${player.name}’s ${review ? "Cards" : player.inFoot ? "foot" : "hand"}`,
+          count:
+            player.id === viewer?.id
+              ? ownHandCount
+              : player.id === footerPlayer?.id
+                ? footerCount
+                : review
+                  ? (player.roundCards?.length ?? player.handCount)
+                  : player.handCount,
+        }))}
+        selected={footerPlayer?.id}
+        disabled={openingInProgress || scoringInProgress}
+        onSelect={(id) => {
+          if (id === footerPlayer?.id) return;
+          focusHandTab.current = true;
+          boardSweepDirection.current = null;
+          handNavigation.current += 1;
+          setViewedHandPlayerId(id);
+          if (myTurn) browsingOwnTurn.current = true;
+          else setFollow(false);
+        }}
+      />
+    ) : undefined;
   const canGoOut = Boolean(
     viewer?.inFoot &&
       snapshot.hand.length === 1 &&
@@ -1759,7 +1812,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                 <span>Follow turn</span>
               </label>
             )}
-            {myTurn && !viewingOwnHand && (
+            {myTurn && side?.id !== viewer?.team && (
               <button
                 className="text-button return-board"
                 onClick={() => viewBoard(viewer!.team)}
@@ -1795,32 +1848,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             publicSlots={
               viewingOwnHand || review ? undefined : concealedHand.slots
             }
-            playerPicker={
-              footerMembers.length > 1 && (
-                <label className="hand-owner-picker">
-                  <span>Cards</span>
-                  <select
-                    aria-label="Player hand to view"
-                    value={footerPlayer?.id}
-                    onChange={(event) => {
-                      boardSweepDirection.current = null;
-                      handNavigation.current += 1;
-                      setViewedHandPlayerId(event.target.value);
-                      if (myTurn) browsingOwnTurn.current = true;
-                      else setFollow(false);
-                    }}
-                  >
-                    {footerMembers.map((player) => (
-                      <option key={player.id} value={player.id}>
-                        {player.id === viewer?.id
-                          ? "Your cards"
-                          : `${player.name}’s cards`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )
-            }
+            handTabs={handTabs}
             navigation={{
               enabled:
                 boardSweepDirection.current !== null &&
@@ -1847,14 +1875,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                     () => undefined,
                   ))
             }
-            count={
-              viewingOwnHand
-                ? snapshot.hand.length - drawMotion.hiddenIds.size
-                : (revealedCards?.length ??
-                  (review
-                    ? (footerPlayer?.handCount ?? 0)
-                    : concealedHand.count))
-            }
+            count={footerCount}
           >
             {viewingOwnHand ? (
               <>
@@ -1868,22 +1889,9 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                       Skip animation
                     </button>
                   )}
-                  <div className="hand-info">
-                    <span className="eyebrow">
-                      {(review ? "YOUR CARDS" : undefined) ??
-                        rehearsal?.handCaption ??
-                        (scoring.beat?.gathered && snapshot.scoringFoot?.length
-                          ? "HAND + FOOT"
-                          : undefined) ??
-                        `YOUR ${viewer?.inFoot ? "FOOT" : "HAND"}`}
-                    </span>
-                    <span>
-                      {snapshot.hand.length - drawMotion.hiddenIds.size}{" "}
-                      {snapshot.hand.length - drawMotion.hiddenIds.size === 1
-                        ? "card"
-                        : "cards"}
-                    </span>
-                  </div>
+                  {(!mobileGame && handTabs) || (
+                    <HandInfo title={ownHandTitle} count={ownHandCount} />
+                  )}
                   <div
                     className="draft-summary-slot"
                     role="status"
@@ -2272,6 +2280,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                 cards={revealedCards}
                 mobile={mobileGame}
                 foot={footerFoot}
+                handTabs={mobileGame ? undefined : handTabs}
               />
             )}
           </HandDock>

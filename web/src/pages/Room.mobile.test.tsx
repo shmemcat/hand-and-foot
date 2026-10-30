@@ -545,9 +545,8 @@ it.each(
         .closest(".mobile-hand-drawer"),
     ).toBeTruthy();
     expect(
-      screen
-        .getByRole("button", { name: /your hand.*cards/i })
-        .hasAttribute("disabled"),
+      document.querySelector<HTMLButtonElement>(".hand-drawer-toggle")
+        ?.disabled,
     ).toBe(true);
     expect(command).toHaveBeenCalledExactlyOnceWith(
       source,

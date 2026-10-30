@@ -17,7 +17,7 @@ export function HandDock({
   locked = false,
   ariaLabel = "Your private hand",
   foot,
-  playerPicker,
+  handTabs,
   navigation,
   publicPlayerId,
   publicSlots,
@@ -32,7 +32,7 @@ export function HandDock({
   locked?: boolean;
   ariaLabel?: string;
   foot?: ReactNode;
-  playerPicker?: ReactNode;
+  handTabs?: ReactNode;
   navigation?: {
     enabled: boolean;
     page: number;
@@ -149,7 +149,7 @@ export function HandDock({
   return (
     <section
       ref={dock}
-      className={`hand-dock${mobile ? " mobile-hand-drawer" : ""}`}
+      className={`hand-dock${mobile ? " mobile-hand-drawer" : ""}${mobile && handTabs ? " has-hand-tabs" : ""}`}
       aria-label={ariaLabel}
       data-expanded={mobile ? expanded : undefined}
       data-public-player={publicPlayerId}
@@ -164,53 +164,60 @@ export function HandDock({
       }}
     >
       {mobile && (
-        <button
-          type="button"
-          className="hand-drawer-toggle"
-          disabled={locked}
-          aria-expanded={expanded}
-          aria-controls={id}
-          onClick={() => {
-            if (dragged.current) {
+        <div className="hand-drawer-header">
+          <button
+            type="button"
+            className="hand-drawer-toggle"
+            disabled={locked}
+            aria-label={
+              handTabs
+                ? `${title}, ${count} ${count === 1 ? "card" : "cards"}${locked ? "" : expanded ? ", Table" : ", Open hand"}`
+                : undefined
+            }
+            aria-expanded={expanded}
+            aria-controls={id}
+            onClick={() => {
+              if (dragged.current) {
+                dragged.current = false;
+                return;
+              }
+              onExpand(!expanded);
+            }}
+            onPointerDown={(event) => {
+              drag.current = event.clientY;
               dragged.current = false;
-              return;
-            }
-            onExpand(!expanded);
-          }}
-          onPointerDown={(event) => {
-            drag.current = event.clientY;
-            dragged.current = false;
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-          }}
-          onPointerUp={(event) => {
-            if (drag.current === null) return;
-            const delta = event.clientY - drag.current;
-            drag.current = null;
-            if (Math.abs(delta) > 35) {
-              dragged.current = true;
-              onExpand(delta < 0);
-            }
-          }}
-          onPointerCancel={() => {
-            drag.current = null;
-          }}
-        >
-          <span className="hand-drawer-grip" aria-hidden="true" />
-          <span className="hand-drawer-label">
-            <span className="hand-drawer-title">
-              <span className="eyebrow">{title}</span>
-              <span>
-                {count} {count === 1 ? "card" : "cards"}
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+            }}
+            onPointerUp={(event) => {
+              if (drag.current === null) return;
+              const delta = event.clientY - drag.current;
+              drag.current = null;
+              if (Math.abs(delta) > 35) {
+                dragged.current = true;
+                onExpand(delta < 0);
+              }
+            }}
+            onPointerCancel={() => {
+              drag.current = null;
+            }}
+          >
+            <span className="hand-drawer-grip" aria-hidden="true" />
+            <span className="hand-drawer-label">
+              <span className="hand-drawer-title">
+                <span className="eyebrow">{title}</span>
+                <span>
+                  {count} {count === 1 ? "card" : "cards"}
+                </span>
+              </span>
+              <span className="hand-drawer-view" hidden={locked}>
+                {expanded ? "Table" : "Open hand"}
+                <Icon name="chevron-down" />
               </span>
             </span>
-            <span className="hand-drawer-view" hidden={locked}>
-              {expanded ? "Table" : "Open hand"}
-              <Icon name="chevron-down" />
-            </span>
-          </span>
-        </button>
+          </button>
+          {handTabs && <div className="hand-drawer-tabs">{handTabs}</div>}
+        </div>
       )}
-      {playerPicker}
       {mobile && !expanded && (
         <div className="hand-drawer-peek">
           {(publicSlots

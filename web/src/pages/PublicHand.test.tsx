@@ -112,35 +112,74 @@ it.each([false, true])(
   },
 );
 
-it("can inspect each partner’s hand and distinguishes an active foot", async () => {
-  const snapshot = mobilePreviewSnapshot(8, true);
-  const partner = snapshot.players.find(
-    (p) => p.team === snapshot.players[0].team && p.id !== snapshot.viewerId,
-  )!;
-  partner.inFoot = true;
-  partner.footCount = 0;
-  partner.footTop = null;
-  partner.handCount = 7;
-  vi.mocked(getRoom).mockResolvedValue(snapshot);
-  await act(async () => {
-    render(
-      <MemoryRouter>
-        <Room rehearsal={{ snapshot, onChoose: () => {}, followTurn: false }} />
-      </MemoryRouter>,
+it.each([false, true])(
+  "switches partner tabs and distinguishes an active foot (mobile: %s)",
+  async (mobile) => {
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) =>
+        ({
+          matches:
+            query === (mobile ? "(max-width: 768px)" : "(min-width: 769px)"),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
     );
-  });
-  fireEvent.change(
-    screen.getByRole("combobox", { name: "Player hand to view" }),
-    { target: { value: partner.id } },
-  );
-  const region = screen.getByRole("region", {
-    name: `${partner.name}’s foot`,
-  });
-  expect(region.querySelectorAll(".public-hand-cards .card")).toHaveLength(7);
-  expect(
-    within(region).queryByRole("group", { name: /foot, 0 cards/ }),
-  ).toBeNull();
-});
+    const snapshot = mobilePreviewSnapshot(8, true);
+    const partner = snapshot.players.find(
+      (p) => p.team === snapshot.players[0].team && p.id !== snapshot.viewerId,
+    )!;
+    partner.inFoot = true;
+    partner.footCount = 0;
+    partner.footTop = null;
+    partner.handCount = 7;
+    vi.mocked(getRoom).mockResolvedValue(snapshot);
+    await act(async () => {
+      render(
+        <MemoryRouter>
+          <Room
+            rehearsal={{ snapshot, onChoose: () => {}, followTurn: false }}
+          />
+        </MemoryRouter>,
+      );
+    });
+    expect(
+      screen.queryByRole("combobox", { name: "Player hand to view" }),
+    ).toBeNull();
+    const ownTab = screen.getByRole("button", {
+      name: /View your hand, 8 cards/i,
+    });
+    expect(ownTab.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `View ${partner.name}’s foot, 7 cards`,
+      }),
+    );
+    const partnerTab = screen.getByRole("button", {
+      name: `View ${partner.name}’s foot, 7 cards`,
+    });
+    expect(partnerTab.getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement).toBe(partnerTab);
+    const region = screen.getByRole("region", {
+      name: `${partner.name}’s foot`,
+    });
+    expect(region.querySelectorAll(".public-hand-cards .card")).toHaveLength(7);
+    expect(
+      within(region).queryByRole("group", { name: /foot, 0 cards/ }),
+    ).toBeNull();
+    expect(region.querySelector(".public-hand-cards .card-art")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: /View your hand, 8 cards/i }),
+    );
+    expect(
+      screen.getByRole("region", { name: "Your private hand" }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: /View your hand, 8 cards/i })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+  },
+);
 
 it.each(
   (["round_over", "finished"] as const).flatMap((phase) =>
@@ -237,9 +276,10 @@ it.each(
           player.team === snapshot.players[0].team &&
           player.id !== snapshot.viewerId,
       )!;
-      fireEvent.change(
-        screen.getByRole("combobox", { name: "Player hand to view" }),
-        { target: { value: partner.id } },
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: `View ${partner.name}’s Cards, 3 cards`,
+        }),
       );
       const partnerHand = screen.getByRole("region", {
         name: `${partner.name}’s Cards`,

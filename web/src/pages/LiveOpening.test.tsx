@@ -164,7 +164,7 @@ it.each(["individual", "partnership"] as const)(
     expectOpeningNavigationLocked(view.container);
     expect(selectedPile).toBe(1);
     const hand = screen.getByLabelText("Your private hand");
-    expect(within(hand).getAllByRole("button")).toHaveLength(11);
+    expect(hand.querySelectorAll(".hand-scroll button.card")).toHaveLength(11);
     expect(
       within(hand).getByRole("button", { name: "8 of hearts" }),
     ).toBeTruthy();
