@@ -241,27 +241,36 @@
   pointer-events: none;
   z-index: 60;
 }
-:is(.live-scoring, .score-native-stage)
-  :where(.closed-card-stack, .meld-card-stack, .red-three-stack) {
-  position: relative;
+.board-carousel:has(> .score-halo-layer) {
   isolation: isolate;
 }
-:is(.live-scoring, .score-native-stage)
-  :where(.closed-card-stack, .meld-card-stack, .red-three-stack)::before {
+.score-halo-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: visible;
+  pointer-events: none;
+}
+.score-book-halo {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 160ms ease-in-out;
+}
+.score-book-halo::before {
   content: "";
   position: absolute;
-  z-index: -1;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: -11.5px -21.5px;
   width: calc(100% + 43px);
   height: calc(100% + 23px);
   border-radius: 50%;
   background: var(--primary);
   filter: blur(15px);
-  opacity: calc(var(--score-pile-active, 0) * 0.5);
-  pointer-events: none;
-  transition: opacity 160ms ease-in-out;
+}
+.score-book-halo[data-active="true"] {
+  opacity: 0.5;
+}
+.score-halo-layer[data-reduced="true"] .score-book-halo {
+  transition: none;
 }
 .score-card-flight {
   position: fixed;
@@ -269,6 +278,12 @@
   pointer-events: none;
   animation: score-card-direct 600ms cubic-bezier(0.25, 0.55, 0.3, 1) both;
   transform-origin: center;
+}
+.score-flight-clip {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  pointer-events: none;
 }
 .score-card-flight.is-paired {
   animation-name: score-card-pair;
@@ -353,8 +368,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .live-scoring
-    :is(.closed-card-stack, .meld-card-stack, .red-three-stack)::before {
+  .score-book-halo {
     transition: none;
   }
   .score-board-study *,

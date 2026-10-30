@@ -34,7 +34,7 @@ const scopeOf = (view: Snapshot) =>
   `${view.code}:${view.round}:${view.viewerId}`;
 const selector = (pile: Pile) =>
   pile.red
-    ? `.red-three-pile[data-red-three-player-id="${pile.id}"]`
+    ? `.red-three-pile[data-red-three-team-id="${pile.id}"]`
     : `.meld-pile[data-meld-id="${pile.id}"]`;
 
 /** Finish the hand-card flight before gathering an open pile and moving it upstairs. */
@@ -67,8 +67,6 @@ export function useBookClosing(
       !reduced &&
       !document.hidden &&
       incoming &&
-      incoming.playMode === "practice" &&
-      incoming.scoringMode === "individual" &&
       ["play", "draw"].includes(incoming.phase),
   );
   const prior = previous.current;
@@ -84,21 +82,23 @@ export function useBookClosing(
         !meld.bonusLost &&
         (old
           ? !old.complete && prior.visible.has(meld.id)
-          : prior.snapshot.actorId === incoming.actorId &&
-            meld.creator === incoming.actorId &&
-            prior.visible.has(`lane:${meld.creator}`))
+          : prior.visible.has(`lane:${meld.creator}`))
       )
         entering.push({ id: meld.id, red: false, cards: meld.cards });
     }
-    for (const player of incoming.players) {
-      const old = prior.snapshot.players.find((item) => item.id === player.id);
+    for (const side of incoming.sides) {
+      const cards = incoming.players
+        .filter((player) => player.team === side.id)
+        .flatMap((player) => player.redThrees);
+      const oldCards = prior.snapshot.players
+        .filter((player) => player.team === side.id)
+        .flatMap((player) => player.redThrees);
       if (
-        old &&
-        old.redThrees.length < 3 &&
-        player.redThrees.length >= 3 &&
-        prior.visible.has(`reds:${player.id}`)
+        oldCards.length < 3 &&
+        cards.length >= 3 &&
+        prior.visible.has(`reds:${side.id}`)
       )
-        entering.push({ id: player.id, red: true, cards: player.redThrees });
+        entering.push({ id: String(side.id), red: true, cards });
     }
   }
   const valid = Boolean(
@@ -107,8 +107,9 @@ export function useBookClosing(
       closing.scope === scope &&
       closing.piles.every((pile) =>
         pile.red
-          ? (incoming?.players.find((player) => player.id === pile.id)
-              ?.redThrees.length ?? 0) >= 3
+          ? (incoming?.players
+              .filter((player) => String(player.team) === pile.id)
+              .flatMap((player) => player.redThrees).length ?? 0) >= 3
           : incoming?.sides.some((side) =>
               side.melds.some(
                 (meld) =>
@@ -121,7 +122,13 @@ export function useBookClosing(
   const piles = current?.piles ?? entering;
   const waiting = piles.length > 0 && current?.stage !== "closing";
   const openRedPlayers = new Set(
-    waiting ? piles.filter((pile) => pile.red).map((pile) => pile.id) : [],
+    waiting
+      ? incoming?.players
+          .filter((player) =>
+            piles.some((pile) => pile.red && pile.id === String(player.team)),
+          )
+          .map((player) => player.id)
+      : [],
   );
   const active = piles.length > 0;
   const snapshot =
@@ -161,8 +168,8 @@ export function useBookClosing(
       visible.add(pile.dataset.meldId!);
     // A visible lane also allows three reds played together to form a new book.
     for (const player of incoming.players)
-      if (board.current.querySelector(`[data-player-lane-id="${player.id}"]`)) {
-        visible.add(`reds:${player.id}`);
+      if (board.current.querySelector(`[data-team-lane-id="${player.team}"]`)) {
+        visible.add(`reds:${player.team}`);
         visible.add(`lane:${player.id}`);
       }
     previous.current = {
@@ -251,14 +258,24 @@ export function useBookClosing(
     const hide = () => {
       if (document.hidden) cancel();
     };
+    const scroll = (event: Event) => {
+      // The shrinking footer can clamp its scroll without moving either book row.
+      if (
+        event.target instanceof Element &&
+        board.current?.contains(event.target) &&
+        event.target.matches(".hand-scroll")
+      )
+        return;
+      cancel();
+    };
     media.addEventListener("change", resize);
     window.addEventListener("resize", cancel);
-    window.addEventListener("scroll", cancel, true);
+    window.addEventListener("scroll", scroll, true);
     document.addEventListener("visibilitychange", hide);
     return () => {
       media.removeEventListener("change", resize);
       window.removeEventListener("resize", cancel);
-      window.removeEventListener("scroll", cancel, true);
+      window.removeEventListener("scroll", scroll, true);
       document.removeEventListener("visibilitychange", hide);
     };
   }, [cancel]);

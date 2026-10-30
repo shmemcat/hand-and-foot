@@ -812,6 +812,8 @@
   background: color-mix(in srgb, var(--primary) 6%, transparent);
 }
 .hand-owner-tabs {
+  container: hand-tabs / inline-size;
+  position: relative;
   grid-area: info;
   display: flex;
   align-items: center;
@@ -820,16 +822,13 @@
   max-width: 100%;
   height: 32px;
 }
-.hand-heading:has(.hand-owner-tabs) {
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
-}
 .hand-owner-tab {
   display: flex;
   align-items: center;
   flex: 0 1 auto;
   min-width: 0;
   height: 32px;
-  padding: 0 10px;
+  padding: 0 var(--hand-tab-padding, 10px);
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
@@ -837,13 +836,72 @@
 }
 .hand-owner-tab .hand-info {
   min-width: 0;
+  gap: var(--hand-tab-gap, 13px);
   white-space: nowrap;
 }
+.hand-owner-tabs .hand-owner-tab[data-named="false"] {
+  flex-shrink: 0;
+}
 .hand-owner-tab .eyebrow {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-size: var(--hand-tab-title-size, 9px);
+  letter-spacing: var(--hand-tab-tracking, 1.7px);
+  white-space: nowrap;
+}
+.hand-owner-tab:not([data-named="true"]) .eyebrow,
+.hand-owner-kind {
+  flex-shrink: 0;
+}
+.hand-owner-kind {
+  white-space: pre;
+}
+.hand-owner-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.hand-owner-name-compact {
+  display: none;
+}
+.hand-owner-tabs[data-compact="true"] .hand-owner-name-full {
+  display: none;
+}
+.hand-owner-tabs[data-compact="true"] .hand-owner-name-compact {
+  display: inline;
+}
+.hand-owner-tabs-measure {
+  position: absolute;
+  inset-inline: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  gap: inherit;
+}
+.hand-owner-tabs-natural {
+  display: flex;
+  width: max-content;
+  gap: inherit;
+}
+@container hand-tabs (max-width: 420px) {
+  .hand-owner-tab {
+    --hand-tab-padding: 6px;
+    --hand-tab-gap: 6px;
+  }
+}
+@container hand-tabs (max-width: 280px) {
+  .hand-owner-tab {
+    --hand-tab-padding: 4px;
+    --hand-tab-gap: 4px;
+    --hand-tab-title-size: 8px;
+    --hand-tab-tracking: 1px;
+  }
+  .hand-owner-tab .hand-info > span:last-child {
+    font-size: 10px;
+  }
 }
 .hand-owner-tab .hand-info > span:last-child {
   flex-shrink: 0;

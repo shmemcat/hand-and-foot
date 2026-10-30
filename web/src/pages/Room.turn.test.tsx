@@ -139,9 +139,11 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
       function (this: Element) {
         return this.matches(".game-header")
           ? new DOMRect(0, 0, 1000, 300)
-          : this.closest(".hand-card")
-            ? new DOMRect(100, 600, 62, 87)
-            : new DOMRect(400, 100, 62, 87);
+          : this.matches(".hand-scroll")
+            ? new DOMRect(80, 580, 800, 120)
+            : this.closest(".hand-card")
+              ? new DOMRect(100, 600, 62, 87)
+              : new DOMRect(400, 100, 62, 87);
       },
     );
   }
@@ -149,9 +151,15 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
   it.each([
     [0, false],
     [1, false],
+    [2, false],
+    [3, false],
+    [4, false],
     [5, false],
     [0, true],
     [1, true],
+    [2, true],
+    [3, true],
+    [4, true],
     [5, true],
   ] as const)(
     "finishes seat %s's discard before advancing the turn and board (partnership: %s)",
@@ -178,6 +186,11 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
         actorId: snapshot.players[nextSeat].id,
         phase: "draw",
         hand: seat ? snapshot.hand : snapshot.hand.slice(1),
+        players: snapshot.players.map((player) =>
+          player.id === snapshot.actorId
+            ? { ...player, handCount: player.handCount - 1 }
+            : player,
+        ),
         discard: card,
         discardCount: snapshot.discardCount + 1,
         tableEvents: [
@@ -200,6 +213,11 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
             : '.table-card-flight[data-event-kind="discard"]',
         ),
       ).toBeTruthy();
+      if (layout === "desktop" && seat > 0) {
+        const flight = document.querySelector(".table-card-flight")!;
+        expect(flight.getAttribute("data-local")).toBe("true");
+        expect(flight.getAttribute("data-concealed")).toBe("true");
+      }
       const duration =
         layout === "mobile" && seat === 0 ? MOBILE_PLAY_MS : DISCARD_FLIGHT_MS;
       await act(async () => vi.advanceTimersByTime(duration / 2));
@@ -238,42 +256,58 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
     },
   );
 
-  it("finishes each queued bot discard before following the next player", async () => {
-    vi.useFakeTimers();
-    media();
-    measureCards();
-    const snapshot = fixture();
-    snapshot.phase = "play";
-    snapshot.actorId = snapshot.players[1].id;
-    await open(snapshot);
-    const events = [1, 2].map((seat) => ({
-      id: `discard-${seat}`,
-      kind: "discard" as const,
-      playerId: snapshot.players[seat].id,
-      card: { ...snapshot.hand[0], id: `card-${seat}` },
-      count: 1,
-      faceDown: false,
-    }));
-    await refresh({
-      ...snapshot,
-      revision: 2,
-      token: "batched-discards",
-      actorId: snapshot.viewerId,
-      phase: "draw",
-      discard: events[1].card,
-      discardCount: snapshot.discardCount + 2,
-      tableEvents: events,
-    });
-    expectTurn(snapshot, 1);
-    await act(async () => vi.advanceTimersByTime(DISCARD_FLIGHT_MS - 1));
-    expectTurn(snapshot, 1);
-    await act(async () => vi.advanceTimersByTime(1));
-    expectTurn(snapshot, 2);
-    await act(async () => vi.advanceTimersByTime(DISCARD_FLIGHT_MS - 1));
-    expectTurn(snapshot, 2);
-    await act(async () => vi.advanceTimersByTime(1));
-    expectTurn(snapshot, 0);
-  });
+  it.each([false, true])(
+    "finishes each queued bot discard before following the next player (partnership: %s)",
+    async (partnership) => {
+      vi.useFakeTimers();
+      media();
+      measureCards();
+      const snapshot = fixture(partnership);
+      snapshot.phase = "play";
+      snapshot.actorId = snapshot.players[1].id;
+      await open(snapshot);
+      const seats = partnership ? [1, 4] : [1, 2];
+      const events = seats.map((seat) => ({
+        id: `discard-${seat}`,
+        kind: "discard" as const,
+        playerId: snapshot.players[seat].id,
+        card: { ...snapshot.hand[0], id: `card-${seat}` },
+        count: 1,
+        faceDown: false,
+      }));
+      await refresh({
+        ...snapshot,
+        revision: 2,
+        token: "batched-discards",
+        actorId: snapshot.viewerId,
+        phase: "draw",
+        discard: events[1].card,
+        discardCount: snapshot.discardCount + 2,
+        tableEvents: events,
+      });
+      expectTurn(snapshot, 1);
+      await act(async () => vi.advanceTimersByTime(DISCARD_FLIGHT_MS - 1));
+      expectTurn(snapshot, 1);
+      await act(async () => vi.advanceTimersByTime(1));
+      expectTurn(snapshot, seats[1]);
+      if (layout === "desktop") {
+        expect(
+          document
+            .querySelector(".table-card-flight")
+            ?.getAttribute("data-local"),
+        ).toBe("true");
+        expect(
+          document
+            .querySelector(".table-card-flight")
+            ?.getAttribute("data-concealed"),
+        ).toBe("true");
+      }
+      await act(async () => vi.advanceTimersByTime(DISCARD_FLIGHT_MS - 1));
+      expectTurn(snapshot, seats[1]);
+      await act(async () => vi.advanceTimersByTime(1));
+      expectTurn(snapshot, 0);
+    },
+  );
 
   it.each([0, 1])(
     "waits for seat %s's browser animation to finish even after its scheduled duration",

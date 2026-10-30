@@ -8,6 +8,12 @@
     var(--opening-second-flip-delay) + var(--opening-flip-duration)
   );
 }
+@media (min-width: 769px) {
+  .opening-board[data-opening-step="2"] {
+    /* Let the shuffle fan into the desktop table's left padding. */
+    overflow-x: visible;
+  }
+}
 .game-page.round-opened > .board-carousel {
   min-height: 390px;
 }

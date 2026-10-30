@@ -197,6 +197,36 @@ it("lands all seven cards in a new open pile before gathering and raising the bo
   expect(view.container.querySelector(".book-closing-layer")).toBeNull();
 });
 
+it("closes a newly created bot book even when its discard arrives in the same update", () => {
+  const before = bookExample("whole", false, 0, "partnership");
+  const after = {
+    ...bookExample("whole", true, 0, "partnership"),
+    phase: "draw" as const,
+    actorId: before.players[1].id,
+  };
+  const view = render(room(before));
+  view.rerender(room(after));
+  expect(view.container.querySelectorAll(".book-closing-card")).toHaveLength(7);
+  advance(BOOK_CLOSE_MS - 1);
+  expect(view.container.querySelector(".book-closing-layer")).toBeTruthy();
+  advance(1);
+  expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+});
+
+it("keeps the book sequence running when its shrinking hand adjusts the scroll", () => {
+  const view = render(room(bookExample("clean", false)));
+  view.rerender(room(bookExample("clean", true)));
+  fireEvent.scroll(view.container.querySelector(".hand-scroll")!);
+  expect(
+    view.container.querySelector('.open-piles [data-meld-id="closing-book"]'),
+  ).toBeTruthy();
+  advance(MELD_FLIGHT_MS);
+  fireEvent.scroll(view.container.querySelector(".hand-scroll")!);
+  expect(view.container.querySelectorAll(".book-closing-card")).toHaveLength(7);
+  advance(BOOK_CLOSE_MS);
+  expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+});
+
 it.each(["add-clean", "add-dirty"] as BookExample[])(
   "updates the count only after a legal addition lands (%s)",
   (example) => {
@@ -247,36 +277,122 @@ it("does not replay completed books on join and cancels when a round changes", (
   expect(view.container.querySelector(".book-closing-layer")).toBeNull();
 });
 
-it.each(["mobile", "reduced", "online", "partnership"])(
-  "updates immediately for %s",
+it.each(["mobile", "reduced"])("updates immediately for %s", (mode) => {
+  vi.mocked(window.matchMedia).mockImplementation(
+    (query) =>
+      ({
+        matches:
+          query ===
+          (mode === "reduced"
+            ? "(prefers-reduced-motion: reduce)"
+            : mode === "mobile"
+              ? "mobile"
+              : "(min-width: 769px)"),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }) as unknown as MediaQueryList,
+  );
+  const view = render(room(bookExample("clean", false)));
+  view.rerender(room(bookExample("clean", true)));
+  advance(MELD_FLIGHT_MS);
+  expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+  expect(view.container.querySelector(".closed-card-stack")).toBeTruthy();
+});
+
+it.each(["online", "partnership"] as const)(
+  "lands cards before closing a book in %s games",
   (mode) => {
-    vi.mocked(window.matchMedia).mockImplementation(
-      (query) =>
-        ({
-          matches:
-            query ===
-            (mode === "reduced"
-              ? "(prefers-reduced-motion: reduce)"
-              : mode === "mobile"
-                ? "mobile"
-                : "(min-width: 769px)"),
-          addEventListener: vi.fn(),
-          removeEventListener: vi.fn(),
-        }) as unknown as MediaQueryList,
-    );
-    const options =
-      mode === "online"
-        ? { playMode: "online" as const }
-        : mode === "partnership"
-          ? { scoringMode: "partnership" as const }
-          : {};
-    const view = render(room({ ...bookExample("clean", false), ...options }));
-    view.rerender(room({ ...bookExample("clean", true), ...options }));
+    const view = render(room(bookExample("clean", false, 0, mode)));
+    view.rerender(room(bookExample("clean", true, 0, mode)));
+    expect(view.container.querySelector(".meld-card-flight")).toBeTruthy();
+    expect(
+      view.container.querySelector('.open-piles [data-meld-id="closing-book"]'),
+    ).toBeTruthy();
     advance(MELD_FLIGHT_MS);
+    expect(view.container.querySelectorAll(".book-closing-card")).toHaveLength(
+      7,
+    );
+    advance(BOOK_CLOSE_MS);
     expect(view.container.querySelector(".book-closing-layer")).toBeNull();
-    expect(view.container.querySelector(".closed-card-stack")).toBeTruthy();
   },
 );
+
+it.each(
+  (["practice", "online"] as const).flatMap((playMode) =>
+    (
+      [
+        ["whole", 7, 7],
+        ["overfull", 2, 8],
+        ["burst", 6, 14],
+        ["multiple", 3, 17],
+      ] as const
+    ).map(([example, playedCards, closingCards]) => ({
+      playMode,
+      example,
+      playedCards,
+      closingCards,
+    })),
+  ),
+)(
+  "finishes the entire $playedCards-card partnership play before closing $example books ($playMode)",
+  ({ playMode, example, playedCards, closingCards }) => {
+    const before = {
+      ...bookExample(example, false, 0, "partnership"),
+      playMode,
+    };
+    const after = { ...bookExample(example, true, 0, "partnership"), playMode };
+    const view = render(room(before));
+    view.rerender(room(after));
+    expect(view.container.querySelectorAll(".meld-card-flight")).toHaveLength(
+      playedCards,
+    );
+    expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+    advance(MELD_FLIGHT_MS - 1);
+    expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+    advance(1);
+    const cards = [
+      ...view.container.querySelectorAll<HTMLElement>(".book-closing-card"),
+    ];
+    expect(cards).toHaveLength(closingCards);
+    expect(
+      cards.every(
+        (card) => parseFloat(card.style.getPropertyValue("--book-y")) < 0,
+      ),
+    ).toBe(true);
+    advance(BOOK_CLOSE_MS - 1);
+    expect(view.container.querySelector(".book-closing-layer")).toBeTruthy();
+    advance(1);
+    expect(
+      view.container.querySelector(".book-closing-layer,.meld-card-flight"),
+    ).toBeNull();
+  },
+);
+
+it("closes the combined partnership reds when a teammate plays the third", () => {
+  const sharedReds = (played: boolean) => {
+    const snapshot = bookExample("reds", played, 0, "partnership");
+    const partner = snapshot.players.find(
+      (player) => player.team === 0 && player.id !== snapshot.viewerId,
+    )!;
+    const own = snapshot.players.find(
+      (player) => player.id === snapshot.viewerId,
+    )!;
+    partner.redThrees = own.redThrees.slice(0, 1);
+    own.redThrees = own.redThrees.slice(1);
+    return snapshot;
+  };
+  const view = render(room(sharedReds(false)));
+  view.rerender(room(sharedReds(true)));
+  expect(
+    view.container.querySelector(".open-piles .red-three-pile"),
+  ).toBeTruthy();
+  advance(MELD_FLIGHT_MS);
+  expect(view.container.querySelectorAll(".book-closing-card")).toHaveLength(3);
+  advance(BOOK_CLOSE_MS);
+  expect(
+    view.container.querySelector(".closed-books .red-three-pile"),
+  ).toBeTruthy();
+});
 
 it("replays the real closing sequence without accumulating cards and resets mid-motion", () => {
   const view = render(

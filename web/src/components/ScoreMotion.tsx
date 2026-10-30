@@ -8,6 +8,8 @@ import {
 } from "react";
 import { Card } from "./Card";
 import { ClosingBooks } from "./ClosingBooks";
+import { ScoreHalo } from "./ScoreHalo";
+import { ScoreFlightClip } from "./ScoreFlightClip";
 import { BOOK_CLOSE_MS, type BookClosingFlight } from "../hooks/useBookClosing";
 import {
   scoringHeldCards,
@@ -302,12 +304,14 @@ export function ScoreMotion({
             40,
     );
     window.addEventListener("resize", clear);
+    window.addEventListener("scroll", clear, true);
     window.addEventListener("wheel", clear, { passive: true });
     window.addEventListener("touchstart", clear, { passive: true });
     document.addEventListener("visibilitychange", visibility);
     return () => {
       clearTimeout(timer);
       window.removeEventListener("resize", clear);
+      window.removeEventListener("scroll", clear, true);
       window.removeEventListener("wheel", clear);
       window.removeEventListener("touchstart", clear);
       document.removeEventListener("visibilitychange", visibility);
@@ -343,43 +347,46 @@ export function ScoreMotion({
           direction="open"
         />
       )}
-      {!opening && beat.activePile && beat.kind === "bonus" && (
-        <style>
-          {beat.activePile === "reds"
-            ? ".game-page .red-three-stack {--score-pile-active:1;}"
-            : `.game-page [data-meld-id="${beat.activePile}"] > .closed-card-stack {--score-pile-active:1;}`}
-        </style>
-      )}
-      {flights.map((flight) => (
-        <div
-          className={`score-card-flight ${flight.transfer.paired ? "is-paired" : ""}`}
-          data-score-flight-id={flight.transfer.card.id}
-          aria-hidden="true"
-          key={`${beatKey}-${flight.transfer.card.id}`}
-          style={
-            {
-              left: flight.from.left - origin.left,
-              top: flight.from.top - origin.top,
-              width: flight.from.width,
-              height: flight.from.height,
-              "--score-mid-x": `${flight.midX}px`,
-              "--score-mid-y": `${flight.midY}px`,
-              "--score-end-x": `${flight.toX}px`,
-              "--score-end-y": `${flight.toY}px`,
-              "--score-end-scale-x": flight.scaleX,
-              "--score-end-scale-y": flight.scaleY,
-              animationDuration: `${flight.duration}ms`,
-              animationDelay: `${flight.delay}ms`,
-            } as CSSProperties
-          }
-        >
-          <Card
-            card={flight.transfer.card}
-            small
-            pointsLeft={flight.remainder}
-          />
-        </div>
-      ))}
+      <ScoreHalo
+        board={board}
+        activePile={
+          !opening && beat.kind === "bonus" ? beat.activePile : undefined
+        }
+        beatKey={beatKey}
+        reduced={reduced}
+      />
+      <ScoreFlightClip board={board} beatKey={beatKey}>
+        {flights.map((flight) => (
+          <div
+            className={`score-card-flight ${flight.transfer.paired ? "is-paired" : ""}`}
+            data-score-flight-id={flight.transfer.card.id}
+            aria-hidden="true"
+            key={`${beatKey}-${flight.transfer.card.id}`}
+            style={
+              {
+                left: flight.from.left - origin.left,
+                top: flight.from.top - origin.top,
+                width: flight.from.width,
+                height: flight.from.height,
+                "--score-mid-x": `${flight.midX}px`,
+                "--score-mid-y": `${flight.midY}px`,
+                "--score-end-x": `${flight.toX}px`,
+                "--score-end-y": `${flight.toY}px`,
+                "--score-end-scale-x": flight.scaleX,
+                "--score-end-scale-y": flight.scaleY,
+                animationDuration: `${flight.duration}ms`,
+                animationDelay: `${flight.delay}ms`,
+              } as CSSProperties
+            }
+          >
+            <Card
+              card={flight.transfer.card}
+              small
+              pointsLeft={flight.remainder}
+            />
+          </div>
+        ))}
+      </ScoreFlightClip>
     </div>
   );
 }

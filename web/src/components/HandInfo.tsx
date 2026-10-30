@@ -1,5 +1,13 @@
+import type { ReactNode } from "react";
+
 /** The same compact title and count used in hand headings and partner tabs. */
-export function HandInfo({ title, count }: { title: string; count: number }) {
+export function HandInfo({
+  title,
+  count,
+}: {
+  title: ReactNode;
+  count: number;
+}) {
   return (
     <span className="hand-info">
       <span className="eyebrow">{title}</span>

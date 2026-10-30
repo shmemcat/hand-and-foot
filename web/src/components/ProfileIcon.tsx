@@ -9,26 +9,30 @@ export function ProfileIcon({
   name?: string;
   bot?: boolean;
 }) {
-  const iconName = bot ? "robot" : name;
   const [artwork, setArtwork] = useState<Artwork>(iconData.user);
   useEffect(() => {
     let alive = true;
     setArtwork(iconData.user);
-    if (iconName && iconName !== "user") {
+    if (!bot && name && name !== "user") {
       void import("../lib/profileIconData")
         .then(({ profileIcons }) => {
-          if (alive && Object.hasOwn(profileIcons, iconName))
-            setArtwork(profileIcons[iconName]);
+          if (alive && Object.hasOwn(profileIcons, name))
+            setArtwork(profileIcons[name]);
         })
         .catch(() => {});
     }
     return () => {
       alive = false;
     };
-  }, [iconName]);
+  }, [name, bot]);
+  const displayedArtwork = bot ? iconData.robot : artwork;
   return (
-    <svg viewBox={artwork.viewBox} fill="currentColor" aria-hidden="true">
-      {artwork.paths.map((path, index) => (
+    <svg
+      viewBox={displayedArtwork.viewBox}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      {displayedArtwork.paths.map((path, index) => (
         <path key={index} d={path} />
       ))}
     </svg>

@@ -66,9 +66,9 @@ export function useTableMotion(
   speed = 1,
   localDiscardHandled = false,
   suspended = false,
-  viewedPlayerId?: string,
   navigationKey = 0,
   followTurn = false,
+  meldActive = false,
 ) {
   const [desktop, setDesktop] = useState(
     () => window.matchMedia("(min-width: 769px)").matches,
@@ -112,10 +112,13 @@ export function useTableMotion(
     canPresent && !boardChanged
       ? newEvents.filter((event) => shouldShow(event) && visibleMotion(event))
       : [];
+  const waitingForMeld = Boolean(meldActive && queue[0]?.event.kind === "foot");
+  const waitingFoot = waitingForMeld ? queue[0] : null;
   const flight =
     canPresent &&
     !boardChanged &&
     !suspended &&
+    !waitingForMeld &&
     queue[0]?.scope === scope &&
     visibleMotion(queue[0].event)
       ? queue[0]
@@ -141,7 +144,10 @@ export function useTableMotion(
         ),
       );
   }, [flight?.event.id]);
-  const blocking = Boolean(flight) || (!suspended && pendingEvents.length > 0);
+  const blocking =
+    Boolean(flight) ||
+    waitingForMeld ||
+    (!suspended && pendingEvents.length > 0);
 
   useLayoutEffect(() => {
     if (!incoming || !board.current) {
@@ -149,6 +155,11 @@ export function useTableMotion(
       if (queue.length) clear();
       return;
     }
+    // The server may already name the next actor. Measure the hand actually
+    // presented for this event, including the second player in a partnership.
+    const publicPlayer = board.current.querySelector<HTMLElement>(
+      ".hand-dock[data-public-player]",
+    )?.dataset.publicPlayer;
     if (
       queue.length &&
       (!canPresent ||
@@ -216,10 +227,10 @@ export function useTableMotion(
           const concealed =
             event.kind !== "pickup" &&
             !own &&
-            event.playerId === viewedPlayerId &&
+            event.playerId === publicPlayer &&
             Boolean(
               board.current.querySelector(
-                `[data-public-player="${viewedPlayerId}"]`,
+                `[data-public-player="${publicPlayer}"]`,
               ),
             );
           const slots = concealed
@@ -228,9 +239,7 @@ export function useTableMotion(
               )
             : [];
           const oldSlots =
-            prior!.publicPlayer === viewedPlayerId
-              ? prior!.publicPositions
-              : [];
+            prior!.publicPlayer === publicPlayer ? prior!.publicPositions : [];
           const handSource =
             concealed && isDiscard(event)
               ? (oldSlots.at(-1) ?? slots.at(-1))
@@ -356,12 +365,31 @@ export function useTableMotion(
     previous.current = {
       snapshot: incoming,
       positions,
-      publicPlayer: viewedPlayerId,
+      publicPlayer,
       navigationKey,
       publicPositions: visiblePublicHandSlots(board.current).map((slot) =>
         position(slot.querySelector(".card") ?? slot),
       ),
     };
+  });
+  useLayoutEffect(() => {
+    if (!flight || flight.local || !isDiscard(flight.event)) return;
+    const hand = board.current?.querySelector<HTMLElement>(
+      ".hand-dock[data-public-player]",
+    );
+    if (hand?.dataset.publicPlayer !== flight.event.playerId) return;
+    const slot = visiblePublicHandSlots(hand).at(-1);
+    if (!slot) return;
+    const from = position(slot.querySelector(".card") ?? slot);
+    // A queued action may have been recorded before its board was visible.
+    // Once followed, let that player's real hand own the discard flight.
+    setQueue((old) =>
+      old.map((item) =>
+        item.event.id === flight.event.id
+          ? { ...item, from, local: true, concealed: true }
+          : item,
+      ),
+    );
   });
   useEffect(() => {
     if (!flight || !waitingForBoard) return;
@@ -420,7 +448,14 @@ export function useTableMotion(
         );
     };
     const timer = window.setTimeout(
-      () => afterCardAnimations(board.current, ".table-card-flight", complete),
+      () =>
+        afterCardAnimations(
+          board.current,
+          flight.event.kind === "foot"
+            ? ".hand-card, .foot-status"
+            : ".table-card-flight",
+          complete,
+        ),
       holding ? GOING_OUT_PAUSE_MS : tableFlightDuration(flight),
     );
     return () => {
@@ -458,8 +493,11 @@ export function useTableMotion(
   }, [cancel, clear]);
 
   // Use the queued action's player, even when a newer server update has arrived.
-  const event = flight?.event ?? (!suspended ? pendingEvents[0] : undefined);
-  const before = flight?.before ?? prior?.snapshot;
+  const event =
+    flight?.event ??
+    waitingFoot?.event ??
+    (!suspended ? pendingEvents[0] : undefined);
+  const before = flight?.before ?? waitingFoot?.before ?? prior?.snapshot;
   const stagedEvents = [
     ...queue.filter((item) => item.scope === scope).map((item) => item.event),
     ...pendingEvents,
@@ -490,6 +528,26 @@ export function useTableMotion(
           ...presented,
           actorId: event.playerId,
           players: presented.players.map((player) => {
+            if (waitingFoot && player.id === event.playerId) {
+              const old = waitingFoot.before.players.find(
+                (seat) => seat.id === player.id,
+              )!;
+              return {
+                ...player,
+                handCount: 0,
+                footCount: old.footCount,
+                footTop: old.footTop,
+                inFoot: false,
+              };
+            }
+            if (event.kind === "foot" && player.id === event.playerId)
+              return {
+                ...player,
+                handCount: event.count,
+                inFoot: true,
+                footCount: 0,
+                footTop: null,
+              };
             const pending = waitingFeet.find(
               (item) => item.event.playerId === player.id,
             );

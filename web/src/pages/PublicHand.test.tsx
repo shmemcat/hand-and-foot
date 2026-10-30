@@ -128,6 +128,7 @@ it.each([false, true])(
     const partner = snapshot.players.find(
       (p) => p.team === snapshot.players[0].team && p.id !== snapshot.viewerId,
     )!;
+    partner.name = "AlexandertheGreatPartner";
     partner.inFoot = true;
     partner.footCount = 0;
     partner.footTop = null;
@@ -158,6 +159,10 @@ it.each([false, true])(
       name: `View ${partner.name}’s foot, 7 cards`,
     });
     expect(partnerTab.getAttribute("aria-pressed")).toBe("true");
+    expect(partnerTab.getAttribute("title")).toBe(`${partner.name}’s foot`);
+    expect(partnerTab.querySelector(".hand-owner-kind")?.textContent).toBe(
+      "’s foot",
+    );
     expect(document.activeElement).toBe(partnerTab);
     const region = screen.getByRole("region", {
       name: `${partner.name}’s foot`,

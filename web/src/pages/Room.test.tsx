@@ -950,12 +950,16 @@ it.each([
       redThree: true,
     }));
     snapshot.players[seat].redThrees = reds.slice(0, before);
+    if (seat === 0) snapshot.hand.push(...reds.slice(before));
     vi.mocked(getRoom).mockResolvedValue(snapshot);
     await act(async () => openRoom());
     expect(party.confetti).not.toHaveBeenCalled();
     vi.mocked(getRoom).mockResolvedValue({
       ...snapshot,
       revision: 2,
+      hand: seat
+        ? snapshot.hand
+        : snapshot.hand.filter((card) => !card.redThree),
       players: snapshot.players.map((player, index) =>
         index === seat ? { ...player, redThrees: reds } : player,
       ),
@@ -970,13 +974,15 @@ it.each([
         within(board).getByRole("group", { name: "Completed books" }),
       ).getByRole("group", { name: "Red threes" }),
     ).toBeTruthy();
-    expect(sound.play).toHaveBeenCalledExactlyOnceWith("redThreeCelebration");
+    expect(sound.play.mock.calls.map(([cue]) => cue)).toEqual(
+      seat ? ["select", "redThreeCelebration"] : ["redThreeCelebration"],
+    );
     expect(party.confetti).toHaveBeenCalledExactlyOnceWith(
       board.querySelector(".tableau-heading"),
       { count: 90 },
     );
     await act(async () => vi.advanceTimersByTime(3000));
-    expect(sound.play).toHaveBeenCalledTimes(1);
+    expect(sound.play).toHaveBeenCalledTimes(seat ? 2 : 1);
     expect(party.confetti).toHaveBeenCalledTimes(1);
   },
 );
@@ -1125,6 +1131,100 @@ it("silently changes turns, including when play returns to you", async () => {
   await act(async () => vi.advanceTimersByTime(3000));
   expect(sound.play).not.toHaveBeenCalled();
 });
+
+it.each(["desktop", "mobile", "reduced"])(
+  "sounds bot draws, melds, and discards once each on %s",
+  async (layout) => {
+    vi.useFakeTimers();
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) =>
+        ({
+          matches:
+            (layout !== "mobile" && query === "(min-width: 769px)") ||
+            (layout === "mobile" && query === "(max-width: 768px)") ||
+            (layout === "reduced" &&
+              query === "(prefers-reduced-motion: reduce)"),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
+    const source = fixture();
+    source.actorId = "bot";
+    source.tableEvents = [];
+    vi.mocked(getRoom).mockResolvedValue(source);
+    await act(async () => openRoom());
+    expect(sound.play).not.toHaveBeenCalled();
+
+    const drawn: Snapshot = {
+      ...source,
+      revision: 2,
+      phase: "play",
+      stockCount: source.stockCount - 2,
+      players: source.players.map((player) =>
+        player.bot ? { ...player, handCount: player.handCount + 2 } : player,
+      ),
+      tableEvents: [
+        {
+          id: "bot-draw",
+          playerId: "bot",
+          kind: "draw",
+          count: 2,
+          card: null,
+          faceDown: false,
+        },
+      ],
+    };
+    vi.mocked(getRoom).mockResolvedValue(drawn);
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(sound.play).toHaveBeenCalledExactlyOnceWith("select");
+
+    const melded = structuredClone(drawn);
+    melded.revision = 3;
+    melded.sides[1].melds.push({
+      id: "bot-aces",
+      creator: "bot",
+      kind: "set",
+      rank: "A",
+      cards: source.hand.map((card) => ({ ...card, id: `bot-${card.id}` })),
+      complete: false,
+      dirty: false,
+      bonus: 0,
+    });
+    vi.mocked(getRoom).mockResolvedValue(melded);
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(sound.play).toHaveBeenCalledTimes(2);
+
+    const discarded: Snapshot = {
+      ...melded,
+      revision: 4,
+      actorId: "you",
+      phase: "draw",
+      token: "your-next-turn",
+      discard: { ...source.hand[0], id: "bot-discard" },
+      discardCount: 1,
+      tableEvents: [
+        ...drawn.tableEvents!,
+        {
+          id: "bot-discard",
+          playerId: "bot",
+          kind: "discard",
+          count: 1,
+          card: { ...source.hand[0], id: "bot-discard" },
+          faceDown: false,
+        },
+      ],
+    };
+    vi.mocked(getRoom).mockResolvedValue(discarded);
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(sound.play.mock.calls.map(([cue]) => cue)).toEqual([
+      "select",
+      "select",
+      "select",
+    ]);
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(sound.play).toHaveBeenCalledTimes(3);
+  },
+);
 
 it("disables other player tokens before choosing a hand and keeps your private choice visible", async () => {
   const snapshot = fixture();

@@ -25,7 +25,6 @@ import {
   pickupPlayableCards,
 } from "../lib/melds";
 import { goingOutRequirement, hasGoingOutBooks } from "../lib/goingOut";
-import { CATEGORY_LABELS, resultCategory } from "../lib/resultCategories";
 import { Card } from "../components/Card";
 import { HandDock } from "../components/HandDock";
 import { HandInfo } from "../components/HandInfo";
@@ -84,6 +83,7 @@ import { usePileLayoutMotion } from "../hooks/usePileLayoutMotion";
 import { useMeldStackMotion } from "../hooks/useMeldStackMotion";
 import { useFootMotion } from "../hooks/useFootMotion";
 import { useTableMotion } from "../hooks/useTableMotion";
+import { useCardMovementSounds } from "../hooks/useCardMovementSounds";
 import { useTurnReady } from "../hooks/useTurnReady";
 import { useRedThreeCelebration } from "../hooks/useRedThreeCelebration";
 import { useSound } from "../context/SoundContext";
@@ -304,14 +304,19 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     rehearsal?.meldSpeed ?? 1,
     mobile || footMotion.active,
     mobileMotion.blocking || footMotion.active,
-    privateFooter ? undefined : incomingHandOwner?.id,
     handNavigation.current,
     follow,
+    playingMeld,
   );
   const scoring = useLiveScoring(
     tableMotion.snapshot,
     !isRehearsal || Boolean(rehearsal?.liveScoring),
     opening.reduced,
+  );
+  useCardMovementSounds(
+    isRehearsal || opening.state ? null : incomingSnapshot,
+    tableMotion.flight?.event ?? tableMotion.pickup,
+    tableMotion.blocking,
   );
   const snapshot = scoring.snapshot;
   const review = Boolean(
@@ -380,11 +385,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   }, [scoring.enabled, snapshot?.code, snapshot?.round]);
   usePileLayoutMotion(boardRef, {
     scope: `${snapshot?.code}:${snapshot?.round}:${snapshot?.viewerId}:${viewed}:${rehearsal?.pileMotionKey ?? ""}`,
-    enabled: Boolean(
-      scoring.enabled ||
-        (snapshot?.playMode === "practice" &&
-          snapshot?.scoringMode === "individual"),
-    ),
+    enabled: Boolean(snapshot),
     reduced:
       opening.reduced ||
       mobile ||
@@ -1219,6 +1220,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       <HandTabs
         hands={footerMembers.map((player) => ({
           id: player.id,
+          name: player.id === viewer?.id ? undefined : player.name,
           title:
             player.id === viewer?.id
               ? ownHandTitle
@@ -2298,27 +2300,13 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                 totalsLanded={totalsLanded}
                 busy={busy}
                 resultNotice={
-                  !isRehearsal && (
+                  !isRehearsal &&
+                  (snapshot.developmentFixture || !user) && (
                     <p className="win-stats-notice">
                       {snapshot.developmentFixture
                         ? "Preview games do not count toward account wins. "
                         : !user &&
                           "Guest games do not count toward account wins. "}
-                      <Link
-                        className="text-link"
-                        to={`/leaderboard?category=${resultCategory(snapshot.playMode, snapshot.botDifficulty)}`}
-                      >
-                        View{" "}
-                        {
-                          CATEGORY_LABELS[
-                            resultCategory(
-                              snapshot.playMode,
-                              snapshot.botDifficulty,
-                            )
-                          ]
-                        }{" "}
-                        leaderboard
-                      </Link>
                     </p>
                   )
                 }
@@ -2401,7 +2389,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             {bookClosing.hiddenPiles
               .map((pile) => {
                 const selector = pile.red
-                  ? `.game-page .red-three-pile[data-red-three-player-id="${pile.id}"]`
+                  ? `.game-page .red-three-pile[data-red-three-team-id="${pile.id}"]`
                   : `.game-page [data-meld-id="${pile.id}"]`;
                 return `${selector} ${pile.red ? ".red-three-stack" : ".closed-card-stack"} {visibility:hidden;}
 ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}`;
@@ -2519,6 +2507,7 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
       ) : (
         <FootGather
           gathering={gatheringViewedFoot}
+          count={footPickup?.count}
           speed={1}
           enabled={footMotion.enabled}
           mobile={mobile}

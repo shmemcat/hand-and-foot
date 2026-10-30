@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import { Room } from "./Room";
 import { Card } from "../components/Card";
 import { ClosingBooks } from "../components/ClosingBooks";
+import { ScoreHalo } from "../components/ScoreHalo";
+import { ScoreFlightClip } from "../components/ScoreFlightClip";
 import {
   BOOK_CLOSE_MS,
   BOOK_DESCEND_MS,
@@ -574,45 +576,48 @@ export function ScoringPreview() {
           direction="open"
         />
       )}
-      {!openingFlight &&
-        beat.activePile &&
-        ["bonus", "break"].includes(beat.kind) && (
-          <style>
-            {beat.activePile === "reds"
-              ? ".score-native-stage .red-three-stack {--score-pile-active:1;}"
-              : `.score-native-stage [data-meld-id="${beat.activePile}"] > :is(.closed-card-stack, .meld-card-stack) {--score-pile-active:1;}`}
-          </style>
-        )}
-      {flights.map((flight) => (
-        <div
-          className={`score-card-flight ${flight.transfer.paired ? "is-paired" : ""}`}
-          data-score-flight-id={flight.transfer.card.id}
-          aria-hidden="true"
-          key={`${scenarioId}-${replay}-${step}-${flight.transfer.card.id}`}
-          style={
-            {
-              left: flight.from.left,
-              top: flight.from.top,
-              width: flight.from.width,
-              height: flight.from.height,
-              "--score-mid-x": `${flight.midX}px`,
-              "--score-mid-y": `${flight.midY}px`,
-              "--score-end-x": `${flight.toX}px`,
-              "--score-end-y": `${flight.toY}px`,
-              "--score-end-scale-x": flight.scaleX,
-              "--score-end-scale-y": flight.scaleY,
-              animationDuration: `${flight.duration / speed}ms`,
-              animationDelay: `${flight.delay / speed}ms`,
-            } as CSSProperties
-          }
-        >
-          <Card
-            card={flight.transfer.card}
-            small
-            pointsLeft={flight.remainder}
-          />
-        </div>
-      ))}
+      <ScoreHalo
+        board={root}
+        activePile={
+          !openingFlight && ["bonus", "break"].includes(beat.kind)
+            ? beat.activePile
+            : undefined
+        }
+        beatKey={`${scenarioId}-${replay}-${step}`}
+        reduced={reduced}
+      />
+      <ScoreFlightClip board={root} beatKey={`${scenarioId}-${replay}-${step}`}>
+        {flights.map((flight) => (
+          <div
+            className={`score-card-flight ${flight.transfer.paired ? "is-paired" : ""}`}
+            data-score-flight-id={flight.transfer.card.id}
+            aria-hidden="true"
+            key={`${scenarioId}-${replay}-${step}-${flight.transfer.card.id}`}
+            style={
+              {
+                left: flight.from.left,
+                top: flight.from.top,
+                width: flight.from.width,
+                height: flight.from.height,
+                "--score-mid-x": `${flight.midX}px`,
+                "--score-mid-y": `${flight.midY}px`,
+                "--score-end-x": `${flight.toX}px`,
+                "--score-end-y": `${flight.toY}px`,
+                "--score-end-scale-x": flight.scaleX,
+                "--score-end-scale-y": flight.scaleY,
+                animationDuration: `${flight.duration / speed}ms`,
+                animationDelay: `${flight.delay / speed}ms`,
+              } as CSSProperties
+            }
+          >
+            <Card
+              card={flight.transfer.card}
+              small
+              pointsLeft={flight.remainder}
+            />
+          </div>
+        ))}
+      </ScoreFlightClip>
       {scorecard && (
         <div className="modal-backdrop">
           <section

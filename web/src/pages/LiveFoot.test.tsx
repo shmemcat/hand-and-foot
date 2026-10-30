@@ -593,6 +593,155 @@ it("does not replay an old pickup announcement or sound on rejoining", async () 
   expect(sound.play).not.toHaveBeenCalledWith("deal");
 });
 
+it.each(
+  [1, 3, 4].flatMap((seat) =>
+    [false, true].map((closeBook) => [seat, closeBook] as const),
+  ),
+)(
+  "cascades every concealed foot card for partnership bot seat %s after its last meld lands (book: %s)",
+  async (seat, closeBook) => {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: Element) {
+        if (this.matches(".game-header")) return new DOMRect(0, 0, 1000, 200);
+        if (this.matches(".hand-scroll"))
+          return new DOMRect(50, 580, 1000, 150);
+        if (this.closest(".hand-card")) {
+          const card = this.closest(".hand-card")!;
+          return new DOMRect(
+            100 + [...card.parentElement!.children].indexOf(card) * 70,
+            600,
+            62,
+            87,
+          );
+        }
+        return new DOMRect(400, 100, 62, 87);
+      },
+    );
+    const [before, ready] = pair("play");
+    before.scoringMode = "partnership";
+    before.players = before.players.map((player, index) => ({
+      ...player,
+      team: index % 3,
+    }));
+    const owner = before.players[seat];
+    before.actorId = owner.id;
+    owner.handCount = 1;
+    owner.footCount = 11;
+    owner.footTop = before.footTop;
+    const melds = before.sides[0].melds.map((meld) => ({
+      ...meld,
+      creator: owner.id,
+    }));
+    const extra = closeBook
+      ? melds[0].cards.map((card, index) => ({
+          ...card,
+          id: `extra-king-${index}`,
+        }))
+      : [];
+    melds[0].cards = [...melds[0].cards, ...extra];
+    const acceptedMelds = ready.sides[0].melds.map((meld, index) => ({
+      ...meld,
+      creator: owner.id,
+      ...(closeBook && index === 0
+        ? { cards: [...meld.cards, ...extra], complete: true, bonus: 500 }
+        : {}),
+    }));
+    before.sides = before.sides.slice(0, 3).map((side) => ({
+      ...side,
+      opened: true,
+      melds: side.id === owner.team ? melds : [],
+    }));
+    const after: Snapshot = {
+      ...before,
+      revision: 2,
+      token: "bot-last-meld",
+      players: before.players.map((player) =>
+        player.id === owner.id
+          ? {
+              ...player,
+              handCount: 11,
+              footCount: 0,
+              footTop: null,
+              inFoot: true,
+            }
+          : player,
+      ),
+      sides: before.sides.map((side) =>
+        side.id === owner.team
+          ? {
+              ...side,
+              melds: acceptedMelds,
+            }
+          : side,
+      ),
+      tableEvents: [
+        {
+          id: "bot-foot",
+          kind: "foot",
+          playerId: owner.id,
+          count: 11,
+          card: null,
+          faceDown: false,
+        },
+      ],
+    };
+    await show(before);
+    await refresh(after);
+    expect(document.querySelector(".meld-card-flight")).toBeTruthy();
+    expect(
+      document.querySelector('.foot-transition[data-gathering="true"]'),
+    ).toBeNull();
+    await advance(MELD_FLIGHT_MS);
+    if (closeBook) {
+      expect(document.querySelector(".book-closing-card")).toBeTruthy();
+      expect(
+        document.querySelector('.foot-transition[data-gathering="true"]'),
+      ).toBeNull();
+      await advance(BOOK_CLOSE_MS);
+    }
+    expect(
+      document.querySelector('.foot-transition[data-gathering="true"]'),
+    ).toBeTruthy();
+    const cards = publicHandSlots(document.querySelector(".game-page"));
+    expect(cards).toHaveLength(11);
+    expect(
+      cards.every(
+        (card) =>
+          card.style.getPropertyValue("--foot-x") &&
+          card.style.getPropertyValue("--foot-delay"),
+      ),
+    ).toBe(true);
+    expect(document.querySelector(".public-hand-cards .card-art")).toBeNull();
+    await refresh({
+      ...after,
+      revision: 3,
+      players: after.players.map((player) =>
+        player.id === owner.id ? { ...player, handCount: 8 } : player,
+      ),
+    });
+    expect(publicHandSlots(document.querySelector(".game-page"))).toHaveLength(
+      11,
+    );
+    let finish: (() => void) | undefined;
+    if (seat === 1 && !closeBook) {
+      const finished = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      cards[0].getAnimations = () => [{ finished } as unknown as Animation];
+    }
+    await advance(footGatherDuration(11));
+    if (finish) {
+      expect(
+        document.querySelector('.foot-transition[data-gathering="true"]'),
+      ).toBeTruthy();
+      await act(async () => finish!());
+    }
+    expect(
+      document.querySelector('.foot-transition[data-gathering="true"]'),
+    ).toBeNull();
+  },
+);
+
 it.each([false, true])(
   "locks both draw piles until the foot and the next board's actual animation finish (mobile: %s)",
   async (onMobile) => {

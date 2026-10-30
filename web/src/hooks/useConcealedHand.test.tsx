@@ -112,3 +112,25 @@ it("settles counts immediately with reduced motion", () => {
   view.rerender(<Hand count={6} disabled />);
   expect(view.container.querySelectorAll("[data-public-slot]")).toHaveLength(6);
 });
+
+it("reserves the outgoing card when following a queued discard into another hand", () => {
+  const view = render(<Hand count={9} />);
+  const discard: TableEvent = {
+    ...draw,
+    id: "discard",
+    kind: "discard",
+    count: 1,
+  };
+  view.rerender(<Hand count={3} scope="deal:next-player" action={discard} />);
+  expect(view.container.querySelectorAll("[data-public-slot]")).toHaveLength(4);
+  expect(
+    view.container.querySelectorAll(
+      '[data-concealed-leaving="true"][data-concealed-hidden="true"]',
+    ),
+  ).toHaveLength(1);
+  view.rerender(<Hand count={3} scope="deal:next-player" />);
+  expect(view.container.querySelectorAll("[data-public-slot]")).toHaveLength(3);
+  expect(
+    view.container.querySelector('[data-concealed-hidden="true"]'),
+  ).toBeNull();
+});
