@@ -262,11 +262,6 @@ export function Rules() {
               points can cover leftover cards or add to your card total, whether
               the red three has a +300 bonus, a −300 penalty, or neither.
             </p>
-            <p>
-              For example, two played red threes with no other cards on the
-              board and nothing left in your hand or foot give you
-              <strong> 10 card points − 600 penalty = −590 points</strong>.
-            </p>
             <ol>
               <li>
                 <strong>Count your leftover cards.</strong> Add the values of

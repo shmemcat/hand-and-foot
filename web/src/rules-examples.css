@@ -88,9 +88,16 @@
   font-size: 12px;
 }
 .rule-card-values-illustrated .rules-example-cards {
+  flex-wrap: nowrap;
   min-height: 82px;
   padding: 8px 0;
   gap: 6px;
+}
+.rule-card-values-illustrated .rules-example-cards > .card {
+  flex: 0 1 44px;
+  width: 44px;
+  height: auto;
+  aspect-ratio: 5 / 7;
 }
 .rule-card-values-illustrated > div > small {
   color: var(--muted);
