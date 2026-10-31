@@ -95,6 +95,11 @@ def confirm(game, team):
     review["revision"] += 1
     if not all(side["confirmed"] for side in game["scoring"]["sides"]):
         return
+    complete(game)
+
+
+def complete(game):
+    """Finish a review once every remaining side has confirmed."""
     scores = [score_side(game, side, game["scoring"]["wentOut"] == side["id"]) for side in game["sides"]]
     for score in scores:
         game["sides"][score["team"]]["score"] += score["total"]

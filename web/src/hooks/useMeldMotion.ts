@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from "react";
 import type { Card, Snapshot } from "../types";
+import { afterCardAnimations } from "../lib/cardAnimations";
 
 export const MELD_FLIGHT_MS = 440;
 export type CardPosition = {
@@ -305,13 +306,18 @@ export function useMeldMotion(
     if (elapsed.current.key !== flight.key)
       elapsed.current = { key: flight.key, milliseconds: 0 };
     if (paused) return;
+    let cancelled = false;
     const started = performance.now();
     const duration = MELD_FLIGHT_MS / flight.speed;
     const timer = window.setTimeout(
-      cancel,
+      () =>
+        afterCardAnimations(board.current, ".meld-card-flight", () => {
+          if (!cancelled) cancel();
+        }),
       Math.max(0, duration - elapsed.current.milliseconds),
     );
     return () => {
+      cancelled = true;
       clearTimeout(timer);
       elapsed.current.milliseconds += performance.now() - started;
     };

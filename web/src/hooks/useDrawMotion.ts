@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Card, Snapshot } from "../types";
+import { afterCardAnimations } from "../lib/cardAnimations";
 
 export const DRAW_FLIGHT_MS = 660;
 export const DRAW_FLIP_MS = 620;
@@ -36,6 +37,7 @@ export function useDrawMotion(
 ) {
   const [request, setRequest] = useState<DrawRequest | null>(null);
   const current = useRef<DrawRequest | null>(null);
+  const animationRoot = useRef<Element | null>(null);
   const serial = useRef(0);
   const [landedReplacement, setLandedReplacement] = useState(0);
   const active = Boolean(
@@ -57,11 +59,22 @@ export function useDrawMotion(
   const cardIds = cards.map((card) => card.id).join(",");
   useEffect(() => {
     if (!arrived || !request?.replaced?.length) return;
+    let cancelled = false;
     const timer = window.setTimeout(
-      () => setLandedReplacement(request.key),
+      () =>
+        afterCardAnimations(
+          animationRoot.current,
+          ".red-replacement-flight",
+          () => {
+            if (!cancelled) setLandedReplacement(request.key);
+          },
+        ),
       RED_REPLACEMENT_MS / request.speed,
     );
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [arrived, request?.key]);
   function cancel() {
     current.current = null;
@@ -73,14 +86,25 @@ export function useDrawMotion(
   }, [request, active, arrived, reduced, cards.length]);
   useEffect(() => {
     if (!arrived || !cards.length) return;
+    let cancelled = false;
     const timer = window.setTimeout(
-      cancel,
+      () =>
+        afterCardAnimations(
+          animationRoot.current,
+          ".draw-card-flight, .red-replacement-flight",
+          () => {
+            if (!cancelled) cancel();
+          },
+        ),
       (DRAW_FLIGHT_MS +
         (request?.replaced?.length ? RED_REPLACEMENT_MS : 0) +
         (cards.length - 1) * DRAW_STAGGER_MS) /
         (request?.speed ?? 1),
     );
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [arrived, request?.key, cardIds]);
   useEffect(() => {
     const hide = () => {
@@ -99,6 +123,7 @@ export function useDrawMotion(
   ) {
     if (current.current) return false;
     if (reduced || !deck) return true;
+    animationRoot.current = deck.closest(".game-page");
     const rect = deck.getBoundingClientRect();
     const discard = deck
       .closest(".game-page")

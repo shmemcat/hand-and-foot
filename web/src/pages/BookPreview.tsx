@@ -25,6 +25,7 @@ export type BookExample =
   | "foot"
   | "finish-wild"
   | "overfull"
+  | "three"
   | "burst";
 type BookMode = "practice" | "online" | "partnership" | "bot" | "reduced";
 const face = (id: string, rank: string, suit = "hearts"): Card => ({
@@ -162,8 +163,11 @@ export function bookExample(
     ...(["first", "last"].includes(example)
       ? []
       : [set("existing-book", "A", 7, true)]),
+    ...(example === "three" ? [set("neighbor-open", "Q", 6)] : []),
     ...(example === "reds" || (example === "whole" && !played) ? [] : [book]),
-    ...(example === "last" ? [] : [set("remaining-open", "10", 3)]),
+    ...(example === "last"
+      ? []
+      : [set("remaining-open", "10", example === "three" ? 6 : 3)]),
     ...(["multiple", "burst"].includes(example) ? [second] : []),
     ...(example === "burst"
       ? [
@@ -330,6 +334,7 @@ export function BookPreview() {
             <option value="wild-two">Add a two to an open meld</option>
             <option value="wild-joker">Add a Joker to an open meld</option>
             <option value="last">Close the only open pile</option>
+            <option value="three">Close the middle of three open piles</option>
             <option value="multiple">
               Close two books and red threes together
             </option>

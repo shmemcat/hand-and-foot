@@ -193,14 +193,14 @@ def arrange_book_covers(game):
 def opening_pending(game):
     """A round cannot draw until present humans finish its opening presentation."""
     return "openingReady" in game and not game.get("openingComplete", False) and any(
-        not p["bot"] and p["id"] not in game["openingReady"] for p in game["players"]
+        not p["bot"] and not p.get("away") and p["id"] not in game["openingReady"] for p in game["players"]
     )
 
 
 def turn_pending(game):
     presentation = game.get("turnPresentation")
     return bool(presentation and game["phase"] == "draw" and any(
-        not p["bot"] and p["id"] not in presentation["ready"] for p in game["players"]
+        not p["bot"] and not p.get("away") and p["id"] not in presentation["ready"] for p in game["players"]
     ))
 
 
@@ -363,6 +363,57 @@ def finish_round(game, went_out, reason):
     prepare(game, went_out, reason)
 
 
+def remove_side(game, team):
+    """Retire a conceding side without moving its cards into anyone else's hand."""
+    roster = game["players"]
+    removed = [p for p in roster if p["team"] == team]
+    remaining = [p for p in roster if p["team"] != team]
+    actor = next(roster[(game["actor"] + offset) % len(roster)] for offset in range(len(roster))
+                 if roster[(game["actor"] + offset) % len(roster)] in remaining)
+    dealer = next(roster[(game["dealer"] - offset) % len(roster)] for offset in range(len(roster))
+                  if roster[(game["dealer"] - offset) % len(roster)] in remaining)
+    for player in removed:
+        for zone in [player["hand"], player["foot"], player["redThrees"], *player["piles"]]:
+            game["replaced"].extend(zone)
+        game.get("playerAchievements", {}).pop(player["id"], None)
+    for meld in game["sides"][team]["melds"]:
+        game["replaced"].extend(meld["cardIds"])
+    mapping = {side["id"]: index for index, side in enumerate(s for s in game["sides"] if s["id"] != team)}
+    game["sides"] = [s for s in game["sides"] if s["id"] != team]
+    for side in game["sides"]:
+        side["id"] = mapping[side["id"]]
+    for player in remaining:
+        player["team"] = mapping[player["team"]]
+    if roster[game["actor"]] in removed and game["phase"] in ("draw", "play"):
+        game.update(phase="draw", pickupDrawPending=False, turnPresentation=None)
+    game.update(players=remaining, actor=remaining.index(actor), dealer=remaining.index(dealer), token=uid())
+    for record in game["history"]:
+        for field in ("scores", "achievementData"):
+            if field in record:
+                record[field] = [item for item in record[field] if item["team"] in mapping]
+                for item in record[field]:
+                    item["team"] = mapping[item["team"]]
+    review = game.get("scoring")
+    if review:
+        review["wentOut"] = mapping.get(review["wentOut"])
+        review["sides"] = [s for s in review["sides"] if s["team"] in mapping]
+        for side in review["sides"]:
+            old_team = side["team"]
+            side["team"] = mapping[old_team]
+            side["usedPiles"] = [f'reds:{side["team"]}' if pile == f"reds:{old_team}" else pile for pile in side["usedPiles"]]
+    if len(game["sides"]) == 1:
+        # A forfeited match is available for review, but is not a completed score.
+        game.update(phase="finished", winners=[0], endedByConcession=True, message="The other teams conceded.")
+    elif game["phase"] == "choose" and all(p["chosen"] for p in remaining):
+        game["phase"] = "draw"
+    elif game["phase"] == "scoring" and all(s["confirmed"] for s in review["sides"]):
+        from .scoring import complete
+        complete(game)
+    if game["phase"] in ("draw", "play"):
+        game["message"] = f'{actor["name"]}’s turn.'
+    assert_conservation(game)
+
+
 def assert_conservation(game):
     zones = [*game["stock"], *game["discard"], *game["replaced"]]
     for player in game["players"]:
@@ -390,7 +441,7 @@ def project(game, viewer_id):
     round_review = game["phase"] in ("round_over", "finished")
     scoring_players = [p for p in game["players"] if p["team"] == viewer["team"]] if game["phase"] == "scoring" else []
     players = [{
-        "id": p["id"], "name": p["name"], "team": p["team"], "bot": p["bot"],
+        "id": p["id"], "name": p["name"], "team": p["team"], "bot": p["bot"], "profileIcon": p.get("profileIcon", "user"),
         "chosen": p["chosen"], "inFoot": p["inFoot"],
         "handCount": len(p["hand"]) + (len(p["foot"]) if round_review else 0) if p["chosen"] else 11,
         "footCount": 0 if round_review else len(p["foot"]) if p["chosen"] else 11,
@@ -413,7 +464,7 @@ def project(game, viewer_id):
                       "clean": sum(m["kind"] == "set" and m["complete"] and not m["dirty"] for m in melds),
                       "dirty": sum(m["kind"] == "set" and m["complete"] and m["dirty"] for m in melds)})
     return {
-        "players": players, "sides": sides, "decks": len(players) + 1, "ruleset": FAMILY.id,
+        "players": players, "sides": sides, "decks": len(cards) // 54, "ruleset": FAMILY.id,
         "drawCount": FAMILY.discard_followup_draw if game.get("pickupDrawPending") else draw_count(game["sides"], viewer["team"]),
         "pickupDrawPending": bool(game.get("pickupDrawPending")),
         "round": game["round"], "targetScore": game["targetScore"], "phase": game["phase"], "token": (f'{game["dealId"]}:choose:{viewer_id}' if game["phase"] == "choose" else f'{game["dealId"]}:opening' if game["phase"] == "draw" and opening_pending(game) else f'{game["dealId"]}:turn:{game["turnPresentation"]["id"]}' if turn_pending(game) else f'{game["dealId"]}:ready' if game["phase"] in ("round_over", "finished") else f'{game["dealId"]}:scoring:{viewer["team"]}:{game["scoring"]["sides"][viewer["team"]]["revision"]}' if game["phase"] == "scoring" else game["token"]),

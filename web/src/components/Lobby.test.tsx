@@ -117,7 +117,7 @@ it("lets the host choose only seated players or fill bots and shares the saved s
   expect(command).toHaveBeenCalledWith("start", { fillBots: true });
 });
 
-it("lets members choose their own seats and confirms host closure", () => {
+it("lets members choose seats or leave without offering to close everyone’s lobby", () => {
   const view = fixture(4);
   view.players = [
     ...view.players,
@@ -129,17 +129,9 @@ it("lets members choose their own seats and confirms host closure", () => {
   expect(command).toHaveBeenCalledWith("seat", { seat: 3 });
   fireEvent.click(screen.getByRole("button", { name: "Leave Seat" }));
   expect(command).toHaveBeenCalledWith("unseat", undefined);
-  fireEvent.click(screen.getByRole("button", { name: "Close Lobby" }));
-  const dialog = screen.getByRole("dialog", { name: "Close this lobby?" });
-  fireEvent.click(within(dialog).getByRole("button", { name: "Keep Lobby" }));
-  expect(command).not.toHaveBeenCalledWith("close", undefined);
-  fireEvent.click(screen.getByRole("button", { name: "Close Lobby" }));
-  fireEvent.click(
-    within(screen.getByRole("dialog")).getByRole("button", {
-      name: "Close Lobby",
-    }),
-  );
-  expect(command).toHaveBeenCalledWith("close", undefined);
+  expect(screen.queryByRole("button", { name: "Close Lobby" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Leave Lobby" }));
+  expect(command).toHaveBeenCalledWith("leave", undefined);
 });
 
 it("limits guest actions to leaving and home and shows a closed lobby clearly", () => {

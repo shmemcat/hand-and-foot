@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from "react";
 import type { Card, Snapshot } from "../types";
+import { afterCardAnimations } from "../lib/cardAnimations";
 import { landingPosition, type CardPosition } from "./useMeldMotion";
 
 export const BOOK_CLOSE_MS = 900;
@@ -239,12 +240,17 @@ export function useBookClosing(
     if (elapsed.current.key !== flight.key)
       elapsed.current = { key: flight.key, milliseconds: 0 };
     if (paused) return;
+    let cancelled = false;
     const started = performance.now();
     const timer = window.setTimeout(
-      cancel,
+      () =>
+        afterCardAnimations(board.current, ".book-closing-card", () => {
+          if (!cancelled) cancel();
+        }),
       Math.max(0, BOOK_CLOSE_MS / speed - elapsed.current.milliseconds),
     );
     return () => {
+      cancelled = true;
       clearTimeout(timer);
       elapsed.current.milliseconds += performance.now() - started;
     };

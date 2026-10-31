@@ -102,17 +102,17 @@ it("swipes each card area independently, preserves arrows, and keeps vertical ge
   const openPiles = screen.getByRole("group", { name: "Open piles" });
   swipe(openPiles, -120);
   expect(
-    openPiles.querySelector('[data-meld-id="mobile-0-meld-3"]'),
+    openPiles.querySelector('[data-meld-id="mobile-0-meld-4"]'),
   ).toBeTruthy();
   expect(screen.getByText(/Your board · 1 \/ 6/)).toBeTruthy();
   swipe(openPiles, 10, 120);
   expect(
-    openPiles.querySelector('[data-meld-id="mobile-0-meld-3"]'),
+    openPiles.querySelector('[data-meld-id="mobile-0-meld-4"]'),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Previous open piles" }));
   const books = screen.getByRole("group", { name: "Completed books" });
   swipe(books, -120);
-  expect(books.querySelector('[data-meld-id="mobile-0-meld-14"]')).toBeTruthy();
+  expect(books.querySelector('[data-meld-id="mobile-0-meld-15"]')).toBeTruthy();
   fireEvent.click(
     screen.getByRole("button", { name: "Previous completed books" }),
   );
@@ -136,6 +136,9 @@ it("swipes each card area independently, preserves arrows, and keeps vertical ge
 
 it("places the mobile Follow turn control beneath the round badge", async () => {
   await open();
+  expect(
+    screen.getByRole("button", { name: "Round 3. View round record" }).textContent,
+  ).toBe("R3");
   const control = screen.getByRole<HTMLInputElement>("checkbox", {
     name: "Follow turn",
   });
@@ -283,7 +286,7 @@ it("pages all ten open piles and eight completed books without changing boards",
   expect(
     within(screen.getByRole("group", { name: "Open piles" })).getByRole(
       "group",
-      { name: "Clean Q’s" },
+      { name: "Clean J’s" },
     ),
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Next completed books" }));

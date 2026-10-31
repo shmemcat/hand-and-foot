@@ -1,0 +1,105 @@
+.game-menu.scoring-cheat-sheet > .scoring-cheat-sheet-panel {
+  width: 400px;
+  max-width: calc(100vw - 48px);
+}
+.scoring-cheat-sheet-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+.scoring-cheat-sheet-panel .scoring-cheat-sheet-heading h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+}
+.scoring-cheat-sheet-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+.scoring-cheat-sheet-close:hover {
+  background: var(--surface);
+}
+.scoring-cheat-sheet-close svg {
+  width: 18px;
+  height: 18px;
+}
+.scoring-cheat-sheet-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 24px;
+}
+.scoring-cheat-sheet-gallery > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  text-align: center;
+}
+.game-header .scoring-cheat-sheet .scoring-cheat-sheet-gallery .card {
+  width: 55px;
+  height: 77px;
+}
+.scoring-cheat-sheet-points {
+  margin-top: auto;
+  font-size: 16px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.scoring-cheat-sheet-panel hr {
+  margin: 20px 0;
+}
+.scoring-cheat-sheet-values {
+  margin: 0;
+}
+.scoring-cheat-sheet-values > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 5px 0;
+}
+.scoring-cheat-sheet-values dd {
+  margin: 0;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.scoring-cheat-sheet-flush-note {
+  padding-bottom: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+@media (max-width: 420px) {
+  .game-menu.scoring-cheat-sheet > .scoring-cheat-sheet-panel {
+    max-width: calc(100vw - 40px);
+    padding: 18px 16px;
+  }
+  .scoring-cheat-sheet-gallery {
+    gap: 6px;
+  }
+  .scoring-cheat-sheet-panel .scoring-cheat-sheet-heading h2 {
+    font-size: 20px;
+  }
+  .scoring-cheat-sheet-values {
+    font-size: 12px;
+  }
+  .scoring-cheat-sheet-values > div {
+    gap: 10px;
+  }
+}
+@media (pointer: coarse) {
+  .scoring-cheat-sheet-close {
+    width: 44px;
+    height: 44px;
+    margin: -9px -9px 0 0;
+  }
+}

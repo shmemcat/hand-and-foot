@@ -148,7 +148,7 @@ it("shows a full or started lobby error and retries without a join form", async 
   expect(request).toHaveBeenCalledTimes(2);
 });
 
-it("shows the authoritative nine-minute inactivity warning", async () => {
+it("does not display an inactivity deadline from an older server snapshot", async () => {
   const state = {
     ...endingSnapshot(ENDING_EXAMPLES[1]),
     code: "INVITE",
@@ -163,15 +163,15 @@ it("shows the authoritative nine-minute inactivity warning", async () => {
       </Routes>
     </MemoryRouter>,
   );
-  expect((await screen.findByRole("alert")).textContent).toContain(
-    "inactive for 9 minutes",
-  );
+  await screen.findByLabelText("Game information and scores");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.queryByText(/inactive for 9 minutes/)).toBeNull();
 });
 
-it("explains a timed-out seat and returns to Play without offering to join the running game", async () => {
+it("explains a conceded seat without offering to rejoin the running game", async () => {
   vi.mocked(getRoom).mockRejectedValue(
     new GameApiError(
-      "You were inactive for 10 minutes. A bot has taken over your seat.",
+      "You conceded this game. You can start or join a new lobby.",
       403,
       "SEAT_REMOVED",
     ),

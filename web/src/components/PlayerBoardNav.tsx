@@ -60,12 +60,18 @@ export function PlayerBoardNav({
             key={side.id}
             disabled={disabled && !isYou}
             data-turn={!partners && Boolean(playing)}
+            data-away={
+              !partners && members.some((player) => player.away && !player.bot)
+            }
             data-leading={
               showLeader && side.score > 0 && side.score === leadingScore
             }
             aria-pressed={side.id === viewed}
             aria-current={!partners && playing ? "step" : undefined}
-            aria-label={`View ${destination}, ${side.score.toLocaleString()} points${turnLabel}${dealer ? ", dealer" : ""}`}
+            aria-label={`View ${destination}, ${side.score.toLocaleString()} points${turnLabel}${dealer ? ", dealer" : ""}${members
+              .filter((player) => player.away && !player.bot)
+              .map((player) => `, ${player.name} disconnected`)
+              .join("")}`}
             title={`View ${destination}`}
             onClick={() => onView(side.id)}
           >
@@ -87,6 +93,7 @@ export function PlayerBoardNav({
                   <span
                     className={`board-player-name${partners ? " board-partner" : ""}`}
                     data-player-id={player.id}
+                    data-away={player.away && !player.bot}
                     data-turn={
                       partners ? player.id === activePlayerId : undefined
                     }
@@ -95,14 +102,19 @@ export function PlayerBoardNav({
                         ? "step"
                         : undefined
                     }
-                    title={player.name}
+                    title={`${player.name}${player.away && !player.bot ? " (disconnected)" : ""}`}
                   >
                     {partners && (
                       <span className="board-player-turn" aria-hidden="true" />
                     )}
                     <ProfileIcon
                       bot={player.bot}
-                      name={player.id === viewerId ? profileIcon : undefined}
+                      disconnected={player.away}
+                      name={
+                        player.id === viewerId
+                          ? profileIcon
+                          : player.profileIcon
+                      }
                     />
                     <span className="board-player-text">{player.name}</span>
                     {player.id === dealerId && (

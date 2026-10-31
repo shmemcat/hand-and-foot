@@ -5,9 +5,11 @@ type Artwork = { viewBox: string; paths: readonly string[] };
 export function ProfileIcon({
   name,
   bot = false,
+  disconnected = false,
 }: {
   name?: string;
   bot?: boolean;
+  disconnected?: boolean;
 }) {
   const [artwork, setArtwork] = useState<Artwork>(iconData.user);
   useEffect(() => {
@@ -25,12 +27,18 @@ export function ProfileIcon({
       alive = false;
     };
   }, [name, bot]);
-  const displayedArtwork = bot ? iconData.robot : artwork;
+  const displayedArtwork =
+    disconnected && !bot
+      ? iconData["link-broken"]
+      : bot
+        ? iconData.robot
+        : artwork;
   return (
     <svg
       viewBox={displayedArtwork.viewBox}
       fill="currentColor"
       aria-hidden="true"
+      className={disconnected && !bot ? "fa-solid fa-link-broken" : undefined}
     >
       {displayedArtwork.paths.map((path, index) => (
         <path key={index} d={path} />

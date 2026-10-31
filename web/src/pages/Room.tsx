@@ -3,6 +3,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -88,6 +89,7 @@ import { useTurnReady } from "../hooks/useTurnReady";
 import { useRedThreeCelebration } from "../hooks/useRedThreeCelebration";
 import { useSound } from "../context/SoundContext";
 import { useAuth } from "../context/AuthContext";
+import { usePreferences } from "../context/PreferencesContext";
 import type { Card as Face, Draft, Meld, Player, Snapshot } from "../types";
 
 const rankOrder = [
@@ -106,6 +108,14 @@ const rankOrder = [
   "3",
   "2",
 ];
+
+function compareMelds(a: Meld, b: Meld): number {
+  const position = (meld: Meld) =>
+    meld.kind === "run"
+      ? Math.min(...meld.cards.map((card) => rankOrder.indexOf(card.rank)))
+      : rankOrder.indexOf(meld.rank);
+  return position(a) - position(b);
+}
 
 export type RoomRehearsal = {
   snapshot: Snapshot;
@@ -189,6 +199,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const navigate = useNavigate();
   const sound = useSound();
   const { user, loading: authLoading } = useAuth();
+  const { preferences } = usePreferences();
   const [roomSnapshot, setSnapshot] = useState<Snapshot | null>(null);
   const isRehearsal = Boolean(rehearsal);
   useAchievementRefresh(roomSnapshot, Boolean(user) && !isRehearsal);
@@ -214,8 +225,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     setError(review.error);
   }, [rehearsal?.draftReview]);
   const [follow, setFollow] = useState(rehearsal?.followTurn ?? true);
-  // Keep manual browsing through your actions, then resume on the next turn.
-  const browsingOwnTurn = useRef(false);
+  // Keep the browsed board through this turn's updates, then resume following.
+  const browsingTurn = useRef<string | null>(null);
   const [viewed, setViewed] = useState(rehearsal?.viewedTeam ?? 0);
   const [viewedHandPlayerId, setViewedHandPlayerId] = useState<string | null>(
     null,
@@ -796,12 +807,12 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     ["draw", "play"].includes(snapshot.phase);
   useEffect(() => {
     if (!firstRoundPlaying) return;
-    browsingOwnTurn.current = false;
+    browsingTurn.current = null;
     setFollow(true);
   }, [firstRoundPlaying, snapshot?.code, snapshot?.opening?.id]);
   useEffect(() => {
     if (!snapshot) return;
-    if (!myTurn) browsingOwnTurn.current = false;
+    if (browsingTurn.current !== snapshot.actorId) browsingTurn.current = null;
     if (!isRehearsal) writeStorage("handandfoot.room.v1", snapshot.code);
     if (openingInProgress) {
       const owner = snapshot.players.find(
@@ -816,7 +827,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       !playingMeld &&
       !scoring.enabled &&
       follow &&
-      !browsingOwnTurn.current &&
+      !browsingTurn.current &&
       actor &&
       (!isRehearsal || snapshot.phase === "draw")
     ) {
@@ -892,19 +903,19 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       }
       return;
     }
-    if (!roomSnapshot || busy || (turnReady.blocking && type !== "leave"))
-      return;
+    const departing = type === "leave" || type === "concede";
+    if (!roomSnapshot || busy || (turnReady.blocking && !departing)) return;
     if (
       (drawMotion.active ||
         playingMeld ||
         footMotion.active ||
         tableMotion.blocking) &&
-      type !== "leave"
+      !departing
     )
       return;
     if (
       opening.state &&
-      type !== "leave" &&
+      !departing &&
       (type !== "choose" || opening.state.step !== 4)
     )
       return;
@@ -937,7 +948,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       if (type === "choose" && (payload.pile === 0 || payload.pile === 1))
         opening.choose(payload.pile);
       const next = await command(roomSnapshot, type, payload);
-      if (type === "leave") {
+      if (departing) {
         removeStorage("handandfoot.room.v1");
         navigate(
           roomSnapshot.playMode === "practice" &&
@@ -1024,6 +1035,11 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     setError("");
   }
   const side = snapshot?.sides[viewed] || snapshot?.sides[0];
+  function pauseFollowForBrowsing() {
+    if (myTurn || preferences.followTurnBehavior === "keep")
+      browsingTurn.current = snapshot?.actorId ?? null;
+    else setFollow(false);
+  }
   function browse(delta: number) {
     if (!snapshot || openingInProgress) return;
     mobileMotion.cancel();
@@ -1036,8 +1052,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     setViewed(
       (old) => (old + delta + snapshot.sides.length) % snapshot.sides.length,
     );
-    if (myTurn) browsingOwnTurn.current = true;
-    else setFollow(false);
+    pauseFollowForBrowsing();
   }
   function viewBoard(id: number) {
     if (openingInProgress) return;
@@ -1049,11 +1064,10 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
     handNavigation.current += 1;
     setViewedHandPlayerId(null);
     setViewed(id);
-    if (myTurn) browsingOwnTurn.current = true;
-    else setFollow(false);
+    pauseFollowForBrowsing();
   }
   function changeFollow(checked: boolean) {
-    browsingOwnTurn.current = false;
+    browsingTurn.current = null;
     setFollow(checked);
   }
   if (removed)
@@ -1091,11 +1105,26 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
         )}
       </div>
     );
+  if (snapshot.status === "closed")
+    return (
+      <div className="page narrow-page">
+        <PageTitle>LOBBY CLOSED</PageTitle>
+        <div className="page-body button-stack">
+          <p role="status">
+            {snapshot.closedReason === "one_player"
+              ? "This lobby closed because only one player remained."
+              : "This lobby is closed."}
+          </p>
+          <Link className="button" to="/play">
+            Back to Play
+          </Link>
+        </div>
+      </div>
+    );
   if (snapshot.phase === "lobby")
     return <Lobby snapshot={snapshot} busy={busy} error={error} act={act} />;
 
-  const canConcede =
-    snapshot.playMode === "practice" && snapshot.phase !== "finished";
+  const canConcede = snapshot.phase !== "finished";
   const stagedIds = new Set(drafts.flatMap((draft) => draft.cardIds));
   const newMeldCount = drafts.filter(
     (draft) => !draft.meldId && !draft.redThree,
@@ -1242,8 +1271,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
           boardSweepDirection.current = null;
           handNavigation.current += 1;
           setViewedHandPlayerId(id);
-          if (myTurn) browsingOwnTurn.current = true;
-          else setFollow(false);
+          pauseFollowForBrowsing();
         }}
       />
     ) : undefined;
@@ -1421,12 +1449,6 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
         onPointerDown={nudge.reset}
         onKeyDown={nudge.reset}
       >
-        {snapshot.idleWarning && (
-          <p className="idle-warning" role="alert">
-            You’ve been inactive for 9 minutes. Make your next choice within a
-            minute to keep your seat; otherwise a bot will take over.
-          </p>
-        )}
         {!isRehearsal && connection !== "live" && (
           <p className="connection-note" role="status">
             {connection === "connecting"
@@ -1448,7 +1470,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                 setRecordOpen(true);
               }}
             >
-              Round {snapshot.round}
+              {mobileGame ? `R${snapshot.round}` : `Round ${snapshot.round}`}
             </button>
             {mobileGame && (
               <label className="follow-control">
@@ -1916,24 +1938,27 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                         aria-label="Add selected cards to a pile"
                       >
                         <span className="mobile-target-label">Your piles</span>
-                        {ownSide.melds.filter(canAddToMeld).map((meld) => (
-                          <button
-                            key={meld.id}
-                            type="button"
-                            className="mobile-target-button"
-                            onClick={() => stage(meld.id)}
-                            aria-label={`${meld.rank} ${meld.complete ? (meld.dirty ? "dirty book" : "clean book") : meld.kind === "run" ? "run" : "pile"}, ${meld.cards.length}${meld.complete ? " cards" : "/7"}`}
-                          >
-                            <span className="mobile-target-rank">
-                              {meld.rank}
-                              {meld.complete && <Book />}
-                            </span>
-                            <small>
-                              {meld.cards.length}
-                              {meld.complete ? " cards" : "/7"}
-                            </small>
-                          </button>
-                        ))}
+                        {ownSide.melds
+                          .filter(canAddToMeld)
+                          .sort(compareMelds)
+                          .map((meld) => (
+                            <button
+                              key={meld.id}
+                              type="button"
+                              className="mobile-target-button"
+                              onClick={() => stage(meld.id)}
+                              aria-label={`${meld.rank} ${meld.complete ? (meld.dirty ? "dirty book" : "clean book") : meld.kind === "run" ? "run" : "pile"}, ${meld.cards.length}${meld.complete ? " cards" : "/7"}`}
+                            >
+                              <span className="mobile-target-rank">
+                                {meld.rank}
+                                {meld.complete && <Book />}
+                              </span>
+                              <small>
+                                {meld.cards.length}
+                                {meld.complete ? " cards" : "/7"}
+                              </small>
+                            </button>
+                          ))}
                         {stageKind && (
                           <button
                             type="button"
@@ -2453,14 +2478,23 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
               className="leave-dialog"
               role="dialog"
               aria-modal="true"
-              aria-label={canConcede ? "Concede" : "Leave table"}
+              aria-label={canConcede ? "Concede" : "Leave lobby"}
             >
-              <h2>{canConcede ? "Concede the game?" : "Leave the table?"}</h2>
+              <h2>{canConcede ? "Concede the game?" : "Leave the lobby?"}</h2>
               <p>
                 {canConcede
                   ? "Are you sure you want to concede?"
-                  : "A bot will take over your seat. The other players can keep playing."}
+                  : "You’ll leave this lobby. The remaining players can start another game."}
               </p>
+              {canConcede && snapshot.playMode === "online" && (
+                <p>
+                  Conceding gives up your saved seat. To come back later, just
+                  leave this page.{" "}
+                  {snapshot.scoringMode === "partnership"
+                    ? "A hard bot will play for you while your partner remains; your team is removed if both partners concede."
+                    : "Your player will be removed from this game."}
+                </p>
+              )}
               <div>
                 <button
                   autoFocus
@@ -2472,9 +2506,9 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
                 <button
                   className="button"
                   disabled={busy}
-                  onClick={() => void act("leave")}
+                  onClick={() => void act(canConcede ? "concede" : "leave")}
                 >
-                  {canConcede ? "Concede" : "Leave table"}
+                  {canConcede ? "Concede" : "Leave lobby"}
                 </button>
               </div>
             </section>
@@ -2560,8 +2594,8 @@ function DesktopPileRow({
 
 function BoardPiles({
   players,
-  melds,
-  restingMelds = melds,
+  melds: unsortedMelds,
+  restingMelds = unsortedMelds,
   restingRedCount,
   isYou,
   canTarget,
@@ -2597,6 +2631,10 @@ function BoardPiles({
   mobile?: boolean;
   motionTarget?: string;
 }) {
+  const melds = useMemo(
+    () => unsortedMelds.slice().sort(compareMelds),
+    [unsortedMelds],
+  );
   const [openPage, setOpenPage] = useState(0);
   const [bookPage, setBookPage] = useState(0);
   useLayoutEffect(() => {

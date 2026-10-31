@@ -16,6 +16,8 @@ export function Play() {
   const active = useActiveTable();
   const blocked =
     active.checking || Boolean(active.table) || Boolean(active.error);
+  if (active.table?.playMode === "online")
+    return <Navigate to={`/room/${active.table.code}`} replace />;
   return (
     <div className="page play-page">
       <PageTitle>PLAY</PageTitle>
@@ -228,7 +230,9 @@ export function CreateGame() {
             )}
           </div>
         </fieldset>
-        <BotDifficulty value={botDifficulty} onChange={setBotDifficulty} />
+        {mode === "practice" && (
+          <BotDifficulty value={botDifficulty} onChange={setBotDifficulty} />
+        )}
         <LoginWarning />
         <SessionStatus active={active} />
         {error && (

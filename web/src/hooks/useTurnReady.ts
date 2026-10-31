@@ -20,7 +20,10 @@ export function useTurnReady(
   const presentation = snapshot?.turnPresentation;
   const blocking = Boolean(presentation && !presentation.complete);
   const needsAck = Boolean(
-    blocking && snapshot && !presentation!.ready.includes(snapshot.viewerId),
+    snapshot?.status !== "closed" &&
+      blocking &&
+      snapshot &&
+      !presentation!.ready.includes(snapshot.viewerId),
   );
   useEffect(() => {
     if (!needsAck || blocked) return;

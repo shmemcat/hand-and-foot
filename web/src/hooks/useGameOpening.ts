@@ -142,7 +142,8 @@ export function useGameOpening(
     readySeen.current = { id: current?.id ?? "", step, chosen };
   }, [chosenIds, active, step, current?.id]);
   const needsAck = Boolean(
-    active &&
+    snapshot?.status !== "closed" &&
+      active &&
       step === 7 &&
       current &&
       current.elapsed >= duration &&

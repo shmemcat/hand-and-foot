@@ -314,3 +314,9 @@
     min-height: 36px;
   }
 }
+.lobby-player-seat[data-away="true"] .lobby-profile,
+.lobby-player-seat[data-away="true"] .lobby-player-name,
+.lobby-waiting-room li[data-away="true"] > svg,
+.lobby-waiting-room li[data-away="true"] > span {
+  opacity: 0.5;
+}

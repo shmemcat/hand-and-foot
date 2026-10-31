@@ -117,17 +117,21 @@ def test_sign_in_does_not_claim_a_second_guest_lobby(app):
     assert guest.get(f'{ROOT}/rooms/{waiting["code"]}').status_code == 403
 
 
-def test_lobby_close_is_host_only_releases_all_seats_and_creates_no_result(app):
+def test_host_cannot_close_other_players_saved_lobby(app):
     host, headers = client(app)
     guest, auth = client(app)
-    room = create(host, headers, capacity=2, scoringMode="individual")
+    room = create(host, headers, capacity=4, scoringMode="individual")
     guest.post(f'{ROOT}/rooms/{room["code"]}/join', headers=auth, json={"name": "Friend"})
+    third, third_auth = client(app)
+    third.post(f'{ROOT}/rooms/{room["code"]}/join', headers=third_auth, json={"name": "Third"})
     view = guest.get(f'{ROOT}/rooms/{room["code"]}').json
     assert move(guest, auth, view, "close").status_code == 403
     room = host.get(f'{ROOT}/rooms/{room["code"]}').json
-    assert move(host, headers, room, "close").json["status"] == "closed"
-    assert guest.get(f'{ROOT}/rooms/{room["code"]}').json["status"] == "closed"
-    assert host.get(ROOT + "/active").json == guest.get(ROOT + "/active").json == {"rooms": []}
+    assert move(host, headers, room, "close").status_code == 400
+    assert move(host, headers, room, "leave").status_code == 200
+    assert guest.get(f'{ROOT}/rooms/{room["code"]}').json["status"] == "lobby"
+    assert host.get(ROOT + "/active").json == {"rooms": []}
+    assert guest.get(ROOT + "/active").json["rooms"][0]["code"] == room["code"]
     assert create(host, headers)["phase"] == "lobby"
     with app.app_context():
         assert MatchResult.query.count() == 0
@@ -169,7 +173,7 @@ def test_abandoned_games_never_count_as_played_even_after_a_finished_round(app, 
     if phase == "round_over":
         assert len(room["history"]) == 1
     before = http.get(ROOT + "/achievements").json
-    assert move(http, headers, room, "leave").status_code == 200
+    assert move(http, headers, room, "concede").status_code == 200
     after = http.get(ROOT + "/achievements").json
     assert before == after
     assert after["stats"]["all"]["games"] == after["stats"][play_mode]["games"] == 0
@@ -179,7 +183,7 @@ def test_abandoned_games_never_count_as_played_even_after_a_finished_round(app, 
         assert MatchResult.query.count() == 0
 
 
-def test_bot_finishing_after_a_player_leaves_only_counts_for_the_remaining_player(app):
+def test_two_player_concession_releases_both_players_without_counting_a_result(app):
     host, headers = client(app)
     friend, friend_headers = client(app)
     sign_in(host)
@@ -189,15 +193,15 @@ def test_bot_finishing_after_a_player_leaves_only_counts_for_the_remaining_playe
                        json={"name": "ignored", "seat": 1}).status_code == 200
     room = host.get(f'{ROOT}/rooms/{room["code"]}').json
     room = move(host, headers, room, "start").json
-    assert move(host, headers, room, "leave").status_code == 200
-    prepare_last_round(app, room["code"])
-    confirm(friend, friend_headers, room["code"])
+    assert move(host, headers, room, "concede").status_code == 200
     app.extensions["tick"]()
-    assert friend.get(f'{ROOT}/rooms/{room["code"]}').json["phase"] == "finished"
+    closed = friend.get(f'{ROOT}/rooms/{room["code"]}').json
+    assert closed["status"] == "closed" and not any(p["bot"] for p in closed["players"])
+    assert friend.get(ROOT + "/active").json == host.get(ROOT + "/active").json == {"rooms": []}
     departed = host.get(ROOT + "/achievements").json
     remaining = friend.get(ROOT + "/achievements").json
     assert departed["stats"]["all"]["games"] == departed["stats"]["online"]["games"] == departed["counters"]["games"] == 0
-    assert remaining["stats"]["all"]["games"] == remaining["stats"]["online"]["games"] == remaining["counters"]["games"] == 1
+    assert remaining["stats"]["all"]["games"] == remaining["stats"]["online"]["games"] == remaining["counters"]["games"] == 0
     assert remaining["stats"]["all"]["wins"] == 0
 
 

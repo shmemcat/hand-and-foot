@@ -3,6 +3,7 @@ import copy
 import re
 import secrets
 from . import engine
+from .lifecycle import depart, players
 from flask import jsonify, request
 from .models import AchievementUnlock, DeletedAccount, MatchResult, Receipt, Room, db
 
@@ -52,13 +53,18 @@ def register_cleanup(app, lock, announce):
             for row in Room.query.all():
                 data = copy.deepcopy(row.payload)
                 touched = principal in data.get("removed", {})
+                target = next((p for p in players(data) if p.get("key") == principal), None)
+                if target:
+                    target.update(name="Deleted player", utcOffsetMinutes=None)
+                    depart(data, target, "conceded" if data.get("game") and data["game"]["phase"] != "finished" else "left")
+                    touched = True
                 data.get("removed", {}).pop(principal, None)
                 for group in [data["players"], data.get("game", {}).get("players", []) if data.get("game") else []]:
                     for player in group:
                         if player.get("key") == principal or player.get("accountId") == uid:
                             if data.get("game"):
                                 data["game"].get("playerAchievements", {}).pop(player["id"], None)
-                            player.update(key=None, accountId=None, name="Deleted player", bot=True, away=False, utcOffsetMinutes=None)
+                            player.update(key=None, accountId=None, name="Deleted player", away=not player["bot"], utcOffsetMinutes=None)
                             touched = True
                 if not touched:
                     continue

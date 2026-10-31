@@ -118,6 +118,7 @@ it.each([
   "foot",
   "finish-wild",
   "overfull",
+  "three",
   "burst",
 ] as BookExample[])(
   "keeps the desktop height under CSS control while closing %s",
@@ -195,6 +196,60 @@ it("lands all seven cards in a new open pile before gathering and raising the bo
   ).toBeTruthy();
   advance(BOOK_CLOSE_MS);
   expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+});
+
+it("waits for delayed browser frames before gathering the book and revealing its landed cover", async () => {
+  const view = render(room(bookExample("whole", false, 0, "partnership")));
+  view.rerender(room(bookExample("whole", true, 0, "partnership")));
+  let land!: () => void;
+  const landed = new Promise<void>((resolve) => {
+    land = resolve;
+  });
+  view.container.querySelector(".meld-card-flight")!.getAnimations = () => [
+    { finished: landed } as unknown as Animation,
+  ];
+  advance(MELD_FLIGHT_MS + 300);
+  expect(view.container.querySelector(".meld-card-flight")).toBeTruthy();
+  expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+  await act(async () => land());
+  expect(view.container.querySelectorAll(".book-closing-card")).toHaveLength(7);
+  let close!: () => void;
+  const closed = new Promise<void>((resolve) => {
+    close = resolve;
+  });
+  view.container.querySelector(".book-closing-card")!.getAnimations = () => [
+    { finished: closed } as unknown as Animation,
+  ];
+  advance(BOOK_CLOSE_MS + 300);
+  expect(view.container.querySelector(".book-closing-layer")).toBeTruthy();
+  await act(async () => close());
+  expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+});
+
+it("does not let an interrupted flight finish a later play when its old browser animation settles", async () => {
+  const before = bookExample("clean", false, 0, "partnership");
+  const after = bookExample("clean", true, 0, "partnership");
+  const view = render(room(before));
+  view.rerender(room(after));
+  let finishOld!: () => void;
+  const oldFinished = new Promise<void>((resolve) => {
+    finishOld = resolve;
+  });
+  view.container.querySelector(".meld-card-flight")!.getAnimations = () => [
+    { finished: oldFinished } as unknown as Animation,
+  ];
+  advance(MELD_FLIGHT_MS);
+  fireEvent.scroll(window);
+  view.rerender(room(before));
+  view.rerender(room(after));
+  advance(MELD_FLIGHT_MS / 2);
+  await act(async () => finishOld());
+  expect(view.container.querySelector(".meld-card-flight")).toBeTruthy();
+  expect(view.container.querySelector(".book-closing-card")).toBeNull();
+  advance(MELD_FLIGHT_MS / 2);
+  expect(view.container.querySelectorAll(".book-closing-card")).toHaveLength(7);
+  advance(BOOK_CLOSE_MS);
+  expect(view.container.querySelector(".book-closing-card")).toBeNull();
 });
 
 it("closes a newly created bot book even when its discard arrives in the same update", () => {

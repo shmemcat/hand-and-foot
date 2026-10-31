@@ -9,10 +9,11 @@ import secrets
 import threading
 import time
 from flask import Flask, jsonify, request, session
-from flask_socketio import SocketIO, join_room
+from flask_socketio import SocketIO, join_room, leave_room
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
-from . import bots, engine, scoring, lobby, inactivity
+from . import bots, engine, scoring, lobby
+from .lifecycle import depart, players
 from .models import AchievementUnlock, DeletedAccount, MatchResult, Receipt, Room, db
 from .account_remote import RemoteAccounts
 from .account_contracts import AccountsUnavailable
@@ -91,14 +92,21 @@ def create_app(config=None):
         raise ValueError("Shared accounts require a separate strong Hand & Foot deletion callback token.")
     app.extensions["accounts"] = accounts
     socket_actors = {}
-    if app.config["AUTO_CREATE_SCHEMA"]:
-        with app.app_context():
+    subscriptions = {}
+    with app.app_context():
+        if app.config["AUTO_CREATE_SCHEMA"]:
             upgrade_schema()
+        if schema_ready():
             # Preserve tables created by the early v1 preview as the preset settles.
             for row in Room.query.all():
                 data = copy.deepcopy(row.payload)
                 lobby.normalize(data)
                 game = data.get("game")
+                data.pop("inactivity", None)
+                if data["playMode"] == "online":
+                    for player in players(data):
+                        if player.get("key") and not player["bot"]:
+                            player["away"] = True
                 if game and ("matchId" not in game or "shuffleSeed" not in game):
                     game.setdefault("matchId", engine.uid())
                     game.setdefault("shuffleSeed", secrets.randbits(128))
@@ -204,9 +212,6 @@ def create_app(config=None):
             raise LookupError("That table was not found. Check the code and try again.")
         return row
 
-    def players(data):
-        return data["game"]["players"] if data.get("game") else data["players"]
-
     def active_table(data, key):
         return (data["status"] != "closed" and not data.get("developmentFixture")
                 and any(p.get("key") == key for p in players(data))
@@ -222,8 +227,10 @@ def create_app(config=None):
     def member(data, key):
         player = next((p for p in players(data) if p.get("key") == key), None)
         if not player:
+            if data.get("removed", {}).get(key) == "conceded":
+                raise SeatRemoved("You conceded this game. You can start or join a new lobby.")
             if data.get("removed", {}).get(key) == "idle":
-                raise SeatRemoved("You were inactive for 10 minutes. A bot has taken over your seat.")
+                raise SeatRemoved("Your seat was removed by an earlier version of the game.")
             if data.get("removed", {}).get(key) == "removed":
                 raise SeatRemoved("The host removed you from this lobby.")
             raise PermissionError("Join this table before viewing it.")
@@ -235,14 +242,14 @@ def create_app(config=None):
         base["viewerId"] = player["id"]
         base["botDifficulty"] = data.get("botDifficulty", bots.DEFAULT_DIFFICULTY)
         base["developmentFixture"] = bool(data.get("developmentFixture"))
+        if data.get("closedReason"):
+            base["closedReason"] = data["closedReason"]
         if data.get("game"):
             base.update(engine.project(data["game"], player["id"]))
-            timer = data.get("inactivity", {}).get(player["id"], {})
-            base["idleWarning"] = bool(timer.get("warned"))
         else:
             lobby.normalize(data)
             side_count = data["capacity"] // 2 if data["scoringMode"] == "partnership" else data["capacity"]
-            roster = [{"id": p["id"], "name": p["name"], "profileIcon": p.get("profileIcon", "user"), "bot": p["bot"], "team": p["lobbySeat"] % side_count if p["lobbySeat"] is not None else -1, "handCount": 0, "footCount": 0, "inFoot": False, "chosen": False, "redThrees": [], "ready": False, "away": False} for p in data["players"]]
+            roster = [{"id": p["id"], "name": p["name"], "profileIcon": p.get("profileIcon", "user"), "bot": p["bot"], "team": p["lobbySeat"] % side_count if p["lobbySeat"] is not None else -1, "handCount": 0, "footCount": 0, "inFoot": False, "chosen": False, "redThrees": [], "ready": False, "away": p.get("away", False)} for p in data["players"]]
             by_id = {p["id"]: p for p in roster}
             base.update(players=roster,
                         lobbyFillBots=data.get("lobbyFillBots", True),
@@ -254,7 +261,7 @@ def create_app(config=None):
         return base
 
     def save(row, data, *, changed=True):
-        inactivity.sync(data, time.time())
+        data.pop("inactivity", None)
         if changed:
             data["revision"] += 1
         row.payload = data
@@ -279,7 +286,7 @@ def create_app(config=None):
                 )}
                 for user_id, achievement_id in earned - existing:
                     db.session.add(AchievementUnlock(user_id=user_id, achievement_id=achievement_id))
-        if game and game["phase"] == "finished" and not data.get("developmentFixture") and not db.session.get(MatchResult, game["matchId"]):
+        if game and game["phase"] == "finished" and not game.get("endedByConcession") and not data.get("developmentFixture") and not db.session.get(MatchResult, game["matchId"]):
             db.session.add(MatchResult(id=game["matchId"], completed_at=time.time(), payload={
                 "code": data["code"], "mode": data["scoringMode"], "playMode": data["playMode"], "targetScore": game["targetScore"],
                 "botDifficulty": data.get("botDifficulty", bots.DEFAULT_DIFFICULTY),
@@ -327,21 +334,6 @@ def create_app(config=None):
         data["game"] = engine.new_game(data["players"], data["scoringMode"], target_score=data["targetScore"])
         data["game"]["startedAt"] = time.time()
         data["status"] = "playing"
-
-    def depart(data, player, reason="left"):
-        key = player.get("key")
-        if key:
-            data.setdefault("removed", {})[key] = reason
-        if not data.get("game"):
-            data["players"] = [p for p in data["players"] if p["id"] != player["id"]]
-        else:
-            player.update(key=None, bot=True, away=False, name=player["name"] + " (bot)")
-        candidates = [p for p in players(data) if p.get("key")]
-        if data["hostId"] == player["id"]:
-            data["hostId"] = candidates[0]["id"] if candidates else ""
-        if not candidates:
-            data.update(status="closed", closedReason="empty")
-        data["token"] = engine.uid()
 
     @app.errorhandler(SeatRemoved)
     def seat_removed(error):
@@ -503,7 +495,7 @@ def create_app(config=None):
             player["lastSeen"] = time.time()
             if not data.get("game") and utc_offset() is not None:
                 player["utcOffsetMinutes"] = utc_offset()
-            if player.get("away"):
+            if data["playMode"] == "practice" and player.get("away"):
                 player.update(away=False, bot=False)
             save(row, data, changed=False)
             return jsonify(projection(data, actor()))
@@ -519,16 +511,20 @@ def create_app(config=None):
         with lock:
             row = room_for(code)
             data = copy.deepcopy(row.payload)
-            player = member(data, actor())
             receipt = db.session.get(Receipt, (code, action_id))
             if receipt:
                 if receipt.principal != actor() or receipt.fingerprint != fingerprint:
                     raise ValueError("That action ID has already been used for a different move.")
+                if values.get("type") in ("leave", "concede"):
+                    return jsonify(left=True)
                 return jsonify(projection(data, actor()))
+            player = member(data, actor())
             expected = projection(data, actor())["token"]
             if values.get("token") != expected or type(values.get("revision")) is not int or values["revision"] > data["revision"]:
                 return jsonify(error="The table has moved on. Your cards are safe; refresh the view and try again.", code="STALE_STATE"), 409
             action = values.get("type")
+            if data["status"] == "closed" and action not in ("leave", "concede"):
+                raise ValueError("This lobby has closed. Start or join a new lobby.")
             if action in ("start", "rematch") and utc_offset() is not None:
                 player["utcOffsetMinutes"] = utc_offset()
             if action == "start":
@@ -553,8 +549,7 @@ def create_app(config=None):
             elif action == "close":
                 if data["hostId"] != player["id"] or data["status"] != "lobby":
                     raise PermissionError("Only the host can close a waiting lobby.")
-                data["status"] = "closed"
-                data["token"] = engine.uid()
+                raise ValueError("Leave the lobby to give up your seat. Other players keep their saved lobby.")
             elif action == "seat":
                 lobby.choose(data, player, values.get("seat"))
                 data["token"] = engine.uid()
@@ -587,11 +582,26 @@ def create_app(config=None):
                 if not data.get("developmentFixture"):
                     require_free_seat(actor(), except_code=code)
                 game = data["game"]
-                data["players"] = [{k: p[k] for k in ("id", "key", "name", "bot", "lastSeen", "away")} | {"accountId": p.get("accountId"), "lobbySeat": i, "profileIcon": p.get("profileIcon", "user"), "utcOffsetMinutes": p.get("utcOffsetMinutes")} for i, p in enumerate(game["players"])]
+                data["capacity"] = max(4 if data["scoringMode"] == "partnership" else 2, data["capacity"])
+                side_count = data["capacity"] // 2
+                team_seats = {}
+                data["players"] = []
+                for i, p in enumerate(game["players"]):
+                    if not p.get("key") and not p["bot"]:
+                        continue
+                    seat = i
+                    if data["scoringMode"] == "partnership":
+                        seat = p["team"] + team_seats.get(p["team"], 0) * side_count
+                        team_seats[p["team"]] = team_seats.get(p["team"], 0) + 1
+                    data["players"].append({k: p[k] for k in ("id", "key", "name", "bot", "lastSeen", "away")} | {"accountId": p.get("accountId"), "lobbySeat": seat, "profileIcon": p.get("profileIcon", "user"), "utcOffsetMinutes": p.get("utcOffsetMinutes"), "botDifficulty": p.get("botDifficulty", data.get("botDifficulty", bots.DEFAULT_DIFFICULTY))})
                 data["game"] = None
                 start(data)
             elif action == "leave":
                 depart(data, player)
+            elif action == "concede":
+                if not data.get("game") or data["game"]["phase"] == "finished":
+                    raise ValueError("Concede during a game, or leave the lobby between games.")
+                depart(data, player, "conceded")
             else:
                 if not data.get("game"):
                     raise ValueError("Start the table first.")
@@ -607,7 +617,7 @@ def create_app(config=None):
                             data["game"] = engine.apply(data["game"], bot_seat, {"type": "score_confirm"})
             db.session.add(Receipt(code=code, action_id=action_id, principal=actor(), fingerprint=fingerprint, revision=data["revision"] + 1))
             save(row, data)
-            result = {"left": True} if action == "leave" else projection(data, actor())
+            result = {"left": True} if action in ("leave", "concede") else projection(data, actor())
         announce(code, data["revision"])
         return jsonify(result)
 
@@ -674,7 +684,25 @@ def create_app(config=None):
 
     @socketio.on("disconnect", namespace=NAMESPACE)
     def socket_disconnect(reason=None):
-        socket_actors.pop(request.sid, None)
+        with lock:
+            socket_actors.pop(request.sid, None)
+            unsubscribe(request.sid)
+
+    def presence(code, pid, away):
+        row = db.session.get(Room, code)
+        if not row or row.payload["status"] == "closed":
+            return
+        data = copy.deepcopy(row.payload)
+        player = next((p for p in players(data) if p["id"] == pid and p.get("key") and not p["bot"]), None)
+        if player and player.get("away", False) != away:
+            player["away"] = away
+            save(row, data)
+            announce(code, data["revision"])
+
+    def unsubscribe(sid):
+        previous = subscriptions.pop(sid, None)
+        if previous and previous not in subscriptions.values():
+            presence(*previous, away=True)
 
     @socketio.on("handandfoot:subscribe", namespace=NAMESPACE)
     def subscribe(values):
@@ -686,8 +714,15 @@ def create_app(config=None):
                 return {"error": "Choose a table."}
             with lock:
                 row = room_for(values["code"])
-                member(row.payload, actor())
+                player = member(row.payload, actor())
+                subscription = (row.code, player["id"])
+                previous = subscriptions.get(request.sid)
+                if previous and previous != subscription:
+                    leave_room(previous[0])
+                    unsubscribe(request.sid)
+                subscriptions[request.sid] = subscription
                 join_room(row.code)
+                presence(*subscription, away=False)
             return {"ok": True}
         except (PermissionError, LookupError, AccountsUnavailable):
             return {"error": "Join this table first."}
@@ -695,17 +730,6 @@ def create_app(config=None):
     def tick():
         with app.app_context():
             now = time.time()
-            with lock:
-                user_ids = {p["accountId"] for row in Room.query.all()
-                            for p in players(row.payload) if p.get("accountId") and p.get("key")
-                            and p["id"] in inactivity.due(row.payload, now)}
-            available = True
-            if accounts and user_ids:
-                try:
-                    # An account outage must not remove a player; no remote I/O under the room lock.
-                    accounts.public_profiles(list(user_ids))
-                except AccountsUnavailable:
-                    available = False
             with lock:
                 db.session.expire_all()
                 for row in Room.query.all():
@@ -716,22 +740,10 @@ def create_app(config=None):
                     humans = [p for p in game["players"] if p.get("key")]
                     if not humans:
                         continue
-                    # Solo games pause off-page. Online decisions retain their clock through reconnects.
+                    # Solo games pause off-page. Online seats wait indefinitely for their owner.
                     if data["playMode"] == "practice" and all(now - p["lastSeen"] > 120 for p in humans):
                         continue
-                    inactivity.sync(data, now)
-                    for pid, timer in list(data["inactivity"].items()):
-                        elapsed = now - timer["startedAt"]
-                        if elapsed >= inactivity.WARNING_SECONDS:
-                            timer["warned"] = True
-                        if elapsed < inactivity.TIMEOUT_SECONDS:
-                            continue
-                        if not available:
-                            timer["recovering"] = True
-                        elif timer.pop("recovering", False):
-                            timer["startedAt"] = now - inactivity.WARNING_SECONDS
-                        else:
-                            depart(data, next(p for p in game["players"] if p["id"] == pid), "idle")
+                    data.pop("inactivity", None)
                     changed = data != row.payload
                     if data["status"] == "closed":
                         save(row, data)
@@ -754,7 +766,7 @@ def create_app(config=None):
                             pile = scoring.auto_choice(game, player["team"])
                             move = {"type": "score_pay", "pileId": pile} if pile else {"type": "score_confirm"}
                         else:
-                            move = bots.decide(view, data.get("botDifficulty", bots.DEFAULT_DIFFICULTY))
+                            move = bots.decide(view, player.get("botDifficulty", data.get("botDifficulty", bots.DEFAULT_DIFFICULTY)))
                         try:
                             data["game"] = engine.apply(game, bot_seat, move)
                             changed = True

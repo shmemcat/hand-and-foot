@@ -203,6 +203,86 @@ it("retargets a second column change from the currently visible position", () =>
   expect(moves[1].frames[0].transform).toBe("translate(-150px, 0px)");
 });
 
+function ClosingRow({
+  closed = false,
+  closingIndex = 1,
+  reduced = false,
+  scope = "round-1",
+  paused = false,
+}: {
+  closed?: boolean;
+  closingIndex?: number;
+  reduced?: boolean;
+  scope?: string;
+  paused?: boolean;
+}) {
+  const board = useRef<HTMLDivElement>(null);
+  usePileLayoutMotion(board, { scope, enabled: true, reduced, paused });
+  return (
+    <div ref={board}>
+      <div className="board-carousel">
+        <div className="open-piles">
+          <div className="pile-row-content">
+            {[0, 1, 2]
+              .filter((index) => !closed || index !== closingIndex)
+              .map((index, column) => (
+                <div
+                  key={index}
+                  className="meld-pile"
+                  data-meld-id={`pile-${index}`}
+                  data-left={closed ? 98 + column * 196 : index * 196}
+                >
+                  <div className="meld-card-layers" />
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+it.each([0, 1, 2])(
+  "keeps survivors visible when closing pile %s of three, then restores the row clip",
+  (closingIndex) => {
+    const view = render(<ClosingRow closingIndex={closingIndex} />);
+    const row = view.container.querySelector<HTMLElement>(".pile-row-content")!;
+    view.rerender(<ClosingRow closed closingIndex={closingIndex} />);
+    expect(moves).toHaveLength(2);
+    expect(moves.map((move) => move.frames[0].transform)).toEqual([
+      `translate(${closingIndex === 0 ? 98 : -98}px, 0px)`,
+      `translate(${closingIndex === 2 ? -98 : 98}px, 0px)`,
+    ]);
+    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("98px");
+    act(() => moves[0].onfinish!());
+    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("98px");
+    act(() => moves[1].onfinish!());
+    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("");
+  },
+);
+
+it.each(["reduced", "board"])(
+  "clears the expanded row clip when a pile slide is canceled by %s",
+  (reason) => {
+    const view = render(<ClosingRow />);
+    const row = view.container.querySelector<HTMLElement>(".pile-row-content")!;
+    view.rerender(<ClosingRow closed paused />);
+    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("98px");
+    expect(moves.every((move) => move.playState === "paused")).toBe(true);
+    view.rerender(
+      <ClosingRow
+        closed
+        reduced={reason === "reduced"}
+        scope={reason === "board" ? "other-board" : "round-1"}
+      />,
+    );
+    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("");
+    expect(moves.every((move) => move.cancel.mock.calls.length === 1)).toBe(
+      true,
+    );
+  },
+);
+
 it("responds to board resizing without requiring another game update", () => {
   const view = render(<Board />);
   view.container.querySelector<HTMLElement>(".meld-pile")!.dataset.left = "400";

@@ -3,7 +3,7 @@ import copy
 import time
 import pytest
 from handandfoot_server import engine, bots
-from handandfoot_server.application import ROOT
+from handandfoot_server.application import ROOT, NAMESPACE
 from handandfoot_server.models import Room, db
 from test_engine import take
 from test_service import app, client, create, move
@@ -102,24 +102,28 @@ def test_wrong_transition_ack_is_atomic_and_next_deal_clears_the_gate(app):
         assert not engine.turn_pending(game)
 
 
-def test_disconnected_client_uses_the_existing_inactivity_clock_and_bot_takeover_releases_turn(app, monkeypatch):
-    host, headers, _, _, waiting = setup_turn(app, human_next=True)
+def test_disconnected_client_releases_animations_but_its_turn_waits_for_reconnect(app, monkeypatch):
+    host, headers, guest, guest_headers, waiting = setup_turn(app, human_next=True)
     ready = move(host, headers, waiting, "turn_ready", presentationId=waiting["turnPresentation"]["id"])
     assert not ready.json["turnPresentation"]["complete"]
-    with app.app_context():
-        row = db.session.get(Room, waiting["code"])
-        data = copy.deepcopy(row.payload)
-        presentation = data["game"]["turnPresentation"]
-        assert all(timer["decision"][-2:] == ["turn_presentation", presentation["id"]]
-                   for timer in data["inactivity"].values())
-        assert len(data["inactivity"]) == 1
-        timer = next(iter(data["inactivity"].values()))
-        timer["startedAt"] = time.time() - 601
-        row.payload = data
-        db.session.commit()
-    monkeypatch.setattr(bots, "decide", lambda view, difficulty: {"type": "draw"})
+    socketio = app.extensions["socketio"]
+    def connect():
+        socket = socketio.test_client(app, namespace=NAMESPACE, flask_test_client=guest,
+            auth={"csrf": guest_headers["X-Handandfoot-CSRF"]})
+        socket.emit("handandfoot:subscribe", {"code": waiting["code"]}, namespace=NAMESPACE)
+        return socket
+    socket = connect()
+    socket.disconnect(namespace=NAMESPACE)
+    monkeypatch.setattr("handandfoot_server.application.time.time", lambda: time.time_ns() / 1e9 + 601)
     app.extensions["tick"]()
-    drawn = host.get(f'{ROOT}/rooms/{waiting["code"]}').json
-    assert drawn["players"][1]["bot"]
-    assert drawn["phase"] == "play"
-    assert drawn["tableEvents"][-1]["kind"] == "draw"
+    paused = host.get(f'{ROOT}/rooms/{waiting["code"]}').json
+    assert not paused["players"][1]["bot"] and paused["players"][1]["away"]
+    assert paused["phase"] == "draw" and paused["actorId"] == paused["players"][1]["id"]
+    assert paused["turnPresentation"]["complete"]
+    socket = connect()
+    current = guest.get(f'{ROOT}/rooms/{waiting["code"]}').json
+    assert not current["players"][1]["away"]
+    current = move(guest, guest_headers, current, "turn_ready", presentationId=current["turnPresentation"]["id"]).json
+    drawn = move(guest, guest_headers, current, "draw").json
+    assert drawn["phase"] == "play" and drawn["tableEvents"][-1]["kind"] == "draw"
+    socket.disconnect(namespace=NAMESPACE)

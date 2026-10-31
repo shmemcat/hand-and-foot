@@ -13,7 +13,7 @@ export function useLiveScoring(
   reduced: boolean,
 ) {
   const scope = incoming
-    ? `${incoming.code}:${incoming.round}:${incoming.viewerId}`
+    ? `${incoming.code}:${incoming.round}:${incoming.viewerId}:${incoming.players.map((player) => player.id).join(":")}`
     : "";
   const [origin, setOrigin] = useState<{
     scope: string;
@@ -29,6 +29,7 @@ export function useLiveScoring(
   );
   const eligible =
     enabled &&
+    incoming?.status !== "closed" &&
     (incoming?.phase === "scoring" || (roundReview && origin?.scope === scope));
   const inScope = eligible && origin?.scope === scope;
   const skipped = inScope && skippedScope === scope;

@@ -13,6 +13,14 @@
     /* Let the shuffle fan into the desktop table's left padding. */
     overflow-x: visible;
   }
+  .opening-board[data-opening-step="2"] .opening-deck-card {
+    --shuffle-offset: -28%;
+    --shuffle-angle: -12deg;
+  }
+  .opening-board[data-opening-step="2"] .opening-deck-card:last-of-type {
+    --shuffle-offset: 28%;
+    --shuffle-angle: 12deg;
+  }
 }
 .game-page.round-opened > .board-carousel {
   min-height: 390px;

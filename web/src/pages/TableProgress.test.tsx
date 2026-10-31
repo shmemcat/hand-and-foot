@@ -53,6 +53,7 @@ beforeEach(() => {
       code: solo.code,
       token: "latest",
       revision: 18,
+      phase: "play",
     } as Snapshot);
   vi.mocked(command)
     .mockReset()
@@ -87,12 +88,7 @@ it("checks the current table before enabling create/join and never renders a tab
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-it.each([
-  solo,
-  lobby,
-  { ...lobby, phase: "play" as const },
-  { ...lobby, phase: "finished" as const },
-])(
+it.each([solo])(
   "continues the existing $playMode $phase table without creating a game",
   async (table) => {
     rooms = [table];
@@ -127,7 +123,7 @@ it("cancels concession, focuses No, and only leaves after confirmation using the
   expect(getRoom).toHaveBeenCalledWith("SOLO22");
   expect(command).toHaveBeenCalledWith(
     expect.objectContaining({ token: "latest", revision: 18 }),
-    "leave",
+    "concede",
   );
   expect(createLink().getAttribute("aria-disabled")).toBeNull();
 });
@@ -137,17 +133,17 @@ it.each(["/game/create", "/game/join"])(
   async (entry) => {
     rooms = [lobby];
     render(page(entry));
-    await screen.findByRole("dialog", { name: "Lobby In Progress" });
+    await screen.findByText("Original table");
     expect(screen.queryByRole("button", { name: "Create Game" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Join Game" })).toBeNull();
   },
 );
 
 it("retains the table on a failed leave and permits retry", async () => {
-  rooms = [lobby];
+  rooms = [solo];
   vi.mocked(command).mockRejectedValueOnce(new Error("Connection lost"));
   render(page());
-  fireEvent.click(await screen.findByRole("button", { name: "Leave" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Concede" }));
   fireEvent.click(screen.getByRole("button", { name: "Yes" }));
   expect((await screen.findByRole("alert")).textContent).toBe(
     "Connection lost",
@@ -203,3 +199,22 @@ it("clears the old account’s dialog immediately and ignores its delayed respon
   });
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+
+it.each([
+  "lobby",
+  "choose",
+  "play",
+  "scoring",
+  "round_over",
+  "finished",
+] as const)(
+  "automatically rejoins a saved multiplayer lobby during %s",
+  async (phase) => {
+    rooms = [{ ...lobby, phase }];
+    render(page());
+    await screen.findByText("Original table");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(command).not.toHaveBeenCalled();
+    expect(getRoom).not.toHaveBeenCalled();
+  },
+);

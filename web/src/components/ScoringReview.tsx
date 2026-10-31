@@ -22,7 +22,7 @@ export function AnimatedNumber({
     const from = current.current;
     let frame = 0;
     function count(time: number) {
-      const progress = Math.min(1, (time - start) / 460);
+      const progress = Math.max(0, Math.min(1, (time - start) / 460));
       const next = Math.round(
         from + (value - from) * (1 - (1 - progress) ** 3),
       );

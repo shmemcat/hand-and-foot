@@ -89,7 +89,10 @@ export function useActiveTable() {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const latest = await getRoom(table.code);
-          await command(latest, "leave");
+          await command(
+            latest,
+            ["lobby", "finished"].includes(latest.phase) ? "leave" : "concede",
+          );
           break;
         } catch (error) {
           if (error instanceof GameApiError) {

@@ -44,6 +44,8 @@
     scrollbar-color: var(--emblem) transparent;
   }
   .mobile-game .game-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 8px;
     padding: 7px 0 13px;
   }
   .game-page .choose-piles > div {
@@ -78,6 +80,7 @@
     height: 16px;
   }
   .mobile-game .game-header .piles-row {
+    justify-self: center;
     gap: 24px;
   }
   .mobile-game .game-header .card-small,
@@ -89,12 +92,18 @@
     gap: 12px;
     font-size: 11px;
   }
-  .mobile-game .game-menu {
-    z-index: 45;
+  .mobile-game .game-menu-controls {
+    flex-direction: column-reverse;
+    gap: 6px;
+    padding-right: 8px;
   }
   .mobile-game .game-menu > summary {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
+  }
+  .mobile-game .game-menu > summary svg {
+    width: 19px;
+    height: 19px;
   }
   .mobile-game .game-menu-panel {
     max-width: calc(100vw - 28px);

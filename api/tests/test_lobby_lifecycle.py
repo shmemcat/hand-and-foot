@@ -42,18 +42,20 @@ def test_members_choose_open_seats_and_wait_without_losing_host_or_membership(ap
 
 
 @pytest.mark.parametrize("seated", [False, True])
-def test_host_can_remove_a_stranded_member_and_start_without_closing_the_lobby(app, seated):
+def test_host_can_remove_a_member_and_start_while_two_members_remain(app, seated):
     host, auth = client(app)
     guest, guest_auth = client(app)
     room = create(host, auth, capacity=4)
     other = join(guest, guest_auth, room["code"], seat=1 if seated else None)
+    third, third_auth = client(app)
+    join(third, third_auth, room["code"], seat=3)
     # Closing a tab sends no explicit leave action. The host can recover either
     # an occupied seat or an unseated member without losing the invite code.
     room = host.get(f'{ROOT}/rooms/{room["code"]}').json
     removed = move(host, auth, room, "remove_player", playerId=other["viewerId"])
     assert removed.status_code == 200
     room = removed.json
-    assert len(room["players"]) == 1 and room["waitingPlayers"] == []
+    assert len(room["players"]) == 2 and room["waitingPlayers"] == []
     assert room["hostId"] == room["viewerId"]
     assert guest.get(ROOT + "/active").json == {"rooms": []}
     response = guest.get(f'{ROOT}/rooms/{room["code"]}')
@@ -71,6 +73,9 @@ def test_removing_members_is_host_only_before_the_deal_and_allows_rejoining(app)
     guest, guest_auth = client(app)
     room = create(host, auth, capacity=4)
     other = join(guest, guest_auth, room["code"], seat=1)
+    third, third_auth = client(app)
+    join(third, third_auth, room["code"], seat=3)
+    other = guest.get(f'{ROOT}/rooms/{room["code"]}').json
     assert move(guest, guest_auth, other, "remove_player", playerId=room["viewerId"]).status_code == 403
     room = host.get(f'{ROOT}/rooms/{room["code"]}').json
     assert move(host, auth, room, "remove_player", playerId=room["viewerId"]).status_code == 400
@@ -132,6 +137,9 @@ def test_sleeping_lobbies_persist_and_last_explicit_departure_closes_them(app, m
     assert move(host, auth, room, "leave").status_code == 200
     other = guest.get(f'{ROOT}/rooms/{room["code"]}').json
     assert other["hostId"] == other["viewerId"] and other["waitingPlayers"]
+    assert other["status"] == "closed" and other["closedReason"] == "one_player"
+    assert guest.get(ROOT + "/active").json == {"rooms": []}
+    assert move(guest, guest_auth, other, "start").status_code == 400
     assert move(guest, guest_auth, other, "leave").status_code == 200
     with app.app_context():
         saved = db.session.get(Room, room["code"]).payload
@@ -169,54 +177,55 @@ def online(app, monkeypatch):
     return host, auth, guest, guest_auth, room, now
 
 
-def test_ten_minute_turn_clock_ignores_polling_warns_at_nine_and_replaces_with_bot(app, online):
+def test_online_turns_never_warn_expire_or_replace_a_human(app, online):
     host, auth, guest, guest_auth, room, now = online
-    now[0] += 539
-    app.extensions["tick"]()
-    assert not host.get(f'{ROOT}/rooms/{room["code"]}').json["idleWarning"]
-    now[0] += 1
-    app.extensions["tick"]()
-    assert host.get(f'{ROOT}/rooms/{room["code"]}').json["idleWarning"]
-    assert not guest.get(f'{ROOT}/rooms/{room["code"]}').json["idleWarning"]
-    now[0] += 59
-    app.extensions["tick"]()
-    assert not host.get(f'{ROOT}/rooms/{room["code"]}').json["players"][0]["bot"]
-    now[0] += 1
-    app.extensions["tick"]()
-    denied = host.get(f'{ROOT}/rooms/{room["code"]}')
-    assert denied.status_code == 403 and denied.json["code"] == "SEAT_REMOVED"
-    current = guest.get(f'{ROOT}/rooms/{room["code"]}').json
-    assert len(current["players"]) == 2 and current["players"][0]["bot"] and current["decks"] == 3
-    assert current["hostId"] == current["viewerId"]
-    assert host.get(ROOT + "/active").json == {"rooms": []}
-    assert host.get(ROOT + "/scores").json == []
+    for elapsed in (540, 60, 365 * 86400):
+        now[0] += elapsed
+        app.extensions["tick"]()
+        current = host.get(f'{ROOT}/rooms/{room["code"]}').json
+        assert not current.get("idleWarning")
+        assert current["actorId"] == room["actorId"] and current["phase"] == room["phase"]
+        assert current["hand"] == room["hand"] and current["token"] == room["token"]
+        assert not any(p["bot"] for p in current["players"])
+    assert len(host.get(ROOT + "/active").json["rooms"]) == 1
+    assert len(guest.get(ROOT + "/active").json["rooms"]) == 1
     with app.app_context():
         engine.assert_conservation(db.session.get(Room, room["code"]).payload["game"])
 
 
-def test_a_real_choice_resets_the_clock_but_restarting_the_service_does_not(app, online):
+@pytest.mark.parametrize("auto_create_schema", [False, True])
+def test_service_restart_keeps_membership_and_cards_and_discards_legacy_clocks(app, online, auto_create_schema, monkeypatch):
     host, auth, guest, guest_auth, room, now = online
-    now[0] += 540
-    app.extensions["tick"]()
-    room = host.get(f'{ROOT}/rooms/{room["code"]}').json
     room = move(host, auth, room, "draw").json
-    assert not room["idleWarning"]
-    restarted = create_app({**app.config, "START_WORKER": False})
+    with app.app_context():
+        row = db.session.get(Room, room["code"])
+        data = copy.deepcopy(row.payload)
+        data["inactivity"] = {room["viewerId"]: {"startedAt": now[0] - 1000, "warned": True}}
+        row.payload = data
+        db.session.commit()
+    if not auto_create_schema:
+        monkeypatch.setattr("handandfoot_server.application.upgrade_schema", lambda: pytest.fail("Production restarts must not migrate the schema."))
+    restarted = create_app({**app.config, "START_WORKER": False, "AUTO_CREATE_SCHEMA": auto_create_schema})
     app.extensions["accounts"].app = restarted
-    now[0] += 599
+    now[0] += 365 * 86400
     restarted.extensions["tick"]()
     with restarted.app_context():
-        assert db.session.get(Room, room["code"]).payload["game"]["players"][0]["key"] == "account:1"
-    now[0] += 1
-    restarted.extensions["tick"]()
-    with restarted.app_context():
-        assert db.session.get(Room, room["code"]).payload["game"]["players"][0]["key"] is None
+        data = db.session.get(Room, room["code"]).payload
+        assert data["game"]["players"][0]["key"] == "account:1"
+        assert data["game"]["players"][0]["away"]
+        assert "inactivity" not in data
+    recovered, _ = client(restarted)
+    sign_in(recovered)
+    current = recovered.get(f'{ROOT}/rooms/{room["code"]}').json
+    assert current["hand"] == room["hand"] and current["phase"] == room["phase"]
+    assert current["viewerId"] == room["viewerId"]
+    assert recovered.get(ROOT + "/active").json["rooms"][0]["code"] == room["code"]
 
 
-def test_account_outage_defers_timeout_and_allows_a_minute_to_recover(app, online):
+def test_account_outage_and_recovery_never_remove_membership(app, online):
     host, auth, guest, guest_auth, room, now = online
     app.extensions["accounts"].unavailable = True
-    now[0] += 600
+    now[0] += 30 * 86400
     app.extensions["tick"]()
     with app.app_context():
         assert db.session.get(Room, room["code"]).payload["game"]["players"][0]["key"] == "account:1"
@@ -225,27 +234,31 @@ def test_account_outage_defers_timeout_and_allows_a_minute_to_recover(app, onlin
     assert host.get(f'{ROOT}/rooms/{room["code"]}').status_code == 200
     now[0] += 60
     app.extensions["tick"]()
-    assert host.get(f'{ROOT}/rooms/{room["code"]}').json["code"] == "SEAT_REMOVED"
+    current = host.get(f'{ROOT}/rooms/{room["code"]}').json
+    assert current["viewerId"] == room["viewerId"] and not current["players"][0]["bot"]
 
 
-def test_a_bot_win_after_timeout_cannot_be_credited_to_the_departed_account(app, online):
-    from test_play_modes import prepare_last_round, confirm
+def test_conceding_to_one_remaining_player_closes_without_a_bot_or_match_result(app, online):
     host, auth, guest, guest_auth, room, now = online
-    now[0] += 600
-    app.extensions["tick"]()
-    prepare_last_round(app, room["code"], (0,))
-    confirm(guest, guest_auth, room["code"])
-    app.extensions["tick"]()
-    finished = guest.get(f'{ROOT}/rooms/{room["code"]}').json
-    assert finished["phase"] == "finished" and finished["winners"] == [0]
+    assert move(host, auth, room, "leave").status_code == 400
+    assert move(host, auth, room, "concede", action_id="concession-12345").json == {"left": True}
+    assert move(host, auth, room, "concede", action_id="concession-12345").json == {"left": True}
+    closed = guest.get(f'{ROOT}/rooms/{room["code"]}').json
+    assert closed["status"] == "closed" and closed["closedReason"] == "one_player"
+    assert not any(p["bot"] for p in closed["players"])
+    assert guest.get(ROOT + "/active").json == host.get(ROOT + "/active").json == {"rooms": []}
+    assert move(guest, guest_auth, closed, "draw").status_code == 400
+    assert host.get(f'{ROOT}/rooms/{room["code"]}').json["code"] == "SEAT_REMOVED"
     assert host.get(ROOT + "/scores").json == []
     assert guest.get(ROOT + "/leaderboard?mode=online").json["all_time"] == []
     departed = host.get(ROOT + "/achievements").json
     remaining = guest.get(ROOT + "/achievements").json
     assert departed["stats"]["all"]["games"] == departed["stats"]["online"]["games"] == departed["counters"]["games"] == 0
-    assert remaining["stats"]["all"]["games"] == remaining["stats"]["online"]["games"] == remaining["counters"]["games"] == 1
+    assert remaining["stats"]["all"]["games"] == remaining["stats"]["online"]["games"] == remaining["counters"]["games"] == 0
     with app.app_context():
-        assert MatchResult.query.count() == 1
+        assert MatchResult.query.count() == 0
+    assert create(host, auth)["status"] == "lobby"
+    assert create(guest, guest_auth)["status"] == "lobby"
 
 
 def test_host_can_move_anywhere_and_the_first_seat_is_free_for_another_member(app):

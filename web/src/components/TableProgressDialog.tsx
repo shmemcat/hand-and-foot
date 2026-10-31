@@ -120,7 +120,7 @@ export function TableProgressDialog({
           ? solo
             ? "Are you sure you wish to concede? Only finished games count toward your statistics."
             : playing
-              ? "Leave this table? A bot will take over your seat so the other players can keep playing. You won’t receive a win for this match."
+              ? "Concede this game? You’ll give up your saved seat and can start or join a new lobby."
               : "Are you sure you want to leave the lobby?"
           : solo
             ? "You have a game active. Do you wish to continue playing?"
@@ -164,7 +164,7 @@ export function TableProgressDialog({
               disabled={busy || !online}
               onClick={() => setConfirming(true)}
             >
-              {solo ? "Concede" : "Leave"}
+              {solo || playing ? "Concede" : "Leave"}
             </button>
           </>
         )}

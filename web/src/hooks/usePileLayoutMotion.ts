@@ -14,6 +14,7 @@ type Pile = {
   row: string;
   zoom: number;
   animation?: Animation;
+  clipMargin?: number;
 };
 type Options = {
   scope: string;
@@ -41,6 +42,20 @@ export function usePileLayoutMotion(
   const latest = useRef(options);
   latest.current = options;
   const previous = useRef(new Map<string, Pile>());
+  const clippingRows = useRef(new Set<HTMLElement>());
+  const updateClipping = useCallback(() => {
+    const margins = new Map<HTMLElement, number>();
+    for (const pile of previous.current.values()) {
+      const row = pile.node.closest<HTMLElement>(".pile-row-content");
+      if (row && pile.animation && pile.clipMargin)
+        margins.set(row, Math.max(margins.get(row) ?? 0, pile.clipMargin));
+    }
+    for (const row of clippingRows.current)
+      if (!margins.has(row)) row.style.removeProperty("overflow-clip-margin");
+    for (const [row, margin] of margins)
+      row.style.setProperty("overflow-clip-margin", `${Math.ceil(margin)}px`);
+    clippingRows.current = new Set(margins.keys());
+  }, []);
   const scope = useRef("");
   const observer = useRef<ResizeObserver | null>(null);
   const observed = useRef<HTMLElement | null>(null);
@@ -98,6 +113,7 @@ export function usePileLayoutMotion(
         Math.abs(box.top - old.box.top) > 0.5;
       if (!moved) {
         pile.animation = old.animation;
+        pile.clipMargin = old.clipMargin;
         continue;
       }
       const fromX = (old.box.left + delta.x * old.zoom - box.left) / zoom;
@@ -122,14 +138,19 @@ export function usePileLayoutMotion(
       );
       if (settings.paused) animation.pause();
       pile.animation = animation;
+      // The row can shrink before its surviving piles reach their new columns.
+      // Expand only its paint clip, leaving the resting scroll bounds intact.
+      pile.clipMargin = Math.max(Math.abs(fromX), Math.abs(fromY));
       animation.onfinish = () => {
         const current = previous.current.get(id);
         if (current?.animation === animation) current.animation = undefined;
+        updateClipping();
       };
     }
     for (const [id, pile] of previous.current)
       if (!next.has(id)) pile.animation?.cancel();
     previous.current = next;
+    updateClipping();
     scope.current = settings.scope;
   };
   const observeBoard = useCallback(() => {
@@ -164,6 +185,7 @@ export function usePileLayoutMotion(
     const reset = () => {
       for (const pile of previous.current.values()) pile.animation?.cancel();
       previous.current.clear();
+      updateClipping();
       scope.current = "";
       update.current();
     };
@@ -178,7 +200,8 @@ export function usePileLayoutMotion(
       observedMelds.current = null;
       for (const pile of previous.current.values()) pile.animation?.cancel();
       previous.current.clear();
+      updateClipping();
       document.removeEventListener("visibilitychange", hide);
     };
-  }, [observeBoard]);
+  }, [observeBoard, updateClipping]);
 }

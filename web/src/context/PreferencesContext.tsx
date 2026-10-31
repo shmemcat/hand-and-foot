@@ -12,11 +12,13 @@ type Preferences = {
   dark: boolean;
   turnSound: boolean;
   turnSoundOptions: TurnSoundOptions;
+  followTurnBehavior: "keep" | "uncheck";
 };
 const defaults: Preferences = {
   dark: false,
   turnSound: true,
   turnSoundOptions: normalizeTurnSound(),
+  followTurnBehavior: "keep",
 };
 const Context = createContext({
   preferences: defaults,
@@ -33,6 +35,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       dark: readStorage<unknown>("handandfoot.dark.v1", false) === true,
       turnSound: stored?.turnSound !== false,
       turnSoundOptions: normalizeTurnSound(stored?.turnSoundOptions),
+      followTurnBehavior:
+        stored?.followTurnBehavior === "uncheck" ? "uncheck" : "keep",
     };
   });
   const [saved, setSaved] = useState(true);

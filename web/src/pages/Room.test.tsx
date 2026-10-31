@@ -300,6 +300,7 @@ it("moves the turn outline between individual partners without rearranging their
   expect(
     nav.querySelector('[data-player-id="sam"] .dealer-marker'),
   ).not.toBeNull();
+  fireEvent.click(screen.getByRole("checkbox", { name: "Follow turn" }));
   fireEvent.click(
     within(nav).getByRole("button", { name: /^View You & Alex’s board/ }),
   );
@@ -1297,6 +1298,48 @@ it("keeps scores in the dismissible menu and can open and close the score sheet"
   ).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Stay" }));
   expect(screen.queryByRole("dialog", { name: "Concede" })).toBeNull();
+});
+
+it("offers Concede during multiplayer play and keeps the saved seat until confirmed", async () => {
+  const source = { ...fixture(), playMode: "online" as const };
+  vi.mocked(getRoom).mockResolvedValue(source);
+  vi.mocked(command).mockResolvedValue(source);
+  render(
+    <MemoryRouter initialEntries={["/room/REVIEW"]}>
+      <Routes>
+        <Route path="/room/:code" element={<Room />} />
+        <Route path="/play" element={<p>Play destination</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  fireEvent.click(await screen.findByLabelText("Game information and scores"));
+  expect(screen.queryByRole("button", { name: "Leave table" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Leave lobby" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Concede" }));
+  const dialog = screen.getByRole("dialog", { name: "Concede" });
+  expect(dialog.textContent).toContain(
+    "To come back later, just leave this page.",
+  );
+  expect(command).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Concede" }));
+  await screen.findByText("Play destination");
+  expect(command).toHaveBeenCalledWith(source, "concede", {});
+});
+
+it("shows a closed multiplayer lobby instead of further play controls", async () => {
+  vi.mocked(getRoom).mockResolvedValue({
+    ...fixture(),
+    playMode: "online",
+    status: "closed",
+    closedReason: "one_player",
+  });
+  openRoom();
+  await screen.findByRole("heading", { name: "LOBBY CLOSED" });
+  expect(screen.getByRole("status").textContent).toContain(
+    "only one player remained",
+  );
+  expect(screen.queryByRole("button", { name: "Draw" })).toBeNull();
+  expect(command).not.toHaveBeenCalled();
 });
 
 it("keeps a live round's waiting button visible when hiding and restoring results", async () => {

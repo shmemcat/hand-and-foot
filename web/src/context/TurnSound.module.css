@@ -7,14 +7,14 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 16px 20px;
-  border-radius: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
   background: var(--surface);
   cursor: pointer;
 }
 .option input[type="checkbox"] {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   accent-color: var(--primary);
   cursor: pointer;
@@ -25,8 +25,8 @@
 }
 .controls {
   display: grid;
-  gap: 22px;
-  padding: 22px 4px 0;
+  gap: 12px;
+  padding: 12px 0 0;
 }
 .selectorRow {
   display: grid;
@@ -41,15 +41,15 @@
 .selectWrap select {
   box-sizing: border-box;
   width: 100%;
-  min-height: 46px;
+  min-height: 40px;
   appearance: none;
   -webkit-appearance: none;
   background: var(--soft);
   background-image: none;
   color: var(--text);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 11px 48px 11px 14px;
+  border-radius: 8px;
+  padding: 8px 36px 8px 12px;
   font: inherit;
   font-size: 16px;
   letter-spacing: inherit;
@@ -72,9 +72,9 @@
   gap: 8px;
   width: auto;
   height: auto;
-  min-height: 46px;
+  min-height: 40px;
   min-width: 104px;
-  padding: 11px 14px;
+  padding: 8px 12px;
   box-sizing: border-box;
   white-space: nowrap;
 }

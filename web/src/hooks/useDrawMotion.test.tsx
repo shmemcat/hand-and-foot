@@ -5,6 +5,7 @@ import {
   useDrawMotion,
   REPLACEMENT_DRAW_MS,
   RED_REPLACEMENT_MS,
+  DRAW_FLIGHT_MS,
 } from "./useDrawMotion";
 
 afterEach(() => vi.useRealTimers());
@@ -83,3 +84,77 @@ it("waits for replacement cards before starting the outgoing red and incoming dr
   expect(view.result.current.active).toBe(false);
   node.remove();
 });
+
+it.each([false, true])(
+  "waits for the browser to finish a delayed draw (replacement: %s)",
+  async (replacing) => {
+    vi.useFakeTimers();
+    const source = footSnapshot("play", "ready", 0);
+    source.phase = replacing ? "play" : "draw";
+    source.drawCount = 1;
+    source.hand = [
+      {
+        ...source.hand[0],
+        id: "before",
+        ...(replacing ? { rank: "3", redThree: true, suit: "hearts" } : {}),
+      },
+    ];
+    const root = document.createElement("div");
+    root.className = "game-page";
+    root.innerHTML =
+      '<div class="hand-card" data-card-id="before"><div class="card"></div></div><div class="draw-pile"><div class="card"></div></div><div class="discard-pickup"><div class="card"></div></div>';
+    document.body.append(root);
+    const view = renderHook(({ snapshot }) => useDrawMotion(snapshot, false), {
+      initialProps: { snapshot: source },
+    });
+    act(() => {
+      view.result.current.begin(
+        source,
+        root.querySelector(".draw-pile .card"),
+        replacing ? { replaceIds: ["before"] } : undefined,
+      );
+    });
+    const newCard = {
+      ...source.hand[0],
+      id: "drawn",
+      rank: "K",
+      redThree: false,
+    };
+    view.rerender({
+      snapshot: {
+        ...source,
+        token: "drawn",
+        phase: "play",
+        hand: replacing ? [newCard] : [...source.hand, newCard],
+      },
+    });
+    const flight = document.createElement("div");
+    flight.className = "draw-card-flight";
+    let land!: () => void;
+    const landed = new Promise<void>((resolve) => {
+      land = resolve;
+    });
+    flight.getAnimations = () => [{ finished: landed } as unknown as Animation];
+    root.append(flight);
+    if (replacing) {
+      const red = document.createElement("div");
+      red.className = "red-replacement-flight";
+      let finish!: () => void;
+      const finished = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      red.getAnimations = () => [{ finished } as unknown as Animation];
+      root.append(red);
+      act(() => vi.advanceTimersByTime(RED_REPLACEMENT_MS + 150));
+      expect(view.result.current.discardBefore).toBeDefined();
+      await act(async () => finish());
+      expect(view.result.current.discardBefore).toBeUndefined();
+    }
+    act(() => vi.advanceTimersByTime(DRAW_FLIGHT_MS + 200));
+    expect(view.result.current.active).toBe(true);
+    await act(async () => land());
+    expect(view.result.current.active).toBe(false);
+    view.unmount();
+    root.remove();
+  },
+);

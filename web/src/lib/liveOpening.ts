@@ -23,7 +23,11 @@ export function syncLiveOpening(
   state: LiveOpening | null,
   snapshot: Snapshot | null,
 ): LiveOpening | null {
-  if (!snapshot?.opening || !["choose", "draw"].includes(snapshot.phase))
+  if (
+    snapshot?.status === "closed" ||
+    !snapshot?.opening ||
+    !["choose", "draw"].includes(snapshot.phase)
+  )
     return null;
   const viewer = snapshot.players.find((p) => p.id === snapshot.viewerId);
   if (!viewer) return null;

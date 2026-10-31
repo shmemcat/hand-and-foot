@@ -6,16 +6,6 @@
   font-size: 14px;
   text-align: center;
 }
-.idle-warning {
-  margin: 0 auto 14px;
-  padding: 12px 16px;
-  border: 1px solid var(--secondary-shadow);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  text-align: center;
-  font-size: 14px;
-}
 .session-status {
   text-align: center;
   color: var(--muted);

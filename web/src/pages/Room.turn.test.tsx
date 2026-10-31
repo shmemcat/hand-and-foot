@@ -7,6 +7,7 @@ import { MOBILE_PLAY_MS } from "../hooks/useMobilePlayMotion";
 import type { Snapshot } from "../types";
 import { mobilePreviewSnapshot } from "./MobilePreview";
 import { Room } from "./Room";
+import { PreferencesProvider } from "../context/PreferencesContext";
 
 const socket = vi.hoisted(() => ({ handlers: new Map<string, () => void>() }));
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ user: null }) }));
@@ -65,7 +66,14 @@ async function open(snapshot: Snapshot) {
     render(
       <MemoryRouter initialEntries={[`/room/${snapshot.code}`]}>
         <Routes>
-          <Route path="/room/:code" element={<Room />} />
+          <Route
+            path="/room/:code"
+            element={
+              <PreferencesProvider>
+                <Room />
+              </PreferencesProvider>
+            }
+          />
         </Routes>
       </MemoryRouter>,
     );
@@ -526,10 +534,21 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
     },
   );
 
-  it.each([false, true])(
-    "disables Follow turn when browsing during another player's turn (partnership: %s)",
-    async (partnership) => {
+  it.each([
+    [false, "keep"],
+    [true, "keep"],
+    [false, "uncheck"],
+    [true, "uncheck"],
+  ] as const)(
+    "uses the %s partnership and %s Follow turn preference when browsing during another player's turn",
+    async (partnership, behavior) => {
       media();
+      // No stored setting must use the new default.
+      if (behavior === "uncheck")
+        localStorage.setItem(
+          "handandfoot.preferences.v1",
+          JSON.stringify({ followTurnBehavior: behavior }),
+        );
       const snapshot = fixture(partnership);
       snapshot.actorId = partnership
         ? snapshot.players.find(
@@ -543,17 +562,77 @@ describe.each(["desktop", "mobile"])("%s board transitions", (layout) => {
         name: "Follow turn",
       });
       expect(follow.checked).toBe(true);
+      const keep = behavior === "keep";
       fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
-      expect(follow.checked).toBe(false);
-      fireEvent.click(follow);
-      expect(follow.checked).toBe(true);
+      expect(follow.checked).toBe(keep);
+      if (!keep) fireEvent.click(follow);
       const portraits = within(
         screen.getByRole("navigation", {
           name: partnership ? "Team boards" : "Player boards",
         }),
       );
       fireEvent.click(portraits.getAllByRole("button").at(-1)!);
+      expect(follow.checked).toBe(keep);
+      if (!keep) fireEvent.click(follow);
+      const pages = within(
+        screen.getByRole("group", {
+          name: partnership ? "Choose a team board" : "Choose a player board",
+        }),
+      );
+      fireEvent.click(pages.getAllByRole("button").at(-1)!);
+      expect(follow.checked).toBe(keep);
+      if (!keep) fireEvent.click(follow);
+      fireEvent.keyDown(document.querySelector(".tableau")!, {
+        key: "ArrowLeft",
+      });
+      expect(follow.checked).toBe(keep);
+      if (!keep) fireEvent.click(follow);
+      fireEvent.touchStart(document.querySelector(".tableau")!, {
+        touches: [{ clientX: 200, clientY: 100 }],
+      });
+      fireEvent.touchEnd(document.querySelector(".tableau")!, {
+        changedTouches: [{ clientX: 100, clientY: 100 }],
+      });
+      expect(follow.checked).toBe(keep);
+      const browsedTeam = document
+        .querySelector(".tableau")!
+        .getAttribute("data-side-id");
+      await refresh({
+        ...snapshot,
+        revision: 2,
+        token: "same-turn-drawn",
+        phase: "play",
+      });
+      expect(
+        document.querySelector(".tableau")!.getAttribute("data-side-id"),
+      ).toBe(browsedTeam);
+      const next = {
+        ...snapshot,
+        revision: 3,
+        token: "next-turn",
+        actorId: snapshot.players[2].id,
+      };
+      await refresh(next);
+      expect(follow.checked).toBe(keep);
+      if (keep) {
+        expectTurn(next, 2);
+        fireEvent.click(follow);
+      }
       expect(follow.checked).toBe(false);
+      fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
+      const disabledTeam = document
+        .querySelector(".tableau")!
+        .getAttribute("data-side-id");
+      await refresh({
+        ...next,
+        revision: 4,
+        token: "another-turn",
+        actorId: snapshot.players[4].id,
+      });
+      expect(follow.checked).toBe(false);
+      expect(
+        document.querySelector(".tableau")!.getAttribute("data-side-id"),
+      ).toBe(disabledTeam);
     },
   );
 

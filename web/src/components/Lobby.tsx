@@ -6,7 +6,6 @@ import { PageTitle } from "./PageTitle";
 import { Icon } from "./Icons";
 import { ProfileIcon } from "./ProfileIcon";
 import { LoginWarning } from "./LoginWarning";
-import { TableDialog } from "./TableProgressDialog";
 import { BotDifficulty } from "./BotDifficulty";
 import "../lobby.css";
 
@@ -25,7 +24,6 @@ export function Lobby({
   const [copied, setCopied] = useState("");
   const [copyError, setCopyError] = useState("");
   const fillBots = snapshot.lobbyFillBots ?? true;
-  const [closing, setClosing] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   async function run(type: string, values?: Record<string, unknown>) {
     setPendingAction(type);
@@ -74,7 +72,11 @@ export function Lobby({
       <div className="page game-lobby-page">
         <PageTitle>LOBBY CLOSED</PageTitle>
         <div className="game-lobby-body">
-          <p role="status">The host closed this lobby.</p>
+          <p role="status">
+            {snapshot.closedReason === "one_player"
+              ? "This lobby closed because only one player remained."
+              : "This lobby is closed."}
+          </p>
           <Link className="button" to="/play">
             Back to Play
           </Link>
@@ -139,11 +141,13 @@ export function Lobby({
                   className="lobby-player-seat"
                   data-empty={!player}
                   data-mine={mine}
-                  aria-label={`Seat ${index + 1}: ${player?.name || "Open seat"}${mine ? " (you)" : ""}`}
+                  data-away={player?.away && !player.bot}
+                  aria-label={`Seat ${index + 1}: ${player?.name || "Open seat"}${mine ? " (you)" : ""}${player?.away ? " (disconnected)" : ""}`}
                 >
                   <span className="lobby-profile">
                     <ProfileIcon
                       bot={player?.bot}
+                      disconnected={player?.away}
                       name={mine ? user?.profile_icon : player?.profileIcon}
                     />
                   </span>
@@ -152,7 +156,7 @@ export function Lobby({
                   </span>
                   <small className="lobby-player-status">
                     {player
-                      ? `${player.id === snapshot.hostId ? "Host" : "Here"}${mine ? " · You" : ""}`
+                      ? `${player.away ? "Disconnected" : player.id === snapshot.hostId ? "Host" : "Here"}${mine ? " · You" : ""}`
                       : "Waiting…"}
                   </small>
                   {snapshot.scoringMode === "partnership" && (
@@ -203,13 +207,19 @@ export function Lobby({
               <h2>Waiting room</h2>
               <ul>
                 {waiting.map((player) => (
-                  <li key={player.id}>
-                    <ProfileIcon bot={player.bot} name={player.profileIcon} />
+                  <li key={player.id} data-away={player.away && !player.bot}>
+                    <ProfileIcon
+                      bot={player.bot}
+                      disconnected={player.away}
+                      name={player.profileIcon}
+                    />
                     <span>
                       {player.name}
                       {player.id === snapshot.viewerId ? " (you)" : ""}
                       {player.id === snapshot.hostId ? " · Host" : ""}
-                      <small>Choosing a seat</small>
+                      <small>
+                        {player.away ? "Disconnected" : "Choosing a seat"}
+                      </small>
                     </span>
                     {isHost && player.id !== snapshot.viewerId && (
                       <button
@@ -327,53 +337,12 @@ export function Lobby({
             >
               Leave Lobby
             </button>
-            {isHost && (
-              <button
-                className="button"
-                disabled={busy}
-                onClick={() => setClosing(true)}
-              >
-                Close Lobby
-              </button>
-            )}
             <Link className="button secondary" to="/">
               Home
             </Link>
           </div>
         </div>
       </div>
-      {closing && (
-        <TableDialog
-          title="Close this lobby?"
-          message="Everyone will leave the lobby. You can create a new table afterward."
-          onEscape={() => {
-            if (!busy) setClosing(false);
-          }}
-        >
-          <div className="button-stack">
-            <button
-              className="button"
-              disabled={busy}
-              onClick={() => void run("close")}
-            >
-              {pendingAction === "close" ? "Closing…" : "Close Lobby"}
-            </button>
-            <button
-              className="button secondary"
-              data-cancel
-              disabled={busy}
-              onClick={() => setClosing(false)}
-            >
-              Keep Lobby
-            </button>
-          </div>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-        </TableDialog>
-      )}
     </div>
   );
 }

@@ -112,7 +112,7 @@ export type Snapshot = {
   lobbySeats?: (Player | null)[];
   lobbyFillBots?: boolean;
   waitingPlayers?: Player[];
-  idleWarning?: boolean;
+  closedReason?: "empty" | "one_player";
   developmentFixture?: boolean;
   opening?: { id: string; ready: string[]; complete: boolean } | null;
   turnPresentation?: { id: string; ready: string[]; complete: boolean } | null;

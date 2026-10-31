@@ -35,7 +35,7 @@ function Setup() {
     </MemoryRouter>
   );
 }
-it("keeps standard cards despite an older style preference and shows only the turn controls", () => {
+it("keeps standard cards despite an older style preference and defaults to keeping Follow turn checked", () => {
   localStorage.setItem(
     "handandfoot.preferences.v1",
     JSON.stringify({ cardStyle: "indexed" }),
@@ -45,12 +45,47 @@ it("keeps standard cards despite an older style preference and shows only the tu
     screen.getByRole("img", { name: "9 of clubs" }).className,
   ).not.toContain("indexed-card");
   expect(screen.getByRole("heading", { name: "Turn Indicator" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Follow Turn" })).toBeTruthy();
+  expect(screen.getAllByRole("radio")).toHaveLength(2);
+  expect(
+    screen.getByRole<HTMLInputElement>("radio", {
+      name: /^Keep Follow turn checked/,
+    }).checked,
+  ).toBe(true);
   for (const name of ["Card Style", "Appearance", "Sound & Music"]) {
     expect(screen.queryByRole("heading", { name })).toBeNull();
   }
   expect(
     screen.queryByText("Options save automatically in this browser."),
   ).toBeNull();
+});
+it("saves either Follow turn behavior across visits without changing the sound settings", () => {
+  const view = render(<Setup />);
+  fireEvent.click(
+    screen.getByRole("radio", { name: /^Uncheck Follow turn when browsing/ }),
+  );
+  view.unmount();
+  const remounted = render(<Setup />);
+  expect(
+    screen.getByRole<HTMLInputElement>("radio", {
+      name: /^Uncheck Follow turn when browsing/,
+    }).checked,
+  ).toBe(true);
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: "Play a sound when it’s my turn",
+    }).checked,
+  ).toBe(true);
+  fireEvent.click(
+    screen.getByRole("radio", { name: /^Keep Follow turn checked/ }),
+  );
+  remounted.unmount();
+  render(<Setup />);
+  expect(
+    screen.getByRole<HTMLInputElement>("radio", {
+      name: /^Keep Follow turn checked/,
+    }).checked,
+  ).toBe(true);
 });
 it("persists the chosen cue, independent volume, and opt-out and previews the selected sound", () => {
   const view = render(<Setup />);
