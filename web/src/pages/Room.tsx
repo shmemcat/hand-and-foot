@@ -799,7 +799,8 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
       (snapshot?.phase === "choose" && Boolean(viewer && !viewer.chosen)));
   const turnDecision = `${code}:${snapshot?.token}`;
   const nudge = useInactivityNudge(turnAlertReady, turnDecision);
-  useTurnIndicator(turnAlertReady, turnDecision);
+  const turnIndicatorKey = `${code}:${snapshot?.viewerId}:${snapshot?.opening?.id}:${snapshot?.round}:${snapshot?.phase === "choose" ? "choose" : snapshot?.turnId}`;
+  useTurnIndicator(turnAlertReady, turnIndicatorKey);
   const firstRoundPlaying =
     !isRehearsal &&
     snapshot?.round === 1 &&

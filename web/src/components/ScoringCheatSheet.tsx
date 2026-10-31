@@ -85,11 +85,11 @@ export function ScoringCheatSheet() {
         aria-hidden={!open}
         aria-labelledby={`${id}-title`}
       >
-        <div className="scoring-cheat-sheet-heading">
+        <div className="game-menu-heading">
           <h2 id={`${id}-title`}>Scoring cheat sheet</h2>
           <button
             type="button"
-            className="scoring-cheat-sheet-close"
+            className="game-menu-close"
             aria-label="Close scoring cheat sheet"
             onClick={() => close(true)}
           >

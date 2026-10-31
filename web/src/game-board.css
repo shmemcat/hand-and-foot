@@ -202,6 +202,15 @@
   padding-bottom: 16px;
   border-bottom: 1px solid var(--line);
 }
+/* Menu panels share the header's stacking context. Keep open menus above
+   draw, meld, book, foot, opening, and scoring animation layers. */
+.game-header:has(.game-menu[open]) {
+  z-index: 300;
+}
+/* Confirmation and round-result dialogs still take precedence over menus. */
+.game-page:has(> .modal-backdrop, > .round-score-dialog) > .game-header {
+  z-index: 21;
+}
 .round-pill {
   justify-self: start;
   padding: 4px 13px;
@@ -662,6 +671,9 @@
 .game-menu-panel > p {
   color: var(--muted);
   font-size: 11px;
+}
+.game-menu-panel > .menu-saved-seat-note {
+  margin-bottom: 16px;
 }
 .game-menu-panel hr {
   margin: 16px 0;

@@ -46,7 +46,26 @@ export function GameMenu({
         </summary>
         <div className="game-menu-panel" ref={panel}>
           {children}
-          <h2>Scores</h2>
+          <div className="game-menu-heading">
+            <h2>Scores</h2>
+            <button
+              type="button"
+              className="game-menu-close"
+              aria-label="Close scores menu"
+              onClick={() => close(true)}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="m6 6 12 12M6 18 18 6" />
+              </svg>
+            </button>
+          </div>
           <p>
             Round {snapshot.round} · Play to{" "}
             {snapshot.targetScore.toLocaleString()}
@@ -97,7 +116,7 @@ export function GameMenu({
           </dl>
           <hr />
           {snapshot.playMode === "online" && canConcede && (
-            <p>
+            <p className="menu-saved-seat-note">
               Your seat is saved automatically when you leave this page. Return
               to Play to rejoin.
             </p>

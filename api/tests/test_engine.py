@@ -89,6 +89,62 @@ def test_partner_turns_alternate_teams_and_start_after_the_dealer(count):
     assert game["actor"] == first
 
 
+@pytest.mark.parametrize("legacy", [False, True])
+def test_turn_indicator_id_survives_moves_and_changes_only_for_a_new_turn(legacy):
+    game = rig(2, "individual")
+    if legacy:
+        del game["turnId"]
+    game["phase"] = "draw"
+    aces = take(game, "A", 3)
+    reds = take(game, "3", 1, "hearts")
+    tail = take(game, "K", 2)
+    game["players"][0]["hand"] = aces + reds + tail
+    game["players"][1]["hand"] = take(game, "5", 2)
+    first = engine.project(game, "0")["turnId"]
+
+    for command in [
+        {"type": "draw"},
+        {"type": "meld", "groups": [{"cardIds": aces}]},
+        {"type": "red_three", "cardIds": reds, "expose": True},
+    ]:
+        previous_token = engine.project(game, "0")["token"]
+        game = engine.apply(game, 0, command)
+        assert engine.project(game, "0")["turnId"] == first
+        assert engine.project(game, "0")["token"] != previous_token
+
+    game = engine.apply(game, 0, {"type": "discard", "cardId": tail[0]})
+    second = engine.project(game, "0")["turnId"]
+    assert second != first
+    game = engine.apply(game, 1, {"type": "turn_ready", "presentationId": game["turnPresentation"]["id"]})
+    game = engine.apply(game, 1, {"type": "draw"})
+    assert engine.project(game, "0")["turnId"] == second
+    game = engine.apply(game, 1, {"type": "discard", "cardId": game["players"][1]["hand"][0]})
+    assert game["actor"] == 0
+    assert engine.project(game, "0")["turnId"] not in (first, second)
+
+
+def test_turn_indicator_id_survives_discard_pickup_and_its_followup_draw():
+    game = rig(2, "individual")
+    game["phase"] = "draw"
+    aces = take(game, "A", 3)
+    game["discard"] = [aces[0]]
+    game["players"][0]["hand"] = aces[1:] + take(game, "K", 2)
+    turn_id = engine.project(game, "0")["turnId"]
+    game = engine.apply(game, 0, {"type": "pickup", "groups": [{"cardIds": aces}]})
+    assert game["pickupDrawPending"]
+    assert engine.project(game, "0")["turnId"] == turn_id
+    game = engine.apply(game, 0, {"type": "draw"})
+    assert engine.project(game, "0")["turnId"] == turn_id
+
+
+@pytest.mark.parametrize("team", [0, 1])
+def test_turn_indicator_only_changes_when_a_concession_advances_the_turn(team):
+    game = rig(3, "individual")
+    turn_id = engine.project(game, "2")["turnId"]
+    engine.remove_side(game, team)
+    assert (engine.project(game, "2")["turnId"] != turn_id) == (team == 0)
+
+
 @pytest.mark.parametrize("mode", ["individual", "partnership"])
 @pytest.mark.parametrize("count", [0, 1, 7, 8, 9, True, 6.0, "6", None])
 def test_invalid_rosters(mode, count):
@@ -114,10 +170,12 @@ def test_engine_rejects_other_winning_scores(target):
 def test_public_dealer_marker_rotates_with_the_round(count):
     game = fresh(count, "individual")
     dealer = game["dealer"]
+    turn_id = engine.project(game, "0")["turnId"]
     assert engine.project(game, "0")["dealerId"] == game["players"][dealer]["id"]
     game["phase"] = "round_over"
     next_round = engine.apply(game, 0, {"type": "next_round"})
     assert next_round["round"] == 2
+    assert engine.project(next_round, "0")["turnId"] != turn_id
     assert engine.project(next_round, "0")["dealerId"] == game["players"][(dealer + 1) % count]["id"]
     assert len(next_round["cards"]) == (count + 1) * 54
     engine.assert_conservation(next_round)

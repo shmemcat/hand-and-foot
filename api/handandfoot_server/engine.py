@@ -32,7 +32,7 @@ def deal_round(game, *, rng=None):
     game["cards"] = make_deck(len(game["players"]))
     stock = list(game["cards"])
     rng.shuffle(stock)
-    game.update(stock=stock, discard=[], discardFaceDown=False, tableEvents=[], turnPresentation=None, replaced=[], phase="choose", token=uid(), dealId=uid(), ready=[], openingReady=[], openingComplete=False, pickupDrawPending=False,
+    game.update(stock=stock, discard=[], discardFaceDown=False, tableEvents=[], turnPresentation=None, turnId=uid(), replaced=[], phase="choose", token=uid(), dealId=uid(), ready=[], openingReady=[], openingComplete=False, pickupDrawPending=False,
                 actor=(game["dealer"] + 1) % len(game["players"]), message="Choose the pile you’d like to play first.")
     for side in game["sides"]:
         side.update(opened=False, melds=[])
@@ -352,6 +352,7 @@ def _apply(game, seat, command):
         enter_foot(game, player)
         game["actor"] = (game["actor"] + 1) % len(game["players"])
         game["turnPresentation"] = {"id": game["tableEvents"][-1]["id"], "ready": []}
+        game["turnId"] = game["turnPresentation"]["id"]
         game.update(phase="draw", pickupDrawPending=False, message=f'{game["players"][game["actor"]]["name"]}’s turn. Draw from the stack or play the top discard.')
         return
     raise ValueError("Unknown game action.")
@@ -385,7 +386,7 @@ def remove_side(game, team):
     for player in remaining:
         player["team"] = mapping[player["team"]]
     if roster[game["actor"]] in removed and game["phase"] in ("draw", "play"):
-        game.update(phase="draw", pickupDrawPending=False, turnPresentation=None)
+        game.update(phase="draw", pickupDrawPending=False, turnPresentation=None, turnId=uid())
     game.update(players=remaining, actor=remaining.index(actor), dealer=remaining.index(dealer), token=uid())
     for record in game["history"]:
         for field in ("scores", "achievementData"):
@@ -467,6 +468,8 @@ def project(game, viewer_id):
         "players": players, "sides": sides, "decks": len(cards) // 54, "ruleset": FAMILY.id,
         "drawCount": FAMILY.discard_followup_draw if game.get("pickupDrawPending") else draw_count(game["sides"], viewer["team"]),
         "pickupDrawPending": bool(game.get("pickupDrawPending")),
+        # Unlike the command token, this stays stable through every move in a turn.
+        "turnId": game.get("turnId", game["dealId"]),
         "round": game["round"], "targetScore": game["targetScore"], "phase": game["phase"], "token": (f'{game["dealId"]}:choose:{viewer_id}' if game["phase"] == "choose" else f'{game["dealId"]}:opening' if game["phase"] == "draw" and opening_pending(game) else f'{game["dealId"]}:turn:{game["turnPresentation"]["id"]}' if turn_pending(game) else f'{game["dealId"]}:ready' if game["phase"] in ("round_over", "finished") else f'{game["dealId"]}:scoring:{viewer["team"]}:{game["scoring"]["sides"][viewer["team"]]["revision"]}' if game["phase"] == "scoring" else game["token"]),
         "opening": {"id": game["dealId"], "ready": game.get("openingReady", []), "complete": not opening_pending(game)} if "openingReady" in game else None,
         "turnPresentation": {**copy.deepcopy(game["turnPresentation"]), "complete": not turn_pending(game)} if game.get("turnPresentation") else None,

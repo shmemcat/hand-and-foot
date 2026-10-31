@@ -11,6 +11,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { command, getRoom } from "../lib/api";
 import type { Snapshot } from "../types";
 import { Room } from "./Room";
+import { TurnSoundProvider } from "../context/TurnSoundContext";
 import {
   DRAW_FLIGHT_MS,
   DRAW_STAGGER_MS,
@@ -106,11 +107,22 @@ function fixture(): Snapshot {
     scoring: null,
   };
 }
-function openRoom() {
+function openRoom(withTurnSound = false) {
   render(
     <MemoryRouter initialEntries={["/room/REVIEW"]}>
       <Routes>
-        <Route path="/room/:code" element={<Room />} />
+        <Route
+          path="/room/:code"
+          element={
+            withTurnSound ? (
+              <TurnSoundProvider>
+                <Room />
+              </TurnSoundProvider>
+            ) : (
+              <Room />
+            )
+          }
+        />
       </Routes>
     </MemoryRouter>,
   );
@@ -1014,6 +1026,86 @@ it("keeps visual inactivity nudges for online games without repeating the turn s
   expect(
     document.querySelector(".turn-message.inactivity-shake"),
   ).not.toBeNull();
+});
+
+it("plays the online turn indicator once per turn, including when intervening turns arrive in one update", async () => {
+  vi.useFakeTimers();
+  let snapshot: Snapshot = {
+    ...fixture(),
+    playMode: "online",
+    turnId: "first-turn",
+  };
+  vi.mocked(getRoom).mockResolvedValue(snapshot);
+  await act(async () => openRoom(true));
+  const play = vi.mocked(HTMLMediaElement.prototype.play);
+  expect(play).toHaveBeenCalledTimes(1);
+
+  async function refresh(update: Partial<Snapshot>) {
+    snapshot = { ...snapshot, ...update, revision: snapshot.revision + 1 };
+    vi.mocked(getRoom).mockResolvedValue(snapshot);
+    await act(async () => vi.advanceTimersByTime(3000));
+  }
+
+  await refresh({ token: "drawn", phase: "play" });
+  await refresh({ token: "melded" });
+  await refresh({ token: "red-three-replaced" });
+  expect(play).toHaveBeenCalledTimes(1);
+
+  await refresh({
+    token: "opponent-turn",
+    turnId: "second-turn",
+    actorId: "bot",
+    phase: "draw",
+  });
+  expect(play).toHaveBeenCalledTimes(1);
+  await refresh({
+    token: "your-next-turn",
+    turnId: "third-turn",
+    actorId: "you",
+  });
+  expect(play).toHaveBeenCalledTimes(2);
+  await refresh({ token: "drawn-again", phase: "play" });
+  expect(play).toHaveBeenCalledTimes(2);
+
+  // A poll may skip a whole opponent turn while the browser is in the background.
+  await refresh({
+    token: "returned-between-polls",
+    turnId: "fifth-turn",
+    phase: "draw",
+  });
+  expect(play).toHaveBeenCalledTimes(3);
+  await refresh({ token: "discard-picked-up", pickupDrawPending: true });
+  await refresh({
+    token: "followup-drawn",
+    pickupDrawPending: false,
+    phase: "play",
+  });
+  expect(play).toHaveBeenCalledTimes(3);
+});
+
+it("announces choosing a hand separately from the first playable turn", async () => {
+  vi.useFakeTimers();
+  const snapshot: Snapshot = {
+    ...fixture(),
+    playMode: "online",
+    phase: "choose",
+    turnId: "first-turn",
+  };
+  snapshot.players[0].chosen = false;
+  vi.mocked(getRoom).mockResolvedValue(snapshot);
+  await act(async () => openRoom(true));
+  const play = vi.mocked(HTMLMediaElement.prototype.play);
+  expect(play).toHaveBeenCalledTimes(1);
+
+  vi.mocked(getRoom).mockResolvedValue({
+    ...snapshot,
+    revision: 2,
+    token: "chosen",
+    phase: "draw",
+    players: snapshot.players.map((player) => ({ ...player, chosen: true })),
+  });
+  await act(async () => vi.advanceTimersByTime(3000));
+  expect(play).toHaveBeenCalledTimes(2);
 });
 
 it("browses individual boards with their concealed hands and a real follow checkbox", async () => {

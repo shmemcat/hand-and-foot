@@ -119,6 +119,7 @@ export type Snapshot = {
   code: string;
   revision: number;
   token: string;
+  turnId?: string;
   status: "lobby" | "playing" | "closed";
   capacity: number;
   scoringMode: "individual" | "partnership";
