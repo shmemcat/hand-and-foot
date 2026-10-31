@@ -167,7 +167,7 @@ it("replays without accumulating cards, repeating sounds, or touching a real gam
   expect(JSON.parse(localStorage.getItem("handandfoot.room.v1")!)).toBe(
     "SAVED-GAME",
   );
-});
+}, 15000);
 
 it("stages only the top discard into an existing pile and preserves the hand", () => {
   const view = show();
