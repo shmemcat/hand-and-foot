@@ -77,9 +77,10 @@ const designs = [
 
 function border(p, index) {
   const outer = rect(14,14,212,308,8,p.gold,"none",2.2);
-  if (index % 3 === 0) return outer + rect(20,20,200,296,5,p.ink,"none",.85);
-  if (index % 3 === 1) return outer + g("translate(120 168)",twoWay(path("M-89-123V-137H-75M89-123V-137H75",p.ink,2)));
-  return outer;
+  const corners = index % 3 === 1
+    ? g("translate(120 168)",twoWay(path("M-89-123V-137H-75M89-123V-137H75",p.ink,2)))
+    : "";
+  return outer + corners;
 }
 function svg(design, theme, index) {
   const p = palettes[design.palette][theme];

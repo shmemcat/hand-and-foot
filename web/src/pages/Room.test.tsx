@@ -18,6 +18,7 @@ import {
   RED_REPLACEMENT_MS,
 } from "../hooks/useDrawMotion";
 import { MELD_FLIGHT_MS } from "../hooks/useMeldMotion";
+import { DISCARD_FLIGHT_MS, GOING_OUT_PAUSE_MS } from "../hooks/useTableMotion";
 import party from "party-js";
 import { ENDING_EXAMPLES, endingSnapshot } from "../lib/endingExamples";
 
@@ -364,22 +365,60 @@ it("lands a partner's red-three play in the team's combined pile", async () => {
 it.each(
   (["individual", "partnership"] as const).flatMap((scoringMode) =>
     (["practice", "online"] as const).flatMap((playMode) =>
-      [false, true].map(
-        (skipAnimation) => [scoringMode, playMode, skipAnimation] as const,
+      [false, true].flatMap((skipAnimation) =>
+        [0, 1].flatMap((viewedTeam) =>
+          [false, true].map(
+            (missedScoring) =>
+              [
+                scoringMode,
+                playMode,
+                skipAnimation,
+                viewedTeam,
+                missedScoring,
+              ] as const,
+          ),
+        ),
       ),
     ),
   ),
 )(
-  "animates %s %s scoring through round results while browsing (skip: %s)",
-  async (scoringMode, playMode, skipAnimation) => {
+  "animates %s %s scoring after another player goes out (skip: %s, viewed team: %s, missed scoring: %s)",
+  async (scoringMode, playMode, skipAnimation, viewedTeam, missedScoring) => {
     vi.useFakeTimers();
+    vi.mocked(window.matchMedia).mockImplementation(
+      (query) =>
+        ({
+          matches: query === "(min-width: 769px)",
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
     const source =
       scoringMode === "partnership" ? partnershipFixture() : fixture();
     source.playMode = playMode;
     source.phase = "scoring";
-    source.actorId = "bot";
+    source.actorId = null;
+    const opponent = source.players.find((player) => player.team === 1)!;
+    source.discardFaceDown = true;
+    source.tableEvents = [
+      {
+        id: "opponent-goes-out",
+        kind: "discard",
+        playerId: opponent.id,
+        count: 1,
+        card: null,
+        faceDown: true,
+      },
+    ];
     source.hand = source.hand.slice(0, 1);
     source.scoringFoot = [];
+    source.footTop = null;
+    source.players = source.players.map((player) => ({
+      ...player,
+      inFoot: true,
+      footCount: 0,
+      handCount: player.id === source.viewerId ? source.hand.length : 0,
+    }));
     source.sides[0].opened = true;
     source.sides[0].melds = [];
     source.players[0].redThrees = Array.from({ length: 3 }, (_, i) => ({
@@ -437,7 +476,15 @@ it.each(
         uncovered: 20,
       },
     };
-    vi.mocked(getRoom).mockResolvedValue(source);
+    const before: Snapshot = {
+      ...source,
+      phase: "play",
+      scoring: null,
+      actorId: opponent.id,
+      discardFaceDown: false,
+      tableEvents: [],
+    };
+    vi.mocked(getRoom).mockResolvedValue(before);
     const paid = {
       ...source,
       revision: 2,
@@ -446,6 +493,7 @@ it.each(
         ...source.scoring,
         revision: 1,
         remaining: 5,
+        canceled: reds.map((card) => card.id),
         usedPiles: ["reds:0"],
         options: [],
         score: {
@@ -454,6 +502,8 @@ it.each(
           redThrees: 0,
           redCredit: 15,
           cards: 0,
+          canceled: reds.map((card) => card.id),
+          uncovered: 5,
         },
       },
     };
@@ -462,6 +512,10 @@ it.each(
       revision: 3,
       phase: "round_over",
       scoring: null,
+      players: paid.players.map((player) => ({
+        ...player,
+        roundCards: player.id === source.viewerId ? source.hand : [],
+      })),
       history: [
         {
           round: source.round,
@@ -477,6 +531,20 @@ it.each(
     vi.mocked(command).mockResolvedValueOnce(paid).mockResolvedValue(result);
     openRoom();
     await act(async () => {});
+    const destination = within(
+      screen.getByRole("navigation", {
+        name: scoringMode === "individual" ? "Player boards" : "Team boards",
+      }),
+    ).getAllByRole("button")[viewedTeam];
+    if (destination.getAttribute("aria-pressed") !== "true")
+      fireEvent.click(destination);
+    vi.mocked(getRoom).mockResolvedValue(missedScoring ? result : source);
+    await act(async () => vi.advanceTimersByTime(3000));
+    expect(command).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await act(async () => vi.advanceTimersByTime(DISCARD_FLIGHT_MS));
+    expect(command).not.toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTime(GOING_OUT_PAUSE_MS));
     expect(
       screen.getByRole("group", { name: "Running round score" }),
     ).toBeTruthy();
@@ -492,16 +560,19 @@ it.each(
         .getByRole("button", { name: "Skip animation" })
         .closest(".hand-heading"),
     ).not.toBeNull();
-    expect(command).toHaveBeenNthCalledWith(1, source, "score_auto", {});
-    expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
-    expect(command).toHaveBeenCalledTimes(2);
+    if (missedScoring) expect(command).not.toHaveBeenCalled();
+    else {
+      expect(command).toHaveBeenNthCalledWith(1, source, "score_auto", {});
+      expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
+      expect(command).toHaveBeenCalledTimes(2);
+    }
     await act(async () => vi.advanceTimersByTime(1200));
     expect(
       screen.getByText(
         "Red threes open for reconciliation. Each is worth 5 points.",
       ),
     ).toBeTruthy();
-    expect(command).toHaveBeenCalledTimes(2);
+    expect(command).toHaveBeenCalledTimes(missedScoring ? 0 : 2);
     fireEvent.click(screen.getByRole("button", { name: "Next board" }));
     if (skipAnimation) {
       fireEvent.click(screen.getByRole("button", { name: "Skip animation" }));
@@ -521,8 +592,9 @@ it.each(
     )
       await act(async () => vi.advanceTimersByTime(2000));
     expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
-    expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
-    expect(command).toHaveBeenCalledTimes(2);
+    if (!missedScoring)
+      expect(command).toHaveBeenLastCalledWith(paid, "score_confirm", {});
+    expect(command).toHaveBeenCalledTimes(missedScoring ? 0 : 2);
     fireEvent.click(screen.getByRole("button", { name: "Hide results" }));
     expect(screen.queryByRole("dialog", { name: "Score sheet" })).toBeNull();
     expect(document.querySelector(".live-scoring")).toBeNull();
@@ -546,7 +618,7 @@ it.each(
     fireEvent.click(screen.getByRole("button", { name: "Show results" }));
     expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
     await act(async () => vi.advanceTimersByTime(6000));
-    expect(command).toHaveBeenCalledTimes(2);
+    expect(command).toHaveBeenCalledTimes(missedScoring ? 0 : 2);
   },
 );
 

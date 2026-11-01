@@ -6,15 +6,92 @@ import {
   type ScoringScenario,
 } from "../lib/scoringSequence";
 
-/** Presentation never pays or confirms a score: only accepted scoring revisions advance it. */
+const scoringScope = (snapshot: Snapshot | null) =>
+  snapshot
+    ? `${snapshot.code}:${snapshot.round}:${snapshot.viewerId}:${snapshot.players.map((player) => player.id).join(":")}`
+    : "";
+
+/** Completed rounds reveal the original cards and retain the accepted settlement. */
+function completedScoringSnapshot(
+  snapshot: Snapshot,
+  previous: Snapshot,
+): Snapshot | null {
+  const owner = snapshot.players.find(
+    (player) => player.id === snapshot.viewerId,
+  );
+  const round = snapshot.history.find(
+    (round) => round.round === snapshot.round,
+  );
+  const score = round?.scores.find((score) => score.team === owner?.team);
+  if (!owner || !round || !score) return null;
+  const teammates = snapshot.players.filter(
+    (player) => player.team === owner.team,
+  );
+  if (teammates.some((player) => !player.roundCards)) return null;
+  const hand: Snapshot["hand"] = [];
+  const foot: Snapshot["hand"] = [];
+  for (const player of teammates) {
+    const cards = player.roundCards!;
+    const footCount = player.inFoot
+      ? 0
+      : Math.min(
+          previous.players.find((seat) => seat.id === player.id)?.footCount ??
+            0,
+          cards.length,
+        );
+    hand.push(...cards.slice(0, cards.length - footCount));
+    foot.push(...cards.slice(cards.length - footCount));
+  }
+  const reds = teammates.flatMap((player) => player.redThrees);
+  const usedPiles = new Set<string>();
+  // Canceled cards retain payment order; board order could break fewer books
+  // than the accepted settlement and make the displayed total disagree.
+  for (const id of score.canceled) {
+    const meld = snapshot.sides[owner.team].melds.find((meld) =>
+      meld.cards.some((card) => card.id === id),
+    );
+    if (meld) usedPiles.add(meld.id);
+    else if (reds.some((card) => card.id === id))
+      usedPiles.add(`reds:${owner.team}`);
+  }
+  return {
+    ...snapshot,
+    phase: "scoring",
+    scoringHand: hand,
+    scoringFoot: foot,
+    sides: snapshot.sides.map((side) => ({
+      ...side,
+      score:
+        side.score -
+        (round.scores.find((score) => score.team === side.id)?.total ?? 0),
+    })),
+    scoring: {
+      team: owner.team,
+      debt: score.debt + (reds.length < 3 ? reds.length * 300 : 0),
+      remaining: score.uncovered,
+      canceled: score.canceled,
+      usedPiles: [...usedPiles],
+      broken: score.broken,
+      confirmed: true,
+      revision: snapshot.revision,
+      reason: round.reason,
+      confirmedSides: snapshot.sides.map((side) => side.id),
+      debtBreakdown: [],
+      redThreeQualified: reds.length >= 3,
+      options: [],
+      score,
+    },
+  };
+}
+
+/** Presentation replays accepted settlements; it never pays or confirms a score. */
 export function useLiveScoring(
   incoming: Snapshot | null,
   enabled: boolean,
   reduced: boolean,
 ) {
-  const scope = incoming
-    ? `${incoming.code}:${incoming.round}:${incoming.viewerId}:${incoming.players.map((player) => player.id).join(":")}`
-    : "";
+  const scope = scoringScope(incoming);
+  const previous = useRef<Snapshot | null>(null);
   const [origin, setOrigin] = useState<{
     scope: string;
     snapshot: Snapshot;
@@ -27,10 +104,21 @@ export function useLiveScoring(
   const roundReview = Boolean(
     incoming && ["round_over", "finished"].includes(incoming.phase),
   );
+  // Updates can coalesce, or another tab/partner can confirm before this screen
+  // finishes the final discard. Replay only a round this screen saw in progress.
+  const recovered =
+    roundReview &&
+    origin?.scope !== scope &&
+    previous.current &&
+    scoringScope(previous.current) === scope &&
+    ["draw", "play", "scoring"].includes(previous.current.phase)
+      ? completedScoringSnapshot(incoming!, previous.current)
+      : null;
   const eligible =
     enabled &&
     incoming?.status !== "closed" &&
-    (incoming?.phase === "scoring" || (roundReview && origin?.scope === scope));
+    (incoming?.phase === "scoring" ||
+      (roundReview && (origin?.scope === scope || Boolean(recovered))));
   const inScope = eligible && origin?.scope === scope;
   const skipped = inScope && skippedScope === scope;
   if (inScope && incoming?.scoring) review.current = incoming.scoring;
@@ -74,34 +162,45 @@ export function useLiveScoring(
       if (origin) setOrigin(null);
       return;
     }
-    if (!incoming?.scoring || origin?.scope === scope) return;
-    const owner = incoming.players.find(
-      (player) => player.id === incoming.viewerId,
+    const source = incoming?.scoring ? incoming : recovered;
+    if (!source?.scoring || origin?.scope === scope) return;
+    const owner = source.players.find(
+      (player) => player.id === source.viewerId,
     )!;
-    review.current = incoming.scoring;
+    review.current = source.scoring;
     setOrigin({
       scope,
-      snapshot: incoming,
+      snapshot: source,
       scenario: {
         id: scope,
         label: "Your round",
-        reason: incoming.scoring.reason,
-        hand: incoming.scoringHand ?? incoming.hand,
-        foot: incoming.scoringFoot ?? [],
-        melds: incoming.sides[owner.team].melds.map((meld) => ({
+        reason: source.scoring.reason,
+        hand: source.scoringHand ?? source.hand,
+        foot: source.scoringFoot ?? [],
+        melds: source.sides[owner.team].melds.map((meld) => ({
           ...meld,
           bonusLost: false,
           spentCardIds: [],
         })),
-        reds: incoming.players
+        reds: source.players
           .filter((player) => player.team === owner.team)
           .flatMap((player) => player.redThrees),
-        goingOut: incoming.scoring.score.goingOut,
+        goingOut: source.scoring.score.goingOut,
       },
     });
     setStep(0);
     setSkippedScope(null);
   }, [eligible, completedReview, scope, incoming?.scoring, origin?.scope]);
+  useLayoutEffect(() => {
+    // The final-discard presentation can carry completed results under a play
+    // phase. Retain the actual hand/foot split until that presentation releases.
+    if (
+      !incoming ||
+      roundReview ||
+      !incoming.history.some((round) => round.round === incoming.round)
+    )
+      previous.current = incoming;
+  });
   useEffect(() => {
     const visibility = () => setHidden(document.hidden);
     document.addEventListener("visibilitychange", visibility);

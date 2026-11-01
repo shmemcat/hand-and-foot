@@ -132,6 +132,72 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 it.each(["round_over", "finished"] as const)(
+  "plays a newly completed %s round even when the scoring update was missed",
+  (phase) => {
+    const source = round();
+    const before: Snapshot = { ...source, phase: "play", scoring: null };
+    const score = {
+      ...source.scoring!.score,
+      cards: 0,
+      redThrees: 0,
+      redCredit: 15,
+      canceled: source.players[0].redThrees.map((card) => card.id),
+      uncovered: 5,
+      total: -5,
+    };
+    const result: Snapshot = {
+      ...source,
+      phase,
+      scoring: null,
+      scoringHand: null,
+      scoringFoot: null,
+      hand: source.hand,
+      footTop: null,
+      players: source.players.map((player) => ({
+        ...player,
+        roundCards: player.id === source.viewerId ? source.hand : [],
+        footCount: 0,
+      })),
+      sides: source.sides.map((side) => ({
+        ...side,
+        score: side.score + (side.id === score.team ? score.total : 0),
+      })),
+      history: [
+        { round: source.round, reason: "Poppy went out.", scores: [score] },
+      ],
+    };
+    const view = renderHook(
+      ({ snapshot }) => useLiveScoring(snapshot, true, false),
+      { initialProps: { snapshot: before } },
+    );
+    view.rerender({ snapshot: result });
+    expect(view.result.current.beat?.kind).toBe("ready");
+    expect(view.result.current.snapshot?.phase).toBe("scoring");
+    expect(view.result.current.snapshot?.scoring?.confirmed).toBe(true);
+    expect(view.result.current.snapshot?.sides[0].score).toBe(
+      source.sides[0].score,
+    );
+    let counted = false;
+    for (let step = 0; step < 100 && view.result.current.beat; step++) {
+      const beat = view.result.current.beat!;
+      if (beat.kind === "count") {
+        counted = true;
+        expect(beat.base + beat.cardValue).toBe(score.total);
+      }
+      act(() => vi.advanceTimersByTime(beat.duration));
+    }
+    expect(counted).toBe(true);
+    expect(view.result.current.snapshot).toBe(result);
+    view.rerender({ snapshot: { ...result, revision: result.revision + 1 } });
+    expect(view.result.current.enabled).toBe(false);
+    view.unmount();
+    const reopened = renderHook(() => useLiveScoring(result, true, false));
+    expect(reopened.result.current.snapshot).toBe(result);
+    expect(reopened.result.current.enabled).toBe(false);
+  },
+);
+
+it.each(["round_over", "finished"] as const)(
   "keeps counting locally when %s is ready and releases results on the last beat",
   (phase) => {
     const source = round();
@@ -181,6 +247,192 @@ it.each(["round_over", "finished"] as const)(
     expect(view.result.current.beat).toBeUndefined();
   },
 );
+
+it("recovers both partners' feet and short-red debt after the final discard holds completed results", () => {
+  const source = round();
+  const card = (id: string, value: number) => ({
+    ...source.hand[0],
+    id,
+    rank: value === 20 ? "A" : value === 10 ? "K" : "4",
+    value,
+  });
+  const hands = [card("own-hand", 10), card("partner-hand", 20)];
+  const feet = [card("own-foot", 5), card("partner-foot", 5)];
+  const red = source.players[0].redThrees[0];
+  const kings = [0, 1, 2].map((index) => card(`king-${index}`, 10));
+  source.phase = "play";
+  source.scoring = null;
+  source.scoringMode = "partnership";
+  source.viewerId = source.players[3].id;
+  source.hand = [hands[1]];
+  source.players = source.players.map((player, index) => ({
+    ...player,
+    team: index % 3,
+    handCount: index % 3 === 0 ? 1 : 0,
+    footCount: index % 3 === 0 ? 1 : 0,
+    inFoot: false,
+    redThrees: index === 0 ? [red] : [],
+  }));
+  source.sides = source.sides.slice(0, 3).map((side) => ({
+    ...side,
+    melds:
+      side.id === 0
+        ? [
+            {
+              id: "kings",
+              creator: source.players[0].id,
+              rank: "K",
+              kind: "set",
+              cards: kings,
+              complete: false,
+              dirty: false,
+              bonus: 0,
+            },
+          ]
+        : [],
+  }));
+  const score = {
+    team: 0,
+    cards: 30,
+    debt: 40,
+    redThrees: -300,
+    redCredit: 0,
+    books: 0,
+    goingOut: 0,
+    total: -310,
+    canceled: kings.map((card) => card.id),
+    lostBooks: 0,
+    broken: [],
+    uncovered: 310,
+  };
+  const result: Snapshot = {
+    ...source,
+    phase: "round_over",
+    hand: [hands[1], feet[1]],
+    footTop: null,
+    players: source.players.map((player, index) => ({
+      ...player,
+      footCount: 0,
+      roundCards:
+        index === 0
+          ? [hands[0], feet[0]]
+          : index === 3
+            ? [hands[1], feet[1]]
+            : [],
+    })),
+    history: [
+      { round: source.round, reason: "Poppy went out.", scores: [score] },
+    ],
+  };
+  const view = renderHook(
+    ({ snapshot }) => useLiveScoring(snapshot, true, false),
+    { initialProps: { snapshot: source } },
+  );
+  // The table motion keeps its final discard on screen using the new result's
+  // cards, but temporarily presents the old phase until that discard lands.
+  view.rerender({ snapshot: { ...result, phase: "play" } });
+  view.rerender({ snapshot: result });
+  expect(view.result.current.beat?.hand).toEqual(hands);
+  act(() => vi.advanceTimersByTime(1200));
+  expect(view.result.current.beat?.kind).toBe("gather");
+  expect(view.result.current.beat?.hand).toEqual([...hands, ...feet]);
+  act(() => vi.advanceTimersByTime(1800));
+  expect(view.result.current.beat?.hand).toEqual([...hands, ...feet, red]);
+  let counted = false;
+  for (let step = 0; step < 100 && view.result.current.beat; step++) {
+    const beat = view.result.current.beat!;
+    if (beat.kind === "count") {
+      counted = true;
+      expect(beat.base + beat.cardValue).toBe(-310);
+    }
+    act(() => vi.advanceTimersByTime(beat.duration));
+  }
+  expect(counted).toBe(true);
+  expect(view.result.current.snapshot).toBe(result);
+});
+
+it("preserves accepted payment order when recovering broken books", () => {
+  const source = round();
+  const card = (id: string, rank: string, value: number) => ({
+    ...source.hand[0],
+    id,
+    rank,
+    value,
+    wild: rank === "2" || rank === "Joker",
+  });
+  source.phase = "play";
+  source.scoring = null;
+  source.hand = [0, 1].map((index) => card(`joker-${index}`, "Joker", 50));
+  source.players = source.players.map((player) => ({
+    ...player,
+    inFoot: true,
+    footCount: 0,
+    redThrees: [],
+  }));
+  const large = {
+    id: "large",
+    creator: source.viewerId,
+    rank: "A",
+    kind: "set" as const,
+    complete: true,
+    dirty: false,
+    bonus: 500,
+    cards: Array.from({ length: 7 }, (_, index) =>
+      card(`ace-${index}`, "A", 20),
+    ),
+  };
+  const small = {
+    ...large,
+    id: "small",
+    rank: "4",
+    dirty: true,
+    bonus: 300,
+    cards: Array.from({ length: 7 }, (_, index) =>
+      card(`four-${index}`, index < 5 ? "4" : "2", index < 5 ? 5 : 20),
+    ),
+  };
+  source.sides[0].melds = [large, small];
+  const score = {
+    team: 0,
+    cards: 205,
+    debt: 100,
+    redThrees: 0,
+    redCredit: 0,
+    books: 0,
+    goingOut: 0,
+    total: 105,
+    lostBooks: 2,
+    uncovered: 0,
+    broken: [small.id, large.id],
+    canceled: [...small.cards, ...large.cards.slice(0, 2)].map(
+      (card) => card.id,
+    ),
+  };
+  const result: Snapshot = {
+    ...source,
+    phase: "round_over",
+    players: source.players.map((player) => ({
+      ...player,
+      roundCards: player.id === source.viewerId ? source.hand : [],
+    })),
+    history: [
+      { round: source.round, reason: "Poppy went out.", scores: [score] },
+    ],
+  };
+  const view = renderHook(
+    ({ snapshot }) => useLiveScoring(snapshot, true, false),
+    { initialProps: { snapshot: source } },
+  );
+  view.rerender({ snapshot: result });
+  let finalCount;
+  for (let step = 0; step < 100 && view.result.current.beat; step++) {
+    const beat = view.result.current.beat!;
+    if (beat.kind === "count") finalCount = beat;
+    act(() => vi.advanceTimersByTime(beat.duration));
+  }
+  expect(finalCount!.base + finalCount!.cardValue).toBe(score.total);
+  expect(finalCount!.broken).toEqual(score.broken);
+});
 
 it("opens an already prepared result immediately when counting is skipped", () => {
   const source = round();
