@@ -45,7 +45,7 @@ beforeEach(() => {
   vi.mocked(request)
     .mockReset()
     .mockImplementation(async (path) =>
-      path === "/active" ? { rooms } : { code: "NEW123" },
+      path === "/active" ? { rooms } : { code: "NEW123" }
     );
   vi.mocked(getRoom)
     .mockReset()
@@ -75,146 +75,85 @@ function page(entry = "/play") {
   );
 }
 const createLink = () => screen.getByRole("link", { name: /^Create Game/ });
-
-it("checks the current table before enabling create/join and never renders a table list", async () => {
+it("lists all started games as cards, with no automatic rejoin dialog", async () => {
+  rooms = [solo, { ...solo, code: "FRIEND", playMode: "online" }, lobby];
   render(page());
-  expect(createLink().getAttribute("aria-disabled")).toBe("true");
-  fireEvent.click(createLink());
-  expect(screen.getByRole("heading", { name: "PLAY" })).toBeTruthy();
-  await waitFor(() =>
-    expect(createLink().getAttribute("aria-disabled")).toBeNull(),
-  );
-  expect(screen.queryByText("Your tables")).toBeNull();
+  await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(2));
   expect(screen.queryByRole("dialog")).toBeNull();
+  expect(createLink().getAttribute("aria-disabled")).toBeNull();
+  expect(vi.mocked(command)).not.toHaveBeenCalled();
 });
 
-it.each([solo])(
-  "continues the existing $playMode $phase table without creating a game",
-  async (table) => {
-    rooms = [table];
-    render(page());
-    await screen.findByRole("dialog");
-    expect(createLink().getAttribute("aria-disabled")).toBe("true");
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: table.playMode === "practice" ? "Continue" : "Rejoin",
-      }),
-    );
-    await screen.findByText("Original table");
-    expect(command).not.toHaveBeenCalled();
-  },
-);
+it("resumes the selected game without leaving another one", async () => {
+  rooms = [solo, { ...solo, code: "FRIEND", playMode: "online" }];
+  render(page());
+  await waitFor(() =>
+    expect(screen.getAllByRole("button", { name: "Resume" })).toHaveLength(2)
+  );
+  fireEvent.click(screen.getAllByRole("button", { name: "Resume" })[1]);
+  await screen.findByText("Original table");
+  expect(command).not.toHaveBeenCalled();
+});
 
-it("cancels concession, focuses No, and only leaves after confirmation using the current state", async () => {
+it("requires inline confirmation and sends a fresh selected-table concession", async () => {
   rooms = [solo];
   render(page());
   fireEvent.click(await screen.findByRole("button", { name: "Concede" }));
-  expect(
-    screen.getByRole("dialog", { name: "Are you sure?" }).textContent,
-  ).toContain("Only finished games count");
-  expect(document.activeElement).toBe(
-    screen.getByRole("button", { name: "No" }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "No" }));
+  expect(command).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Keep game" }));
   expect(command).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Concede" }));
-  fireEvent.click(screen.getByRole("button", { name: "Yes" }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect(getRoom).toHaveBeenCalledWith("SOLO22");
-  expect(command).toHaveBeenCalledWith(
-    expect.objectContaining({ token: "latest", revision: 18 }),
-    "concede",
-  );
-  expect(createLink().getAttribute("aria-disabled")).toBeNull();
-});
-
-it.each(["/game/create", "/game/join"])(
-  "guards a direct %s visit with the in-progress flow",
-  async (entry) => {
-    rooms = [lobby];
-    render(page(entry));
-    await screen.findByText("Original table");
-    expect(screen.queryByRole("button", { name: "Create Game" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Join Game" })).toBeNull();
-  },
-);
-
-it("retains the table on a failed leave and permits retry", async () => {
-  rooms = [solo];
-  vi.mocked(command).mockRejectedValueOnce(new Error("Connection lost"));
-  render(page());
-  fireEvent.click(await screen.findByRole("button", { name: "Concede" }));
-  fireEvent.click(screen.getByRole("button", { name: "Yes" }));
-  expect((await screen.findByRole("alert")).textContent).toBe(
-    "Connection lost",
-  );
-  expect(screen.getByRole("dialog")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Yes" }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-});
-
-it("retries a stale leave against a fresh snapshot", async () => {
-  rooms = [solo];
-  vi.mocked(command).mockRejectedValueOnce(
-    new GameApiError("The table moved", 409, "STALE_STATE"),
-  );
-  render(page());
-  fireEvent.click(await screen.findByRole("button", { name: "Concede" }));
-  fireEvent.click(screen.getByRole("button", { name: "Yes" }));
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect(getRoom).toHaveBeenCalledTimes(2);
-});
-
-it("blocks mutations during lookup failures and recovers with Try again", async () => {
-  vi.mocked(request).mockRejectedValueOnce(new Error("Offline"));
-  render(page());
-  await screen.findByRole("alert");
-  expect(createLink().getAttribute("aria-disabled")).toBe("true");
-  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  fireEvent.click(screen.getByRole("button", { name: "Concede" }));
   await waitFor(() =>
-    expect(createLink().getAttribute("aria-disabled")).toBeNull(),
+    expect(command).toHaveBeenCalledWith(
+      expect.objectContaining({ code: solo.code, revision: 18 }),
+      "concede"
+    )
   );
+  await waitFor(() => expect(screen.queryByRole("article")).toBeNull());
 });
 
-it("clears the old account’s dialog immediately and ignores its delayed response", async () => {
-  auth.user = { id: "1", name: "One" };
+it("keeps a failed concession available to retry", async () => {
   rooms = [solo];
-  let resolveOld!: (value: unknown) => void;
-  const view = render(page());
-  await screen.findByRole("dialog");
-  vi.mocked(request).mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        resolveOld = resolve;
-      }),
+  vi.mocked(command).mockRejectedValueOnce(new Error("Please reconnect."));
+  render(page());
+  fireEvent.click(await screen.findByRole("button", { name: "Concede" }));
+  fireEvent.click(screen.getByRole("button", { name: "Concede" }));
+  await screen.findByText("Please reconnect.");
+  expect(screen.getAllByRole("article")).toHaveLength(1);
+  await waitFor(() =>
+    expect(
+      (screen.getByRole("button", { name: "Concede" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(false)
   );
-  auth.user = { id: "2", name: "Two" };
-  view.rerender(page());
-  expect(screen.queryByRole("dialog")).toBeNull();
-  rooms = [];
-  auth.user = { id: "3", name: "Three" };
-  view.rerender(page());
-  await act(async () => {
-    resolveOld({ rooms: [solo] });
-  });
-  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Concede" }));
+  await waitFor(() => expect(screen.queryByRole("article")).toBeNull());
 });
 
-it.each([
-  "lobby",
-  "choose",
-  "play",
-  "scoring",
-  "round_over",
-  "finished",
-] as const)(
-  "automatically rejoins a saved multiplayer lobby during %s",
-  async (phase) => {
-    rooms = [{ ...lobby, phase }];
-    render(page());
-    await screen.findByText("Original table");
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(command).not.toHaveBeenCalled();
-    expect(getRoom).not.toHaveBeenCalled();
-  },
-);
+it("omits waiting lobbies and completed games from the saved cards", async () => {
+  rooms = [lobby, { ...solo, code: "DONE22", phase: "finished" }];
+  render(page());
+  await waitFor(() => expect(request).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(createLink().getAttribute("aria-disabled")).toBeNull()
+  );
+  expect(screen.queryByRole("article")).toBeNull();
+});
+
+it("allows creation alongside an unfinished game without conceding it", async () => {
+  rooms = [solo];
+  render(page("/game/create"));
+  await waitFor(() =>
+    expect(
+      (screen.getByRole("button", { name: "Create Game" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(false)
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Create Game" }));
+  await waitFor(() =>
+    expect(request).toHaveBeenCalledWith("/rooms", expect.anything())
+  );
+  expect(command).not.toHaveBeenCalled();
+});

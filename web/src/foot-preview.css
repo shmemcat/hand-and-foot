@@ -38,8 +38,8 @@
   line-height: 1.7;
 }
 @media (prefers-reduced-motion: reduce) {
-  .foot-rehearsal-board[data-beat="leaving"] .meld-card-layer,
-  .foot-rehearsal-board[data-beat="leaving"] .discard-face {
+  :where(:root:not([data-motion-override="true"])) .foot-rehearsal-board[data-beat="leaving"] .meld-card-layer,
+  :where(:root:not([data-motion-override="true"])) .foot-rehearsal-board[data-beat="leaving"] .discard-face {
     visibility: visible !important;
   }
 }

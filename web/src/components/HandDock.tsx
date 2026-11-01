@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useId, useLayoutEffect, useRef, type ReactNode } from "react";
 import { usePageSweep } from "../hooks/usePageSweep";
 import { Card } from "./Card";
@@ -99,7 +100,7 @@ export function HandDock({
       from !== null &&
       Math.abs(from - to) > 1 &&
       element.animate &&
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      !reducedMotionPreference().matches
     ) {
       element.dataset.drawerMoving = "true";
       const animation = element.animate(

@@ -1483,10 +1483,10 @@ a {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sound-settings {
+  :where(:root:not([data-motion-override="true"])) .sound-settings {
     animation: none;
   }
-  .play-choice:hover {
+  :where(:root:not([data-motion-override="true"])) .play-choice:hover {
     transform: none;
   }
 }

@@ -224,21 +224,40 @@ def test_humans_and_bots_can_open_at_the_exact_minimum(mode, score, minimum, fir
         engine.assert_conservation(moved)
 
 
-@pytest.mark.parametrize("scores,expected", [([0,5000,9000],2),([0,5001,9000],3),([0,100,9000],2),([5000,0,9000],2),([-6000,0,1000],3),([0,0,9000],2)])
-def test_catch_up_uses_next_lowest_side_strictly_over_5000(scores, expected):
-    sides = [{"id": i, "score": score} for i,score in enumerate(scores)]
-    assert draw_count(sides, 0) == expected
+@pytest.mark.parametrize("scores,expected", [
+    ([0, 5000], [2, 2]),
+    ([0, 5001], [3, 2]),
+    ([0, 5000, 9000], [3, 2, 2]),
+    ([0, 5001, 9000], [3, 2, 2]),
+    ([0, 100, 9000], [3, 3, 2]),
+    ([5000, 0, 9000], [2, 3, 2]),
+    ([-6000, 0, 1000], [3, 2, 2]),
+    ([0, 0, 9000], [3, 3, 2]),
+    ([0, 0, 5000], [2, 2, 2]),
+    ([0, 5001, 5001], [3, 2, 2]),
+    ([-9000, -8999, -4000], [2, 2, 2]),
+    ([-9001, -8999, -4000], [3, 2, 2]),
+    ([100, 100, 100], [2, 2, 2]),
+])
+def test_catch_up_uses_first_place_strictly_over_5000(scores, expected):
+    sides = [{"id": i, "score": score} for i, score in enumerate(scores)]
+    assert [draw_count(sides, team) for team in range(len(sides))] == expected
 
 
-def test_catch_up_draw_changes_private_count_and_conserves_cards():
-    game = chosen(fresh(6, "partnership"))
-    game["actor"] = 0
-    game["sides"][0]["score"] = -5001
-    before = len(game["players"][0]["hand"])
-    assert engine.project(game, "0")["drawCount"] == 3
-    game = engine.apply(game, 0, {"type": "draw"})
-    assert len(game["players"][0]["hand"]) == before + 3
-    assert "Catch-up card" in game["message"]
+@pytest.mark.parametrize("mode", ["individual", "partnership"])
+@pytest.mark.parametrize("team,expected", [(0, 3), (1, 3), (2, 2)])
+def test_catch_up_draw_changes_private_count_and_conserves_cards(mode, team, expected):
+    game = chosen(fresh(3 if mode == "individual" else 6, mode))
+    game["actor"] = team
+    for side, score in zip(game["sides"], [0, 100, 9000]):
+        side["score"] = score
+    before = len(game["players"][team]["hand"])
+    for player in game["players"]:
+        if player["team"] == team:
+            assert engine.project(game, player["id"])["drawCount"] == expected
+    game = engine.apply(game, team, {"type": "draw"})
+    assert len(game["players"][team]["hand"]) == before + expected
+    assert ("Catch-up card" in game["message"]) == (expected == 3)
     engine.assert_conservation(game)
 
 

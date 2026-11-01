@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Room } from "./Room";
@@ -34,7 +35,7 @@ export function FootPreview() {
   const [autoplay, setAutoplay] = useState(false);
   const [flight, setFlight] = useState<MeldFlight | null>(null);
   const [reduced, setReduced] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => reducedMotionPreference().matches,
   );
   const board = useRef<HTMLDivElement>(null);
   const source = useRef<CardPosition | null>(null);
@@ -57,7 +58,7 @@ export function FootPreview() {
   );
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const media = reducedMotionPreference();
     const change = () => setReduced(media.matches);
     media.addEventListener("change", change);
     return () => media.removeEventListener("change", change);

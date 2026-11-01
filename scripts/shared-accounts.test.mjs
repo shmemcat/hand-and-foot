@@ -158,7 +158,7 @@ test(
         (await call(hand, "/api/hand-and-foot/active")).rooms.map(
           (item) => item.code,
         ),
-        [room.code],
+        [],
       );
       const originalGameCookie = cookies.get(gameCookieName);
       cookies.delete(gameCookieName);

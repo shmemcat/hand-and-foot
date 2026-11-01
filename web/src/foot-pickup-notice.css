@@ -53,7 +53,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .foot-pickup-notice {
+  :where(:root:not([data-motion-override="true"])) .foot-pickup-notice {
     animation: none;
   }
 }

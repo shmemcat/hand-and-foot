@@ -2,6 +2,10 @@ import { render } from "@testing-library/react";
 import { useRef } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { usePageSweep } from "./usePageSweep";
+import {
+  MOTION_OVERRIDE_KEY,
+  setAnimationsOverride,
+} from "../lib/motionPreference";
 
 function Sample({ page, scope = "table" }: { page: number; scope?: string }) {
   const target = useRef<HTMLDivElement>(null);
@@ -60,4 +64,29 @@ it("shows page changes immediately when reduced motion is enabled", () => {
   const view = render(<Sample page={0} />);
   view.rerender(<Sample page={1} />);
   expect(animate).not.toHaveBeenCalled();
+});
+
+it("allows the site override and cancels active motion when it is switched off", () => {
+  const cancel = vi.fn();
+  const animate = vi.fn(() => ({ cancel, id: "" }) as unknown as Animation);
+  HTMLElement.prototype.animate = animate;
+  vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([
+    {},
+  ] as unknown as DOMRectList);
+  vi.mocked(window.matchMedia).mockImplementation(
+    () =>
+      ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }) as unknown as MediaQueryList,
+  );
+  localStorage.setItem(MOTION_OVERRIDE_KEY, "true");
+  const view = render(<Sample page={0} />);
+  view.rerender(<Sample page={1} />);
+  expect(animate).toHaveBeenCalledTimes(1);
+  setAnimationsOverride(false);
+  expect(cancel).toHaveBeenCalledTimes(1);
+  view.rerender(<Sample page={2} />);
+  expect(animate).toHaveBeenCalledTimes(1);
 });

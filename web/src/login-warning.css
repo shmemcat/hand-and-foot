@@ -99,7 +99,7 @@
   --link-highlight-progress: 1;
 }
 @media (prefers-reduced-motion: reduce) {
-  .login-warning svg {
+  :where(:root:not([data-motion-override="true"])) .login-warning svg {
     animation: none;
   }
 }

@@ -47,7 +47,7 @@ it("filters the gallery and opens a final result with its animated reveal", () =
     within(dialog)
       .getByRole("button", { name: "Play Again" })
       .hasAttribute("disabled"),
-  ).toBe(true);
+  ).toBe(false);
   act(() => vi.advanceTimersByTime(600));
   expect(within(dialog).getByText("You win!")).toBeTruthy();
   fireEvent.click(

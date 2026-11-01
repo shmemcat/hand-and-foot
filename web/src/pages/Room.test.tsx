@@ -1015,18 +1015,30 @@ it.each(["choose", "draw", "play"] as const)(
   },
 );
 
-it("keeps visual inactivity nudges for online games without repeating the turn sound", async () => {
-  vi.useFakeTimers();
-  const snapshot = fixture();
-  snapshot.playMode = "online";
-  vi.mocked(getRoom).mockResolvedValue(snapshot);
-  await act(async () => openRoom());
-  await act(async () => vi.advanceTimersByTime(15_000));
-  expect(sound.play).not.toHaveBeenCalledWith("notification");
-  expect(
-    document.querySelector(".turn-message.inactivity-shake"),
-  ).not.toBeNull();
-});
+it.each(["choose", "draw", "play"] as const)(
+  "plays a notification with the phase hint shake in an online game's %s phase",
+  async (phase) => {
+    vi.useFakeTimers();
+    const snapshot = fixture();
+    snapshot.playMode = "online";
+    snapshot.phase = phase;
+    snapshot.players[0].chosen = phase !== "choose";
+    vi.mocked(getRoom).mockResolvedValue(snapshot);
+    await act(async () => openRoom());
+    await act(async () => vi.advanceTimersByTime(14_999));
+    expect(sound.play).not.toHaveBeenCalledWith("notification");
+    expect(document.querySelector(".turn-message.inactivity-shake")).toBeNull();
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(sound.play).toHaveBeenCalledExactlyOnceWith("notification");
+    expect(
+      document.querySelector(".turn-message.inactivity-shake"),
+    ).not.toBeNull();
+    await act(async () => vi.advanceTimersByTime(2000));
+    expect(document.querySelector(".turn-message.inactivity-shake")).toBeNull();
+    await act(async () => vi.advanceTimersByTime(60_000));
+    expect(sound.play).toHaveBeenCalledExactlyOnceWith("notification");
+  },
+);
 
 it("plays the online turn indicator once per turn, including when intervening turns arrive in one update", async () => {
   vi.useFakeTimers();
@@ -1433,6 +1445,38 @@ it("shows a closed multiplayer lobby instead of further play controls", async ()
   expect(screen.queryByRole("button", { name: "Draw" })).toBeNull();
   expect(command).not.toHaveBeenCalled();
 });
+
+it.each([0, 2])(
+  "lets multiplayer seat %s ready up before the score reveal timer runs",
+  async (seat) => {
+    vi.useFakeTimers();
+    const source = {
+      ...endingSnapshot(
+        ENDING_EXAMPLES.find((example) => example.id === "round-partners")!,
+      ),
+      code: "REVIEW",
+    };
+    source.viewerId = source.players[seat].id;
+    vi.mocked(getRoom).mockResolvedValue(source);
+    vi.mocked(command).mockResolvedValue({
+      ...source,
+      revision: source.revision + 1,
+      players: source.players.map((player) =>
+        player.id === source.viewerId ? { ...player, ready: true } : player,
+      ),
+    });
+    await act(async () => openRoom());
+    const next = screen.getByRole("button", { name: "Next Round" });
+    expect(next.hasAttribute("disabled")).toBe(false);
+    await act(async () => fireEvent.click(next));
+    expect(command).toHaveBeenCalledExactlyOnceWith(source, "next_round", {});
+    expect(
+      screen
+        .getByRole("button", { name: "Waiting for players..." })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+  },
+);
 
 it("keeps a live round's waiting button visible when hiding and restoring results", async () => {
   const source = {

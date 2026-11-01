@@ -7,7 +7,7 @@ import type { Snapshot } from "../types";
 export type ActiveTable = Pick<
   Snapshot,
   "code" | "playMode" | "scoringMode" | "capacity" | "phase" | "round"
->;
+> & { botDifficulty?: string; names?: string[]; yourTurn?: boolean };
 
 export function useActiveTable() {
   const { user, loading } = useAuth();
@@ -70,18 +70,20 @@ export function useActiveTable() {
   const rooms =
     !loading && lookup.owner === owner
       ? lookup.rooms.filter(
-          (room) => !dismissed.current.has(`${owner}:${room.code}`),
+          (room) =>
+            room.phase !== "lobby" &&
+            room.phase !== "finished" &&
+            !dismissed.current.has(`${owner}:${room.code}`)
         )
       : [];
-  // Older previews could have more than one table. Resolve them one at a time.
   const table =
     !loading && leaving?.owner === owner
       ? leaving.table
-      : (rooms.find((room) => room.playMode === "practice") ??
-        rooms[0] ??
-        null);
-  async function leave() {
-    if (!table || working.current || !online) return;
+      : rooms.find((room) => room.playMode === "practice") ?? rooms[0] ?? null;
+  async function leave(selectedCode: string | undefined = table?.code) {
+    const selected = rooms.find((room) => room.code === selectedCode);
+    if (!selected || working.current || !online) return;
+    const table = selected;
     working.current = true;
     setLeaving({ owner, table });
     setError("");
@@ -91,7 +93,7 @@ export function useActiveTable() {
           const latest = await getRoom(table.code);
           await command(
             latest,
-            ["lobby", "finished"].includes(latest.phase) ? "leave" : "concede",
+            ["lobby", "finished"].includes(latest.phase) ? "leave" : "concede"
           );
           break;
         } catch (error) {
@@ -116,12 +118,14 @@ export function useActiveTable() {
         removeStorage("handandfoot.room.v1");
     } catch (error) {
       setError((error as Error).message);
+      throw error;
     } finally {
       working.current = false;
       setLeaving(null);
     }
   }
   return {
+    rooms,
     table,
     checking: loading || lookup.owner !== owner || lookup.pending,
     busy: Boolean(leaving),

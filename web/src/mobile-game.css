@@ -761,8 +761,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mobile-play-card,
-  .mobile-play-face[data-face-down="true"] {
+  :where(:root:not([data-motion-override="true"])) .mobile-play-card,
+  :where(:root:not([data-motion-override="true"])) .mobile-play-face[data-face-down="true"] {
     animation: none;
   }
 }

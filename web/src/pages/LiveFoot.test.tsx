@@ -150,6 +150,55 @@ it("waits for the live final meld to land, cascades the confirmed foot, and enab
   });
 });
 
+it.each(["command", "socket"] as const)(
+  "keeps foot cards out of the hand while the final-card book closes after a %s update",
+  async (update) => {
+    const [before, after] = pair("play");
+    const extras = Array.from({ length: 3 }, (_, i) => ({
+      ...before.sides[0].melds[0].cards[0],
+      id: `book-extra-${i}`,
+    }));
+    before.sides[0].melds[0].cards.push(...extras);
+    after.sides[0].melds[0].cards.push(...extras);
+    after.sides[0].melds[0].complete = true;
+    vi.mocked(command).mockResolvedValue(after);
+    await show(before);
+    if (update === "command") await enter("play");
+    else await refresh(after);
+
+    expect(document.querySelectorAll(".meld-card-flight")).toHaveLength(1);
+    expect(hand().getAllByRole("button", { name: / of / })).toHaveLength(1);
+    await advance(MELD_FLIGHT_MS);
+    expect(document.querySelectorAll(".book-closing-card")).toHaveLength(7);
+    expect(hand().queryAllByRole("button", { name: / of / })).toHaveLength(0);
+    expect(
+      document.querySelector('.foot-transition[data-gathering="true"]'),
+    ).toBeNull();
+    await advance(BOOK_CLOSE_MS - 1);
+    expect(document.querySelector(".book-closing-card")).toBeTruthy();
+    expect(hand().queryAllByRole("button", { name: / of / })).toHaveLength(0);
+    await advance(1);
+    expect(document.querySelector(".book-closing-card")).toBeNull();
+    expect(hand().queryAllByRole("button", { name: / of / })).toHaveLength(0);
+    await advance(FOOT_SETTLE_MS);
+    expect(
+      document.querySelector('.foot-transition[data-gathering="true"]'),
+    ).toBeTruthy();
+    expect(hand().getAllByRole("button", { name: / of / })).toHaveLength(11);
+    expect(
+      hand()
+        .getAllByRole("button", { name: / of / })
+        .every((button) => (button as HTMLButtonElement).disabled),
+    ).toBe(true);
+    await advance(footGatherDuration(11));
+    expect(
+      hand()
+        .getAllByRole("button", { name: / of / })
+        .every((button) => !(button as HTMLButtonElement).disabled),
+    ).toBe(true);
+  },
+);
+
 it("animates a live final discard, holds Follow turn through the cascade, and waits for the next turn", async () => {
   const [before, after] = pair("discard");
   vi.mocked(command).mockResolvedValue(after);

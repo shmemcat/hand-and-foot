@@ -97,11 +97,11 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .foot-transition .hand-card,
-  .foot-transition .foot-status {
+  :where(:root:not([data-motion-override="true"])) .foot-transition .hand-card,
+  :where(:root:not([data-motion-override="true"])) .foot-transition .foot-status {
     animation: none !important;
   }
-  .mobile-foot-card {
+  :where(:root:not([data-motion-override="true"])) .mobile-foot-card {
     animation: none !important;
   }
 }

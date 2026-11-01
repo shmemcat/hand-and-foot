@@ -197,7 +197,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .achievement-sparkle {
+  :where(:root:not([data-motion-override="true"])) .achievement-sparkle {
     animation: none;
   }
 }

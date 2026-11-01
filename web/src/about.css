@@ -75,7 +75,7 @@
   --d: 5;
 }
 @media (prefers-reduced-motion: reduce) {
-  .about-body .sparkle-svg {
+  :where(:root:not([data-motion-override="true"])) .about-body .sparkle-svg {
     animation: none;
   }
 }

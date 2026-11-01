@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import {
   useEffect,
   useLayoutEffect,
@@ -361,7 +362,7 @@ function MobileOpening({
     continuous: true,
   });
   const duration = OPENING_BEATS[state.step].duration;
-  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduced = reducedMotionPreference().matches;
   useEffect(() => {
     if (!state.playing || state.step === 4) return;
     const timer = window.setInterval(() => {

@@ -110,6 +110,15 @@ const discard: TableEvent = {
   card: { ...footSnapshot("play", "ready", 0).discard!, id: "public-discard" },
 };
 
+it("does not render and remeasure an idle table on every scroll event", () => {
+  render(<Table snapshot={before()} />);
+  const measure = vi.mocked(Element.prototype.getBoundingClientRect);
+  measure.mockClear();
+  for (let index = 0; index < 3; index += 1)
+    act(() => window.dispatchEvent(new Event("scroll")));
+  expect(measure).not.toHaveBeenCalled();
+});
+
 it("lands batched bot replacement reds on discard in order before drawing replacements", () => {
   const source = before();
   const red = (id: string) => ({

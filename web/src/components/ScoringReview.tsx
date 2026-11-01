@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useRef, useState } from "react";
 import type { Snapshot } from "../types";
 import { Book, Icon } from "./Icons";
@@ -13,7 +14,7 @@ export function AnimatedNumber({
   const [shown, setShown] = useState(from);
   const current = useRef(from);
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (reducedMotionPreference().matches) {
       current.current = value;
       setShown(value);
       return;

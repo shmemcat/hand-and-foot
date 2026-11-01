@@ -64,7 +64,7 @@ The round badge opens a Golf-style round record, starting with the latest comple
 - Red-three replacement puts the red face up on the discard pile and draws a private replacement without ending the turn. A normal final discard covers the red and ends the turn; red threes cannot be picked up.
 - Atomic multi-pile openings, single-top-card discard pickup followed by one required deck card, matching piles, clean/dirty books, natural straight flushes and extensions, red-three choices, both foot-entry paths, and a required final discard. A pickup opening must meet the side's point minimum including the discard. After the pickup meld lands, the deck highlights for exactly one card without a +2 badge; both discard controls remain disabled with a draw-first tooltip until the draw is complete. This pending draw is authoritative and survives rejoining.
 - Partners share one board of melds, books, and red threes. Paired names share a score, the rose outline marks the individual taking their turn, and the caret marks the viewed team board. Seats alternate teams (A/B/A/B or A/B/C/A/B/C). Browsing and Follow turn, the private hand dock, keyboard/touch selection, and draft recovery remain available.
-- Matches play to 10,000 points, with cumulative-score opening thresholds and the extra catch-up draw.
+- Matches play to 10,000 points, with cumulative-score opening thresholds. A player or team more than 5,000 points behind first place draws three cards instead of two from the deck; taking the top discard still requires only one follow-up deck card.
 - Scoring stays on the playing board in individual and partnership games, against bots or online: gather the foot, automatically cover debt, reconcile physical cards, open broken books, then count surviving books and card values. Partners use the same animation with both teammates' hands, feet, and red threes. Partial cards wait above the reserved settlement footer. The completed count advances directly to the end-of-round results without a debt-review popup or confirmation controls; Skip animation opens results as soon as settlement is ready. Match totals roll up in their existing seats before the next deal or winner reveal.
 - Individual and partnership scores settle automatically. Bots settle sides with no present human. Cover removes short-red penalties first and uses unfinished piles before comparing combined bonus losses across all books, flushes, and qualified reds. It preserves the most points while covering as much debt as legally possible, rather than always breaking dirty books before clean books.
 - Private per-viewer snapshots; CSRF and origin checks; serialized mutations; persistent action receipts; stale-turn rejection; socket updates with polling recovery; SQLite persistence by default, with PostgreSQL configuration support.
@@ -144,3 +144,32 @@ Retained clean/dirty books, runs, and bonus-scoring red threes are recorded afte
 The navigation gear opens Options and Profile. Options uses the sister games’ Turn Indicator controls, with a sound picker, preview, and independent volume saved in this browser. Cards use the standard style; appearance, sound effects, and music use the existing toolbar controls. Profile offers the shared Cards icon library and email updates through `/api/account/profile`, including email verification and fresh account CSRF protection. Cross-device game preferences, hub tiles, production database migrations, release automation, monitoring, backups, and production activation remain separate work. Opening and card-flight choreography are simplified; scoring includes count transitions, payment feedback, and reduced-motion support.
 
 Music/font/artwork credits and license notices are in [web/public/ASSET-CREDITS.md](web/public/ASSET-CREDITS.md).
+
+## Storage retention
+
+The existing game worker checks at startup and hourly, compacting finished and
+closed rooms after 24 hours in batches of 200. It discards cards, decks, meld
+details, animation state, and command receipts. Final scores, round scoring
+history, statistics, leaderboard results, achievement evidence, and unlocks
+remain in their durable result records. Small closed-room receipts prevent old
+tabs and repeated commands from reviving cleared games.
+
+Unfinished games remain resumable indefinitely. Connected result views keep
+their rematch controls, and a finished match without its durable result record
+retains its source until the result save succeeds. Maintenance runs only hourly,
+separate from the bot work queue, so idle bot ticks still perform no room scans.
+Existing eligible rooms are included automatically without a schema migration
+or additional grants. `app.extensions['cleanup_storage']()` runs the same sweep
+manually in an application context.
+
+## Game creation limits
+
+Each account can have 20 unfinished games per app, counting bot and multiplayer
+games together. Finished, conceded, and closed games stop counting immediately.
+New game/lobby creation allows five per minute per player. Joining and starting
+check available space again; rematches also respect the allowance. Resume, moves,
+result saves, and concessions remain available at the limit. Waiting lobbies do
+not count as unfinished games. `MAX_IN_PROGRESS_GAMES` and
+`GAME_CREATIONS_PER_MINUTE` configure these defaults for this single worker.
+Guest browser identities apply where games are server-owned; Euchre guest bot
+saves stay in the browser and have their own browser allowance.

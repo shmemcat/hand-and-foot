@@ -1,4 +1,4 @@
-"""Explicit departures release membership; losing a connection never does."""
+"""Departures release membership; started games retain disconnected seats."""
 from . import engine
 
 
@@ -22,7 +22,7 @@ def depart(data, player, reason="left"):
     remaining = [p for p in players(data) if p.get("key")]
     if data["hostId"] == player["id"]:
         data["hostId"] = remaining[0]["id"] if remaining else ""
-    if len(remaining) <= 1:
+    if not remaining or (game and len(remaining) == 1):
         data.update(status="closed", closedReason="empty" if not remaining else "one_player")
     elif playing:
         if data["scoringMode"] == "partnership" and any(p.get("key") and p["team"] == player["team"] for p in remaining):

@@ -368,16 +368,16 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .score-book-halo {
+  :where(:root:not([data-motion-override="true"])) .score-book-halo {
     transition: none;
   }
-  .score-board-study *,
-  .score-board-study *::before,
-  .score-board-study *::after {
+  :where(:root:not([data-motion-override="true"])) .score-board-study *,
+  :where(:root:not([data-motion-override="true"])) .score-board-study *::before,
+  :where(:root:not([data-motion-override="true"])) .score-board-study *::after {
     animation: none !important;
     transition: none !important;
   }
-  .score-card-flight {
+  :where(:root:not([data-motion-override="true"])) .score-card-flight {
     display: none;
   }
 }

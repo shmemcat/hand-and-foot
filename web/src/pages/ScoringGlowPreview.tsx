@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useState } from "react";
 import { MeldPile } from "../components/MeldPile";
 import { SCORING_SCENARIOS } from "../lib/scoringSequence";
@@ -41,10 +42,10 @@ export function ScoringGlowPreview() {
   const [active, setActive] = useState(1);
   const [playing, setPlaying] = useState(false);
   const [reduced, setReduced] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => reducedMotionPreference().matches,
   );
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const media = reducedMotionPreference();
     const change = () => setReduced(media.matches);
     media.addEventListener("change", change);
     return () => media.removeEventListener("change", change);

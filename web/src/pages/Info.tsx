@@ -93,7 +93,7 @@ export function Rules() {
             </ol>
             <div className="rule-callout">
               <strong>Catch-up draw:</strong> if you are more than 5,000 points
-              behind every opponent, draw <strong>three</strong> cards from the
+              behind first place, draw <strong>three</strong> cards from the
               deck instead of two. Teams compare their shared scores. You still
               draw only one card after taking the top discard.
             </div>

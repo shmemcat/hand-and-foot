@@ -206,7 +206,10 @@ export function useFootMotion(
   const hand =
     current?.stage === "leaving"
       ? meldActive
-        ? presented!.hand
+        ? presented!.hand.filter((card) =>
+            // Book closing can outlast the meld flight and expose the incoming foot.
+            current.before.hand.some((before) => before.id === card.id),
+          )
         : []
       : presented?.hand;
   const snapshot =

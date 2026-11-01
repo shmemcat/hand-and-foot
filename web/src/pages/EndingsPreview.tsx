@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { RoundScoreSheet } from "../components/RoundScoreSheet";
@@ -174,7 +175,7 @@ function EndingSample({
     if (!animate) return;
     const timer = window.setTimeout(
       () => setLanded(true),
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 560,
+      reducedMotionPreference().matches ? 0 : 560,
     );
     return () => clearTimeout(timer);
   }, [animate]);

@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useRef, useState } from "react";
 import { command } from "../lib/api";
 import {
@@ -23,7 +24,7 @@ export function useGameOpening(
   const active = Boolean(current && !current.done);
   const [hidden, setHidden] = useState(document.hidden);
   const [reduced, setReduced] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => reducedMotionPreference().matches,
   );
   const [error, setError] = useState("");
   const sound = useSound();
@@ -49,7 +50,7 @@ export function useGameOpening(
   }, [hidden, active, step, duration]);
   useEffect(() => {
     const visibility = () => setHidden(document.hidden);
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const media = reducedMotionPreference();
     const motion = () => setReduced(media.matches);
     document.addEventListener("visibilitychange", visibility);
     media.addEventListener("change", motion);

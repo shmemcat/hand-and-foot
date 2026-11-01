@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { OpeningBoard } from "../components/OpeningBoard";
@@ -84,7 +85,7 @@ export function OpeningPreview() {
   const [dealer, setDealer] = useState(0);
   const [state, dispatch] = useReducer(openingReducer, INITIAL_OPENING);
   const [reduced, setReduced] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => reducedMotionPreference().matches,
   );
   const [notes, setNotes] = useState(() =>
     readStorage<string>(`${SETTINGS_KEY}.notes`, ""),
@@ -130,7 +131,7 @@ export function OpeningPreview() {
     writeStorage(`${SETTINGS_KEY}.notes`, notes);
   }, [notes]);
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const media = reducedMotionPreference();
     const change = () => setReduced(media.matches);
     media.addEventListener("change", change);
     return () => media.removeEventListener("change", change);

@@ -118,7 +118,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .achievement-toast {
+  :where(:root:not([data-motion-override="true"])) .achievement-toast {
     animation: none;
   }
 }

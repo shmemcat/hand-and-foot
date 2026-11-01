@@ -171,8 +171,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .round-score-sheet,
-  .round-score-sheet.score-sheet-leaving {
+  :where(:root:not([data-motion-override="true"])) .round-score-sheet,
+  :where(:root:not([data-motion-override="true"])) .round-score-sheet.score-sheet-leaving {
     animation: none;
   }
 }
@@ -1615,6 +1615,35 @@
   width: 62px;
   height: 87px;
 }
+@media (min-width: 769px) {
+  .game-page :is(.hand-scroll, .open-piles, .closed-books)[data-scroll-left] {
+    --scroll-fade-left: 32px;
+  }
+  .game-page :is(.hand-scroll, .open-piles, .closed-books)[data-scroll-right] {
+    --scroll-fade-right: 32px;
+  }
+  .game-page
+    :is(.hand-scroll, .open-piles, .closed-books):is(
+      [data-scroll-left],
+      [data-scroll-right]
+    ) {
+    /* Fade only toward hidden cards; keep the native scrollbar fully visible. */
+    mask-image:
+      linear-gradient(
+        to right,
+        transparent,
+        #000 var(--scroll-fade-left, 0px),
+        #000 calc(100% - var(--scroll-fade-right, 0px)),
+        transparent
+      ),
+      linear-gradient(#000, #000);
+    mask-size:
+      100% calc(100% - var(--scrollbar-height, 0px)),
+      100% var(--scrollbar-height, 0px);
+    mask-position: top, bottom;
+    mask-repeat: no-repeat;
+  }
+}
 .hand-card[data-pickup-blocked="true"] > .card {
   opacity: 0.35;
 }
@@ -1773,10 +1802,10 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .board-player-turn {
+  :where(:root:not([data-motion-override="true"])) .board-player-turn {
     transition: none;
   }
-  .turn-message.inactivity-shake > p {
+  :where(:root:not([data-motion-override="true"])) .turn-message.inactivity-shake > p {
     animation: none;
   }
 }

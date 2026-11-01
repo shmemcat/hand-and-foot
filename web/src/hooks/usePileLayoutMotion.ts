@@ -88,10 +88,16 @@ export function usePileLayoutMotion(
       const delta = offset(node);
       const measured = anchor.getBoundingClientRect();
       const zoom = anchor.offsetWidth ? measured.width / anchor.offsetWidth : 1;
+      const strip = node.closest<HTMLElement>(".open-piles, .closed-books");
       // Measure inside the moving content so board swipes and page scrolling
-      // cannot be mistaken for another pile reflow.
+      // cannot be mistaken for another pile reflow. Row scrolling also changes
+      // viewport positions without changing the piles' layout coordinates.
       const box = {
-        left: measured.left - (origin?.left ?? 0) - delta.x * zoom,
+        left:
+          measured.left -
+          (origin?.left ?? 0) -
+          delta.x * zoom +
+          (strip?.scrollLeft ?? 0) * zoom,
         top: measured.top - (origin?.top ?? 0) - delta.y * zoom,
       };
       const row = node.closest(".closed-books") ? "closed" : "open";

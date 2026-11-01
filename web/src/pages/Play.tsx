@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
 import { GameApiError, request } from "../lib/api";
 import { readStorage, writeStorage } from "../lib/storage";
@@ -7,7 +7,7 @@ import type { Snapshot } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { LoginWarning } from "../components/LoginWarning";
 import { useActiveTable } from "../hooks/useActiveTable";
-import { TableProgressDialog } from "../components/TableProgressDialog";
+import { InProgressGames } from "../components/InProgressGames";
 import { BotDifficulty } from "../components/BotDifficulty";
 import type { BotDifficulty as Difficulty } from "../types";
 
@@ -15,9 +15,7 @@ export function Play() {
   const navigate = useNavigate();
   const active = useActiveTable();
   const blocked =
-    active.checking || Boolean(active.table) || Boolean(active.error);
-  if (active.table?.playMode === "online")
-    return <Navigate to={`/room/${active.table.code}`} replace />;
+    active.checking || Boolean(active.error);
   return (
     <div className="page play-page">
       <PageTitle>PLAY</PageTitle>
@@ -56,24 +54,20 @@ export function Play() {
             </small>
           </Link>
         </div>
-        <SessionStatus active={active} />
+        <InProgressGames loading={active.checking} error={active.error} onRetry={active.retry}
+          games={active.rooms.map(room => ({ id: room.code, title: room.playMode === "practice" ? `Bot game · ${room.botDifficulty ?? "Medium"}` : `Table ${room.code}`,
+            mode: `${room.playMode === "practice" ? "Bots" : "Multiplayer"} · ${room.capacity} players`,
+            progress: room.phase === "lobby" ? "Waiting in the lobby" : `Round ${room.round} · ${room.scoringMode === "partnership" ? "Partnership" : "Individual"}`,
+            status: room.yourTurn ? "Your turn" : room.phase === "finished" ? "Between games" : room.playMode === "practice" ? "Ready to resume" : "Waiting for players",
+            multiplayer: room.playMode === "online", concedeDisabled: !active.online,
+            concedeMessage: "Concede this table? Your other games will stay saved." }))}
+          onResume={code => navigate(`/room/${code}`)} onConcede={code => active.leave(code)} />
         <div className="button-stack">
           <Link className="button" to="/">
             Home
           </Link>
         </div>
       </div>
-      {active.table && (
-        <TableProgressDialog
-          key={active.table.code}
-          table={active.table}
-          busy={active.busy}
-          error={active.error}
-          online={active.online}
-          onContinue={() => navigate(`/room/${active.table!.code}`)}
-          onLeave={() => void active.leave()}
-        />
-      )}
     </div>
   );
 }
@@ -114,7 +108,7 @@ export function CreateGame() {
   const [error, setError] = useState("");
   const active = useActiveTable();
   async function submit() {
-    if (busy || active.checking || active.table || active.error) return;
+    if (busy || active.checking || active.error) return;
     setBusy(true);
     setError("");
     try {
@@ -137,7 +131,6 @@ export function CreateGame() {
       setBusy(false);
     }
   }
-  if (active.table && !busy) return <Navigate to="/play" replace />;
   return (
     <div className="page setup-page">
       <PageTitle>CREATE GAME</PageTitle>
@@ -246,7 +239,6 @@ export function CreateGame() {
             disabled={
               busy ||
               active.checking ||
-              Boolean(active.table) ||
               Boolean(active.error)
             }
           >
@@ -272,7 +264,7 @@ export function JoinGame() {
   const [error, setError] = useState("");
   const active = useActiveTable();
   async function submit() {
-    if (busy || active.checking || active.table || active.error) return;
+    if (busy || active.checking || active.error) return;
     setBusy(true);
     setError("");
     try {
@@ -291,7 +283,6 @@ export function JoinGame() {
       setBusy(false);
     }
   }
-  if (active.table && !busy) return <Navigate to="/play" replace />;
   return (
     <div className="page setup-page">
       <PageTitle>JOIN GAME</PageTitle>
@@ -354,7 +345,6 @@ export function JoinGame() {
             disabled={
               busy ||
               active.checking ||
-              Boolean(active.table) ||
               Boolean(active.error) ||
               code.length !== 6
             }

@@ -138,11 +138,13 @@ export function useTableMotion(
   const cancel = useCallback(() => {
     if (flight?.event.kind === "discard") setLandedId(flight.event.id);
     else
-      setQueue((old) =>
-        old.filter(
+      setQueue((old) => {
+        const next = old.filter(
           (item) => item.event.kind === "discard" || item.event.kind === "foot",
-        ),
-      );
+        );
+        // Idle scrolling must not rerender and remeasure the whole board.
+        return next.length === old.length ? old : next;
+      });
   }, [flight?.event.id]);
   const blocking =
     Boolean(flight) ||

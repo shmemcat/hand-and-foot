@@ -132,8 +132,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gearBtn,
-  .drop {
+  :where(:global(:root:not([data-motion-override="true"]))) .gearBtn,
+  :where(:global(:root:not([data-motion-override="true"]))) .drop {
     transition: none;
   }
 }

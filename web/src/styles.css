@@ -1308,7 +1308,7 @@ legend {
   transition-delay: 0s;
 }
 @media (prefers-reduced-motion: reduce) {
-  .foot-preview {
+  :where(:root:not([data-motion-override="true"])) .foot-preview {
     transition: none;
   }
 }
@@ -1339,7 +1339,7 @@ legend {
   transition: opacity var(--concealed-fade-duration, 180ms) ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  .hand-card[data-concealed-leaving="true"] {
+  :where(:root:not([data-motion-override="true"])) .hand-card[data-concealed-leaving="true"] {
     transition: none;
   }
 }
@@ -2615,14 +2615,14 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *:before,
-  *:after {
+  :where(:root:not([data-motion-override="true"])) *,
+  :where(:root:not([data-motion-override="true"])) *:before,
+  :where(:root:not([data-motion-override="true"])) *:after {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
   }
-  .button:hover:not(:disabled) {
+  :where(:root:not([data-motion-override="true"])) .button:hover:not(:disabled) {
     transform: none;
   }
 }

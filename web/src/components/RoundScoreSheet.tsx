@@ -69,13 +69,7 @@ export function RoundScoreSheet({
             ? `${finished ? "Starting game" : "Waiting for players"}...`
             : undefined
       }
-      disabled={
-        waitingForHost ||
-        busy ||
-        viewer?.ready ||
-        leavingScores ||
-        !totalsLanded
-      }
+      disabled={waitingForHost || busy || viewer?.ready || leavingScores}
       aria-describedby={waitingForHost && hostHint ? hostHintId : undefined}
       onClick={onContinue}
     >

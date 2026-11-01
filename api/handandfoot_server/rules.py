@@ -88,7 +88,7 @@ def opening_for(score):
 
 def draw_count(sides, team):
     others = [side["score"] for side in sides if side["id"] != team]
-    return 2 + (FAMILY.catch_up_extra_cards if others and min(others) - sides[team]["score"] > FAMILY.catch_up_gap else 0)
+    return 2 + (FAMILY.catch_up_extra_cards if others and max(others) - sides[team]["score"] > FAMILY.catch_up_gap else 0)
 
 
 def meld_details(cards, kind="set", *, existing=None):

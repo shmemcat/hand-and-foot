@@ -26,6 +26,7 @@ let observedElements: Element[];
 let pageTop: number;
 let tableauLeft: number;
 let contentLeft: number;
+let rowScroll: number;
 const originalAnimate = Object.getOwnPropertyDescriptor(
   Element.prototype,
   "animate",
@@ -36,6 +37,7 @@ beforeEach(() => {
   pageTop = 0;
   tableauLeft = 0;
   contentLeft = 0;
+  rowScroll = 0;
   vi.mocked(window.matchMedia).mockImplementation(
     (query) =>
       ({
@@ -113,7 +115,9 @@ beforeEach(() => {
         .reverse()
         .find((item) => item.node === pile && item.playState !== "idle");
       return new DOMRect(
-        inheritedLeft + Number(pile?.dataset.left ?? 0) + (move?.x ?? 0) * zoom,
+        inheritedLeft +
+          Number(pile?.dataset.left ?? 0) +
+          ((move?.x ?? 0) - rowScroll) * zoom,
         pageTop + Number(pile.dataset.top ?? 300) + (move?.y ?? 0) * zoom,
         76 * zoom,
         106 * zoom,
@@ -369,6 +373,34 @@ it("does not restart or cancel a pile slide when the page adjusts its scroll pos
   expect(moves).toHaveLength(1);
   expect(moves[0].cancel).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["open", 1],
+  ["closed", 1],
+  ["open", 0.85],
+  ["closed", 0.85],
+] as const)(
+  "does not animate %s piles back against horizontal scrolling at scale %s",
+  (row, zoom) => {
+    const view = render(<Board row={row} zoom={zoom} />);
+    const strip = view.container.querySelector<HTMLElement>(
+      row === "closed" ? ".closed-books" : ".open-piles",
+    )!;
+    strip.scrollLeft = rowScroll = 80;
+    view.rerender(<Board row={row} zoom={zoom} />);
+    expect(moves).toHaveLength(0);
+
+    // A real reflow still slides by its layout distance while scrolled.
+    view.rerender(<Board row={row} left={100 + 100 * zoom} zoom={zoom} />);
+    expect(moves).toHaveLength(1);
+    expect(moves[0].frames[0].transform).toBe("translate(-100px, 0px)");
+    moves[0].x = -50;
+    strip.scrollLeft = rowScroll = 120;
+    act(() => resize());
+    expect(moves).toHaveLength(1);
+    expect(moves[0].cancel).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["tableau", "tableau-content"])(
   "does not add a second pile animation while %s swipes or settles",

@@ -53,7 +53,7 @@ def test_saved_tables_are_private_cross_browser_and_listing_does_not_reclaim(app
         before = copy.deepcopy(row.payload)
     rooms = stranger.get(ROOT + "/active").json["rooms"]
     assert [r["code"] for r in rooms] == [solo["code"]]
-    assert all(set(r) == {"code", "playMode", "scoringMode", "capacity", "phase", "round"} for r in rooms)
+    assert all(set(r) == {"code", "playMode", "scoringMode", "capacity", "phase", "round", "botDifficulty", "names", "yourTurn"} for r in rooms)
     with app.app_context():
         assert db.session.get(Room, solo["code"]).payload == before
     reclaimed = stranger.get(f'{ROOT}/rooms/{solo["code"]}').json
@@ -70,35 +70,30 @@ def test_guest_saved_tables_follow_only_waiting_lobbies_on_sign_in(app):
     guest, guest_headers = client(app)
     solo = create(guest, guest_headers, playMode="practice")
     sign_in(http)
-    assert [r["code"] for r in http.get(ROOT + "/active").json["rooms"]] == [lobby["code"]]
+    assert http.get(ROOT + "/active").json["rooms"] == []
     sign_in(guest)
-    assert [r["code"] for r in guest.get(ROOT + "/active").json["rooms"]] == [lobby["code"]]
+    assert guest.get(ROOT + "/active").json["rooms"] == []
     guest.delete_cookie("cards_session")
     assert [r["code"] for r in guest.get(ROOT + "/active").json["rooms"]] == [solo["code"]]
 
 
-def test_one_active_table_is_enforced_across_create_join_and_browsers(app):
+def test_multiple_active_games_are_available_across_browsers_without_replacing_them(app):
     host, headers = client(app)
     sign_in(host)
-    solo = create(host, headers, playMode="practice", capacity=2, scoringMode="individual")
+    first = create(host, headers, playMode="practice", capacity=2, scoringMode="individual")
     device, auth = client(app)
     sign_in(device)
-    denied = device.post(ROOT + "/rooms", headers=auth, json={"name": "ignored", "capacity": 2, "scoringMode": "individual", "playMode": "online"})
-    assert denied.status_code == 409 and denied.json["code"] == "TABLE_IN_PROGRESS"
-    assert denied.json["activeCode"] == solo["code"]
-    friend, friend_headers = client(app)
-    sign_in(friend, "2")
-    lobby = create(friend, friend_headers, capacity=2, scoringMode="individual")
-    denied = device.post(f'{ROOT}/rooms/{lobby["code"]}/join', headers=auth, json={"name": "ignored"})
-    assert denied.status_code == 409 and denied.json["activeCode"] == solo["code"]
-    assert move(host, headers, solo, "leave").status_code == 200
-    joined = device.post(f'{ROOT}/rooms/{lobby["code"]}/join', headers=auth, json={"name": "ignored"})
-    assert joined.status_code == 200
-    assert [r["code"] for r in device.get(ROOT + "/active").json["rooms"]] == [lobby["code"]]
+    second = create(device, auth, playMode="practice", capacity=4, scoringMode="individual")
+    waiting = create(device, auth, capacity=2, scoringMode="individual")
+    assert {r["code"] for r in device.get(ROOT + "/active").json["rooms"]} == {first["code"], second["code"]}
+    assert host.get(f'{ROOT}/rooms/{first["code"]}').status_code == 200
+    assert move(host, headers, first, "leave").status_code == 200
+    assert [r["code"] for r in device.get(ROOT + "/active").json["rooms"]] == [second["code"]]
+    assert device.get(f'{ROOT}/rooms/{waiting["code"]}').json["phase"] == "lobby"
     assert device.get(ROOT + "/scores").json == []
 
 
-def test_sign_in_does_not_claim_a_second_guest_lobby(app):
+def test_sign_in_claims_own_waiting_seat_alongside_another_saved_game(app):
     account, auth = client(app)
     sign_in(account)
     current = create(account, auth, playMode="practice")
@@ -106,9 +101,8 @@ def test_sign_in_does_not_claim_a_second_guest_lobby(app):
     waiting = create(guest, headers)
     sign_in(guest)
     assert [r["code"] for r in guest.get(ROOT + "/active").json["rooms"]] == [current["code"]]
-    assert guest.get(f'{ROOT}/rooms/{waiting["code"]}').status_code == 403
-    # Once the existing account table is left, the same browser claims its
-    # original guest membership rather than joining as a second person.
+    assert guest.get(f'{ROOT}/rooms/{waiting["code"]}').status_code == 200
+    # Claiming a waiting seat does not replace the existing saved game.
     current = guest.get(f'{ROOT}/rooms/{current["code"]}').json
     assert move(guest, headers, current, "leave").status_code == 200
     claimed = guest.get(f'{ROOT}/rooms/{waiting["code"]}').json
@@ -131,7 +125,7 @@ def test_host_cannot_close_other_players_saved_lobby(app):
     assert move(host, headers, room, "leave").status_code == 200
     assert guest.get(f'{ROOT}/rooms/{room["code"]}').json["status"] == "lobby"
     assert host.get(ROOT + "/active").json == {"rooms": []}
-    assert guest.get(ROOT + "/active").json["rooms"][0]["code"] == room["code"]
+    assert guest.get(ROOT + "/active").json["rooms"] == []
     assert create(host, headers)["phase"] == "lobby"
     with app.app_context():
         assert MatchResult.query.count() == 0
@@ -231,7 +225,7 @@ def test_completed_account_wins_count_once_across_retries_rematches_and_restart(
     stats = http.get(ROOT + "/achievements").json
     assert stats["stats"]["all"]["games"] == stats["stats"][play_mode]["games"] == stats["counters"]["games"] == 1
     saved = http.get(ROOT + "/active").json["rooms"]
-    assert len(saved) == (1 if play_mode == "online" else 0)
+    assert saved == []
     room = move(http, headers, room, "rematch").json
     assert room["phase"] == "choose"
     assert http.get(ROOT + "/scores").json == result

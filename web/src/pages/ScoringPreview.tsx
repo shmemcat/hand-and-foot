@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import {
   useEffect,
   useLayoutEffect,
@@ -74,7 +75,7 @@ export function ScoringPreview() {
   const [numberKey, setNumberKey] = useState(0);
   const [scorecard, setScorecard] = useState(false);
   const [reduced, setReduced] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => reducedMotionPreference().matches,
   );
   const scenario = SCORING_SCENARIOS.find((item) => item.id === scenarioId)!;
   const beats = useMemo(() => scoringSequence(scenario), [scenario]);
@@ -101,7 +102,7 @@ export function ScoringPreview() {
     setScorecard(false),
   );
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const media = reducedMotionPreference();
     const change = () => {
       setReduced(media.matches);
       setFlights([]);

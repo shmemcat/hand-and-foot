@@ -1,3 +1,4 @@
+import { reducedMotionPreference } from "../lib/motionPreference";
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 /** A short directional entrance for page and board changes, never for selection. */
@@ -24,7 +25,7 @@ export function usePageSweep(
       old.page === page ||
       !element?.animate ||
       !element.getClientRects().length ||
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      reducedMotionPreference().matches
     )
       return;
     const direction = navigationDirection ?? (page > old.page ? 1 : -1);
@@ -39,7 +40,7 @@ export function usePageSweep(
     running.current = animation;
   }, [enabled, page, scope, target, navigationDirection, duration]);
   useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const media = reducedMotionPreference();
     const stop = () => {
       if (media.matches) running.current?.cancel();
     };

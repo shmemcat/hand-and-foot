@@ -197,10 +197,10 @@
   color: var(--text);
 }
 @media (prefers-reduced-motion: reduce) {
-  .waiting-dots > span {
+  :where(:root:not([data-motion-override="true"])) .waiting-dots > span {
     animation: none;
   }
-  .breakdown-chevron {
+  :where(:root:not([data-motion-override="true"])) .breakdown-chevron {
     transition: none;
   }
 }

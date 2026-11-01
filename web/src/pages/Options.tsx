@@ -1,3 +1,4 @@
+import { AnimationOption } from "../components/AnimationOption";
 import { useId } from "react";
 import { Link } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
@@ -14,6 +15,7 @@ export function Options() {
       <PageTitle>OPTIONS</PageTitle>
       <div className="page-body preferences-body">
         <TurnSoundOption />
+        <AnimationOption />
         <section aria-labelledby={followTitle}>
           <h2 id={followTitle}>Follow Turn</h2>
           <p id={followDescription} className="preference-hint">

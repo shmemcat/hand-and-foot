@@ -32,7 +32,7 @@ def test_members_choose_open_seats_and_wait_without_losing_host_or_membership(ap
     room = move(host, auth, room, "unseat").json
     assert room["hostId"] == room["viewerId"] and room["lobbySeats"][0] is None
     assert [p["id"] for p in room["waitingPlayers"]] == [room["hostId"]]
-    assert len(host.get(ROOT + "/active").json["rooms"]) == 1
+    assert host.get(ROOT + "/active").json["rooms"] == []
     room = move(host, auth, room, "seat", seat=3).json
     started = move(host, auth, room, "start", fillBots=True).json
     assert started["players"][3]["id"] == room["viewerId"]
@@ -103,7 +103,7 @@ def test_guest_sign_in_keeps_one_member_and_the_same_selected_or_waiting_seat(ap
     if entry == "session":
         assert guest.get(ROOT + "/session").status_code == 200
     elif entry == "active":
-        assert len(guest.get(ROOT + "/active").json["rooms"]) == 1
+        assert guest.get(ROOT + "/active").json["rooms"] == []
     elif entry == "room":
         assert guest.get(f'{ROOT}/rooms/{room["code"]}').status_code == 200
     elif entry == "join":
@@ -123,21 +123,17 @@ def test_guest_sign_in_keeps_one_member_and_the_same_selected_or_waiting_seat(ap
         replacement.disconnect(namespace=NAMESPACE)
 
 
-def test_sleeping_lobbies_persist_and_last_explicit_departure_closes_them(app, monkeypatch):
-    now = [time.time()]
-    monkeypatch.setattr("handandfoot_server.application.time.time", lambda: now[0])
+def test_waiting_host_migrates_until_last_explicit_departure_closes_the_lobby(app):
     host, auth = client(app)
     guest, guest_auth = client(app)
     room = create(host, auth, capacity=4)
     other = join(guest, guest_auth, room["code"])
-    now[0] += 30 * 86400
-    app.extensions["tick"]()
     room = host.get(f'{ROOT}/rooms/{room["code"]}').json
     assert room["status"] == "lobby" and len(room["players"]) == 2
     assert move(host, auth, room, "leave").status_code == 200
     other = guest.get(f'{ROOT}/rooms/{room["code"]}').json
     assert other["hostId"] == other["viewerId"] and other["waitingPlayers"]
-    assert other["status"] == "closed" and other["closedReason"] == "one_player"
+    assert other["status"] == "lobby"
     assert guest.get(ROOT + "/active").json == {"rooms": []}
     assert move(guest, guest_auth, other, "start").status_code == 400
     assert move(guest, guest_auth, other, "leave").status_code == 200

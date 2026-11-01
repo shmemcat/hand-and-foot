@@ -125,7 +125,7 @@ export function TableProgressDialog({
           : solo
             ? "You have a game active. Do you wish to continue playing?"
             : playing
-              ? "You have a multiplayer game in progress. Rejoin?"
+              ? "You have a multiplayer game in progress. Do you wish to continue playing?"
               : table.phase === "finished"
                 ? "Your online group is between games. Rejoin?"
                 : "You have an active lobby. Rejoin?"
@@ -157,7 +157,7 @@ export function TableProgressDialog({
         ) : (
           <>
             <button className="button" disabled={busy} onClick={onContinue}>
-              {solo ? "Continue" : "Rejoin"}
+              {solo || playing ? "Continue" : "Rejoin"}
             </button>
             <button
               className="button secondary"

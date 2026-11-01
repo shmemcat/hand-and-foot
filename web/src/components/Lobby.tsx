@@ -75,7 +75,9 @@ export function Lobby({
           <p role="status">
             {snapshot.closedReason === "one_player"
               ? "This lobby closed because only one player remained."
-              : "This lobby is closed."}
+              : snapshot.closedReason === "completed"
+                ? "This game has finished. Start a new game to play again."
+                : "This lobby is closed."}
           </p>
           <Link className="button" to="/play">
             Back to Play

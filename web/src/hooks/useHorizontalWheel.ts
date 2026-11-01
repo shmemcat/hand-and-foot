@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
+import { useScrollEdges } from "./useScrollEdges";
 
 export function useHorizontalWheel(
   enabled: boolean,
   revision?: number | string,
 ) {
   const ref = useRef<HTMLDivElement>(null);
+  useScrollEdges(ref, enabled, revision);
   useEffect(() => {
     const strip = ref.current;
     if (!enabled || !strip) return;

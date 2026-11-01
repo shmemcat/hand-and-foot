@@ -6,6 +6,7 @@ from . import engine
 from .lifecycle import depart, players
 from flask import jsonify, request
 from .models import AchievementUnlock, DeletedAccount, MatchResult, Receipt, Room, db
+from .storage_cleanup import mark_terminal
 
 
 def scrub_text(value, names):
@@ -81,6 +82,7 @@ def register_cleanup(app, lock, announce):
                         side["name"] = " & ".join(p["name"] for p in roster if p["team"] == side["id"])
                 data["revision"] += 1
                 data["token"] = engine.uid()
+                mark_terminal(data)
                 row.payload = scrub_text(data, names)
                 changed.append((row.code, data["revision"]))
             for row in MatchResult.query.all():

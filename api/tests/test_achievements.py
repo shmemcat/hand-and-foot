@@ -128,6 +128,8 @@ def test_missing_or_invalid_offsets_never_guess_local_calendar_badges(offset):
 
 
 def test_local_start_evidence_survives_result_save_and_reconnect_per_player(app, monkeypatch):
+    start = datetime(2026, 11, 1, 3, 30, tzinfo=timezone.utc).timestamp()
+    monkeypatch.setattr("handandfoot_server.application.time.time", lambda: start)
     host, headers = client(app)
     friend, friend_headers = client(app)
     sign_in(host)
@@ -136,8 +138,6 @@ def test_local_start_evidence_survives_result_save_and_reconnect_per_player(app,
     friend_headers["X-Handandfoot-UTC-Offset"] = "-120"
     room = create(host, headers, capacity=2, scoringMode="individual")
     friend.post(f'{ROOT}/rooms/{room["code"]}/join', json={"name": "Friend"}, headers=friend_headers)
-    start = datetime(2026, 11, 1, 3, 30, tzinfo=timezone.utc).timestamp()
-    monkeypatch.setattr("handandfoot_server.application.time.time", lambda: start)
     room = move(host, headers, host.get(f'{ROOT}/rooms/{room["code"]}').json, "start").json
     assert "spooky" not in host.get(ROOT + "/achievements").json["unlocks"]
     with app.app_context():
