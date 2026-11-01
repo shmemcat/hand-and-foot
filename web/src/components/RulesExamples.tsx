@@ -214,8 +214,8 @@ export function RulesThreesExamples() {
         ])}
       />
       <Example
-        title="Only two exposed reds"
-        caption="10 card points and a separate −600 penalty: −590 total."
+        title="Only two committed reds"
+        caption="600 debt and no card points. Cover this debt with table cards, breaking books when needed."
         cards={faces("short-reds", [
           ["3", "hearts"],
           ["3", "diamonds"],
@@ -253,7 +253,7 @@ export function RulesCardValues() {
       ],
     },
     {
-      label: "Fours through eights & played red threes",
+      label: "Fours through eights & red threes in a pile of 3+",
       points: "5",
       cards: [
         ["4", "diamonds"],
@@ -278,7 +278,7 @@ export function RulesCardValues() {
       ],
     },
     {
-      label: "Leftover red threes",
+      label: "Leftover or committed red threes (only 1–2)",
       points: "−300",
       cards: [
         ["3", "hearts"],

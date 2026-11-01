@@ -239,7 +239,7 @@ it("changes scenarios and reduced motion without playing old flights", () => {
     view.container.querySelector(".score-running-count")?.textContent,
   ).toContain("-155");
 });
-it("shows two played red threes as ten card points minus a six-hundred-point penalty", () => {
+it("shows two committed red threes as six hundred debt without card points", () => {
   const view = show();
   fireEvent.change(screen.getByLabelText("Scoring scenario"), {
     target: { value: "short-reds" },
@@ -253,16 +253,36 @@ it("shows two played red threes as ten card points minus a six-hundred-point pen
   fireEvent.click(screen.getByRole("button", { name: "Skip to total" }));
   expect(
     view.container.querySelector(".score-running-count")?.textContent,
-  ).toContain("-590");
+  ).toContain("-600");
   expect(view.container.querySelector(".red-three-stack")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Round scorecard" }));
   const scorecard = screen.getByRole("dialog", {
     name: "End-of-round scorecard",
   });
-  expect(scorecard.textContent).toContain("2 red 3s");
+  expect(scorecard.textContent).toContain("2 committed red 3s");
   expect(scorecard.textContent).toContain("−600");
-  expect(scorecard.textContent).toContain("× 5");
+  expect(scorecard.textContent).toContain("earned no card points");
+  expect(scorecard.textContent).not.toContain("× 5");
 });
+it("breaks all four books to cover committed reds before showing the final score", () => {
+  const view = show();
+  fireEvent.change(screen.getByLabelText("Scoring scenario"), {
+    target: { value: "short-reds-debt" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Skip to total" }));
+  expect(
+    view.container.querySelector(".score-running-count")?.textContent,
+  ).toContain("-135");
+  expect(view.container.querySelector(".red-three-stack")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Round scorecard" }));
+  const scorecard = screen.getByRole("dialog", {
+    name: "End-of-round scorecard",
+  });
+  expect(scorecard.textContent).toContain("2 committed red 3s");
+  expect(scorecard.textContent).toContain("600 points of debt");
+  expect(scorecard.textContent).toContain("−135");
+});
+
 it("shows the ace-versus-three-reds example as minus five without a red-three penalty", () => {
   const view = show();
   fireEvent.change(screen.getByLabelText("Scoring scenario"), {

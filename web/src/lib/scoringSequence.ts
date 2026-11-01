@@ -210,12 +210,32 @@ export const SCORING_SCENARIOS: ScoringScenario[] = [
   },
   {
     id: "short-reds",
-    label: "Two reds · 10 card points − 600 penalty = −590",
+    label: "Two committed reds · 600 debt, no card points",
     reason:
-      "Two played red threes are worth 10 card points and a separate −600 penalty.",
+      "Only two reds were committed. They add 600 debt and earn no card points.",
     hand: [],
     foot: [],
     melds: [],
+    reds: reds.slice(0, 2),
+    goingOut: 0,
+  },
+  {
+    id: "short-reds-debt",
+    label: "Two committed reds · break four books to cover debt",
+    reason:
+      "Two committed reds add 600 debt to the 30 left in hand. All four books must break.",
+    hand: ["6", "J", "J", "4"].map((rank, i) =>
+      card(`short-red-debt-${i}`, rank, suits[i]),
+    ),
+    foot: [],
+    melds: [
+      pile("short-red-aces", "A", 6, ["Joker"]),
+      pile("short-red-kings", "K", 4, ["2", "2", "2"]),
+      pile("short-red-queens", "Q", 6, ["Joker"]),
+      pile("short-red-nines", "9", 7),
+      pile("short-red-tens", "10", 3),
+      pile("short-red-eights", "8", 3),
+    ],
     reds: reds.slice(0, 2),
     goingOut: 0,
   },
@@ -230,9 +250,11 @@ export function scoringSequence(
     qualified?: boolean;
   },
 ): ScoreBeat[] {
+  const redsQualified = settlement?.qualified ?? scenario.reds.length >= 3;
+  const redDebt = redsQualified ? 0 : scenario.reds.length * 300;
   const debt = [...scenario.hand, ...scenario.foot].reduce(
     (sum, face) => sum + debtCardValue(face),
-    0,
+    redDebt,
   );
   let state: ScoreBeat = {
     kind: "ready",
@@ -243,7 +265,7 @@ export function scoringSequence(
     reds: [...scenario.reds],
     gathered: !scenario.foot.length,
     penalizedReds: [],
-    redsQualified: settlement?.qualified ?? scenario.reds.length >= 3,
+    redsQualified,
     redsBroken: false,
     pointsLeft: {},
     remaining: debt,
@@ -332,6 +354,20 @@ export function scoringSequence(
         target: "hand",
       })),
     });
+  if (redDebt)
+    add({
+      kind: "gather",
+      title: `${state.reds.length} committed red 3s add ${redDebt} points of debt. Cover them with your table cards.`,
+      duration: 1800,
+      hand: [...state.hand, ...state.reds],
+      penalizedReds: [...state.reds],
+      reds: [],
+      transfers: state.reds.map((face) => ({
+        card: face,
+        source: "table",
+        target: "hand",
+      })),
+    });
   for (const handCard of [...state.hand]) {
     while (state.hand.some((face) => face.id === handCard.id)) {
       const needed = handValue(handCard);
@@ -352,7 +388,7 @@ export function scoringSequence(
                 pile: acceptedBook.id,
               }))
             : [];
-      else if ((!state.redsQualified || state.redsBroken) && state.reds.length)
+      else if (state.redsBroken && state.reds.length)
         available = state.reds.map((face) => ({ face, pile: "reds" }));
       if (!available.length) {
         const automaticPile = settlement ? undefined : automaticBonusPile();
@@ -513,22 +549,17 @@ export function scoringSequence(
       ],
     });
   if (state.reds.length) {
-    const redBonus = state.redsQualified
-      ? state.redsBroken
-        ? 0
-        : scenario.reds.length * 300
-      : -state.reds.length * 300;
+    const redBonus = state.redsBroken ? 0 : scenario.reds.length * 300;
     add({
       kind: "bonus",
       title:
         redBonus === 0
           ? `${state.reds.length} qualified reds remain · no bonus or penalty. Count 5 points each next.`
-          : `${state.reds.length} red 3s · ${redBonus < 0 ? "−" : "+"}${Math.abs(redBonus)} ${redBonus < 0 ? "penalty" : "bonus"}. Count 5 card points each next.`,
+          : `${state.reds.length} red 3s · +${redBonus} bonus. Count 5 card points each next.`,
       duration: 1500,
       activePile: "reds",
       base: state.base + redBonus,
       delta: redBonus,
-      penalizedReds: redBonus < 0 ? [...state.reds] : [],
       lines: [
         ...state.lines,
         {

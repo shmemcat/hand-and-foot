@@ -104,7 +104,7 @@ export function ScoringReview({
         </ol>
         <div className="debt-meter" aria-live="polite">
           <div>
-            <span>Hand & foot debt</span>
+            <span>Points to cover</span>
             <strong>{review.debt.toLocaleString()}</strong>
           </div>
           <Icon name="arrow" />
@@ -135,6 +135,13 @@ export function ScoringReview({
               </span>
             </div>
           ))}
+          {!!review.redThreeDebt && (
+            <p>
+              Committed red threes: {review.redThreeDebt.toLocaleString()} pts.
+              A pile of only one or two earns no card points and adds 300 debt
+              per red. Covering that debt can break books.
+            </p>
+          )}
           <p>
             Unplayed black threes cost 100 each; red threes cost 300 each. Both
             hand and foot count. Private card faces stay hidden.

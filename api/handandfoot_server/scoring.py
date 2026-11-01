@@ -4,23 +4,47 @@ from .rules import FAMILY
 from .achievement_events import record_round_end
 
 
+def _new_review(game, side):
+    players = [player for player in game["players"] if player["team"] == side["id"]]
+    red_count = sum(len(player["redThrees"]) for player in players)
+    debt = sum(abs(game["cards"][card_id]["value"]) for player in players for card_id in [*player["hand"], *player["foot"]])
+    red_debt = red_count * FAMILY.red_three if red_count < 3 else 0
+    breakdown = [{"name": player["name"], "handCount": len(player["hand"]), "footCount": len(player["foot"]),
+                  "handPoints": sum(abs(game["cards"][i]["value"]) for i in player["hand"]),
+                  "footPoints": sum(abs(game["cards"][i]["value"]) for i in player["foot"])} for player in players]
+    return {"team": side["id"], "debt": debt + red_debt, "remaining": debt + red_debt,
+            "redThreeDebt": red_debt, "usedPiles": [], "debtBreakdown": breakdown,
+            "canceled": [], "redCredit": 0, "redThreeQualified": red_count >= 3,
+            "broken": [], "confirmed": False, "revision": 0}
+
+
+def upgrade_pending_reviews(game):
+    """Re-settle unfinished legacy short-red reviews under the current rules."""
+    if game["phase"] != "scoring":
+        return
+    for side in game["sides"]:
+        review = game["scoring"]["sides"][side["id"]]
+        if "redThreeDebt" in review:
+            continue
+        fresh = _new_review(game, side)
+        if fresh["redThreeDebt"] and not review.get("redThreeQualified", False):
+            # The old rules could spend short reds at five points and preserve
+            # books. Replay this side's settlement from its unchanged cards.
+            fresh["revision"] = review["revision"] + 1
+            review.clear()
+            review.update(fresh)
+        else:
+            review["redThreeDebt"] = 0
+
+
 def prepare(game, went_out, reason):
     record_round_end(game)
-    sides = []
-    for side in game["sides"]:
-        red_count = sum(len(player["redThrees"]) for player in game["players"] if player["team"] == side["id"])
-        debt = sum(abs(game["cards"][card_id]["value"]) for player in game["players"] if player["team"] == side["id"] for card_id in [*player["hand"], *player["foot"]])
-        breakdown = [{"name": player["name"], "handCount": len(player["hand"]), "footCount": len(player["foot"]),
-                      "handPoints": sum(abs(game["cards"][i]["value"]) for i in player["hand"]),
-                      "footPoints": sum(abs(game["cards"][i]["value"]) for i in player["foot"])}
-                     for player in game["players"] if player["team"] == side["id"]]
-        sides.append({"team": side["id"], "debt": debt, "remaining": debt, "usedPiles": [], "debtBreakdown": breakdown,
-                      "canceled": [], "redCredit": 0, "redThreeQualified": red_count >= 3,
-                      "broken": [], "confirmed": False, "revision": 0})
+    sides = [_new_review(game, side) for side in game["sides"]]
     game.update(phase="scoring", message=reason, ready=[], scoring={"reason": reason, "wentOut": went_out, "sides": sides})
 
 
 def options(game, team):
+    upgrade_pending_reviews(game)
     review = game["scoring"]["sides"][team]
     if review["confirmed"] or review["remaining"] <= 0:
         return []
@@ -34,9 +58,9 @@ def options(game, team):
                         "points": sum(card["value"] for card in cards), "bonusAtRisk": meld["bonus"], "cardIds": meld["cardIds"][:], "redThree": False})
     red_ids = [i for player in game["players"] if player["team"] == team for i in player["redThrees"]]
     red_id = f"reds:{team}"
-    if red_ids and red_id not in review["usedPiles"]:
-        qualified = review.get("redThreeQualified", len(red_ids) >= 3)
-        choices.append({"id": red_id, "label": f'Red threes · {len(red_ids)} cards', "points": len(red_ids) * 5, "bonusAtRisk": len(red_ids) * FAMILY.red_three if qualified else 0,
+    qualified = review.get("redThreeQualified", len(red_ids) >= 3)
+    if red_ids and qualified and red_id not in review["usedPiles"]:
+        choices.append({"id": red_id, "label": f'Red threes · {len(red_ids)} cards', "points": len(red_ids) * 5, "bonusAtRisk": len(red_ids) * FAMILY.red_three,
                         "cardIds": red_ids, "redThree": True})
     return choices
 
@@ -63,6 +87,7 @@ def pay(game, team, pile_id):
 
 
 def score_side(game, side, went_out):
+    upgrade_pending_reviews(game)
     review = game["scoring"]["sides"][side["id"]]
     cards = sum(game["cards"][i]["value"] for meld in side["melds"] for i in meld["cardIds"])
     red_ids = [i for player in game["players"] if player["team"] == side["id"] for i in player["redThrees"]]
@@ -72,20 +97,24 @@ def score_side(game, side, went_out):
     # Older scoring records retain the original public card IDs as a fallback.
     qualified = review.get("redThreeQualified", len(red_ids) >= 3)
     red_broken = f'reds:{side["id"]}' in review["usedPiles"] or any(i in review["canceled"] for i in red_ids)
-    # Played reds always have a five-point card value, separate from their bonus
-    # or penalty. Spent reds contribute through redCredit instead.
-    cards += retained * 5
-    red_points = (len(red_ids) * FAMILY.red_three if not red_broken else 0) if qualified else -retained * FAMILY.red_three
+    # Only a pile that qualified at round end earns five-point card values.
+    # Short piles remain committed cards: 300 debt each, with no raw value.
+    cards += retained * 5 if qualified else 0
+    red_points = (len(red_ids) * FAMILY.red_three if not red_broken else 0) if qualified else -len(red_ids) * FAMILY.red_three
+    # Settlement covers the short-red penalty along with hand/foot debt. Keep
+    # the result's categories separate so that penalty is deducted only once.
+    hand_foot_debt = review["debt"] - review.get("redThreeDebt", 0)
     books = sum(meld["bonus"] for meld in side["melds"] if meld["id"] not in review["broken"])
     going_out = FAMILY.going_out_bonus if went_out else 0
-    total = cards - review["debt"] + review["redCredit"] + books + red_points + going_out
-    return {"team": side["id"], "cards": cards, "debt": review["debt"], "redThrees": red_points,
+    total = cards - hand_foot_debt + review["redCredit"] + books + red_points + going_out
+    return {"team": side["id"], "cards": cards, "debt": hand_foot_debt, "redThrees": red_points,
             "redCredit": review["redCredit"], "books": books, "goingOut": going_out, "total": total,
             "canceled": review["canceled"][:], "lostBooks": len(review["broken"]), "broken": review["broken"][:],
             "uncovered": review["remaining"]}
 
 
 def confirm(game, team):
+    upgrade_pending_reviews(game)
     review = game["scoring"]["sides"][team]
     if review["confirmed"]:
         raise ValueError("Your side already confirmed its score.")
@@ -127,8 +156,7 @@ def auto_choice(game, team):
         return None
     free = [choice for choice in choices if choice["bonusAtRisk"] == 0]
     if free:
-        # Paying with a short red-three pile also removes its existing penalty.
-        return min(free, key=lambda choice: (0 if choice["redThree"] else 1, -choice["points"]))["id"]
+        return max(free, key=lambda choice: choice["points"])["id"]
     remaining = game["scoring"]["sides"][team]["remaining"]
     target = min(remaining, sum(choice["points"] for choice in choices))
     # Ordinary card values minus debt are fixed regardless of payment order.
@@ -149,6 +177,7 @@ def auto_choice(game, team):
 def project_review(game, team):
     if game["phase"] != "scoring":
         return None
+    upgrade_pending_reviews(game)
     review = game["scoring"]["sides"][team]
     return {
         **copy.deepcopy(review), "options": options(game, team),

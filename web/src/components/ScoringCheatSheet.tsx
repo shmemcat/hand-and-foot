@@ -150,11 +150,11 @@ export function ScoringCheatSheet() {
           <dl className="scoring-cheat-sheet-values">
             <div>
               <dt>3+ played red threes</dt>
-              <dd>+300 each</dd>
+              <dd>+300 bonus + 5 card points each</dd>
             </div>
             <div>
-              <dt>Only 1–2 played reds</dt>
-              <dd>−300 each</dd>
+              <dt>Only 1–2 committed reds</dt>
+              <dd>300 debt each; no card points</dd>
             </div>
             <div>
               <dt>Red 3 left in hand / foot</dt>

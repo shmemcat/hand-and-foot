@@ -66,6 +66,7 @@ export type Score = {
 };
 export type ScoringReview = {
   redThreeQualified?: boolean;
+  redThreeDebt?: number;
   debtBreakdown: {
     name: string;
     handCount: number;

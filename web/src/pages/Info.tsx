@@ -217,27 +217,28 @@ export function Rules() {
                 may replace red threes even before opening.
               </li>
               <li>
-                <strong>Play it:</strong> once you or your partner has opened,
-                lay it face up with your played red threes. You do not draw a
-                replacement. You may play them one at a time or together;
+                <strong>Commit it:</strong> once you or your partner has opened,
+                lay it face up with your red-three pile. You do not draw a
+                replacement. You may commit them one at a time or together;
                 partners combine their red threes.
               </li>
             </ul>
             <p>
-              Every played red three is worth <strong>5 card points</strong>.
-              Its bonus or penalty is separate: if you have at least three
-              played at the end of the round, add <strong>+300 each</strong>. If
-              you have only one or two, each has a <strong>−300 penalty</strong>
-              . The 5 card points still count in either case. Any red three left
-              in your hand or foot is <strong>−300</strong> and earns no card
-              points.
+              Red threes are committed until the pile reaches at least three.
+              With <strong>three or more</strong> at round end, they count as
+              played: each earns <strong>5 card points</strong> plus a
+              <strong> +300 bonus</strong>. With only one or two committed, each
+              adds <strong>300 points of debt</strong> and earns no card points.
+              Any red three left in your hand or foot also adds 300 debt and
+              earns no card points.
             </p>
             <p>
               If played red threes are used to cover leftover cards during
               scoring, a group of three or more loses its entire red-three
               bonus. Those reds still have a value of 5 each and do not turn
-              into penalties. For a group of only one or two, each red used
-              removes its −300 penalty.
+              into penalties. A group of only one or two cannot cover debt.
+              Their 300-point debt must be covered by table cards, breaking
+              books and losing their bonuses when necessary.
             </p>
             <h3>Black threes</h3>
             <p>
@@ -257,26 +258,28 @@ export function Rules() {
             </p>
             <RulesCardValues />
             <p>
-              <strong>Played red threes count in two ways.</strong> Each is
-              worth 5 card points, plus a separate bonus or penalty. Those 5
-              points can cover leftover cards or add to your card total, whether
-              the red three has a +300 bonus, a −300 penalty, or neither.
+              <strong>Red threes become played at three or more.</strong> Each
+              then earns 5 card points plus a +300 bonus. A pile of only one or
+              two is still committed: it earns no card points and adds 300 debt
+              per red, which can force books to break.
             </p>
             <ol>
               <li>
                 <strong>Count your leftover cards.</strong> Add the values of
                 every card left in your hand and foot. Red threes are −300 each
-                and black threes are −100 each.
+                and black threes are −100 each. Add 300 for each committed red
+                three if your exposed pile has only one or two.
               </li>
               <li>
                 <strong>Cover those points with your melds.</strong> Match the
                 points from leftover cards against card points you played,
-                including 5 points for each played red three. Using a red three
-                removes its −300 penalty, or loses the whole group’s bonus if
-                you played three or more. Using any card from a book breaks the
-                book and loses its entire bonus, even if seven or more cards
-                remain. This also applies to straight flushes. A partly used
-                card keeps its unused points, but its book still breaks.
+                including 5 points for each red three in a pile that reached
+                three. Committed reds in a shorter pile cannot cover debt. Using
+                a played red three loses the whole group’s bonus. Using any card
+                from a book breaks the book and loses its entire bonus, even if
+                seven or more cards remain. This also applies to straight
+                flushes. A partly used card keeps its unused points, but its
+                book still breaks.
               </li>
               <li>
                 <strong>Count what is left.</strong> Add your unused card points

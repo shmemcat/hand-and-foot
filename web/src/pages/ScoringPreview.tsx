@@ -651,6 +651,13 @@ export function ScoringPreview() {
                 </div>
               ))}
             </dl>
+            {!final.redsQualified && scenario.reds.length > 0 && (
+              <p>
+                {scenario.reds.length} committed red 3s added{" "}
+                {scenario.reds.length * 300} points of debt. They earned no card
+                points. Table cards cover this debt before book bonuses count.
+              </p>
+            )}
             {final.redsBroken && (
               <p>
                 The red-three bonus was forfeited. Qualified reds counted at 5

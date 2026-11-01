@@ -715,45 +715,115 @@ def test_red_three_qualification_survives_debt_reconciliation():
 
 
 @pytest.mark.parametrize("count", [1, 2, 3, 4])
-def test_round_end_played_red_threes_add_five_card_points_separately_from_bonus_or_penalty(count):
+def test_only_qualified_red_threes_earn_five_card_points(count):
     game = rig()
     game["players"][0]["redThrees"] = take(game, "3", count, "hearts")
     engine.finish_round(game, None, "Test round")
     score = scoring.project_review(game, 0)["score"]
-    assert score["cards"] == count * 5
+    assert score["cards"] == (count * 5 if count >= 3 else 0)
     assert score["redThrees"] == count * (300 if count >= 3 else -300)
     assert score["total"] == score["cards"] + score["redThrees"]
 
 
-def test_two_played_red_threes_with_no_other_cards_finish_at_minus_590():
+def test_two_committed_red_threes_with_no_other_cards_finish_at_minus_600():
     game = rig(mode="individual")
     game["players"][0]["redThrees"] = take(game, "3", 2, "hearts")
     engine.finish_round(game, None, "Test round")
     for seat in range(len(game["players"])):
         game = engine.apply(game, seat, {"type": "score_confirm"})
     score = game["history"][-1]["scores"][0]
-    assert score["cards"] == 10
+    assert score["cards"] == 0
     assert score["redThrees"] == -600
     assert score["debt"] == 0
-    assert score["total"] == -590
-    assert game["sides"][0]["score"] == -590
+    assert score["uncovered"] == 600
+    assert score["total"] == -600
+    assert game["sides"][0]["score"] == -600
     engine.assert_conservation(game)
 
 
 @pytest.mark.parametrize("count", [1, 2])
 @pytest.mark.parametrize("debt", [0, 5, 10, 15])
-def test_covering_leftover_cards_with_short_reds_keeps_card_value_and_penalty_separate(count, debt):
+def test_short_reds_add_debt_and_cannot_cover_leftover_cards(count, debt):
     game = rig(mode="individual")
     game["players"][0]["redThrees"] = take(game, "3", count, "hearts")
     game["players"][0]["hand"] = take(game, "4", debt // 5)
     engine.finish_round(game, None, "Test round")
+    review = scoring.project_review(game, 0)
+    assert review["debt"] == debt + count * 300
+    assert review["redThreeDebt"] == count * 300
+    assert review["options"] == []
+    with pytest.raises(ValueError, match="available pile"):
+        engine.apply(game, 0, {"type": "score_pay", "pileId": "reds:0"})
     game = engine.apply(game, 0, {"type": "score_auto"})
-    remaining_reds = max(0, count - debt // 5)
     score = scoring.project_review(game, 0)["score"]
-    assert score["cards"] == remaining_reds * 5
-    assert score["redCredit"] == min(debt, count * 5)
-    assert score["redThrees"] == -remaining_reds * 300
-    assert score["total"] == count * 5 - debt - remaining_reds * 300
+    assert score["cards"] == 0
+    assert score["redCredit"] == 0
+    assert score["redThrees"] == -count * 300
+    assert score["uncovered"] == debt + count * 300
+    assert score["total"] == -debt - count * 300
+    engine.assert_conservation(game)
+
+
+@pytest.mark.parametrize("mode", ["individual", "partnership"])
+def test_two_short_reds_force_all_four_books_to_break_to_cover_their_debt(mode):
+    game = rig(mode=mode)
+    side = game["sides"][0]
+    for rank, count, wild_rank, wild_count in [
+        ("A", 6, "Joker", 1), ("K", 4, "2", 3), ("Q", 6, "Joker", 1),
+    ]:
+        ids = take(game, rank, count) + take(game, wild_rank, wild_count)
+        side["melds"].append({"id": engine.uid(), "creator": "0", "kind": "set", "cardIds": ids,
+                              **meld_details([game["cards"][i] for i in ids])})
+    book(game, "9")
+    for rank in ["10", "8"]:
+        ids = take(game, rank, 3)
+        side["melds"].append({"id": engine.uid(), "creator": "0", "kind": "set", "cardIds": ids,
+                              **meld_details([game["cards"][i] for i in ids])})
+    player = game["players"][0]
+    reds = take(game, "3", 1, "diamonds") + take(game, "3", 1, "hearts")
+    player["redThrees"] = reds
+    if mode == "partnership":
+        player["redThrees"] = reds[:1]
+        game["players"][3]["redThrees"] = reds[1:]
+    player.update(hand=take(game, "6") + take(game, "J", 2) + take(game, "4"), inFoot=True)
+    engine.finish_round(game, 1, "Another side went out.")
+    review = scoring.project_review(game, 0)
+    assert review["debt"] == 630
+    assert review["redThreeDebt"] == 600
+    game = engine.apply(game, 0, {"type": "score_auto"})
+    score = scoring.project_review(game, 0)["score"]
+    assert score["books"] == 0
+    assert score["lostBooks"] == 4
+    assert score["debt"] == 30
+    assert score["cards"] == 495
+    assert score["redCredit"] == 0
+    assert not any(card_id in score["canceled"] for card_id in reds)
+    assert score["redThrees"] == -600
+    assert score["uncovered"] == 135
+    assert score["total"] == -135
+    for team in range(len(game["sides"])):
+        game = engine.apply(game, team, {"type": "score_auto"})
+        game = engine.apply(game, team, {"type": "score_confirm"})
+    assert game["history"][-1]["scores"][0]["total"] == -135
+    assert game["sides"][0]["score"] == -135
+    engine.assert_conservation(game)
+
+
+@pytest.mark.parametrize("count", [1, 2])
+def test_committed_reds_alone_force_a_book_to_break_before_confirming(count):
+    game = rig(mode="individual")
+    meld = book(game, "K")
+    game["players"][0]["redThrees"] = take(game, "3", count, "hearts")
+    engine.finish_round(game, None, "Test round")
+    with pytest.raises(ValueError, match="another pile"):
+        engine.apply(game, 0, {"type": "score_confirm"})
+    game = engine.apply(game, 0, {"type": "score_auto"})
+    review = scoring.project_review(game, 0)
+    assert review["broken"] == [meld["id"]]
+    assert review["score"]["debt"] == 0
+    assert review["score"]["books"] == 0
+    assert review["score"]["uncovered"] == count * 300 - 70
+    assert review["score"]["total"] == 70 - count * 300
     engine.assert_conservation(game)
 
 
@@ -826,8 +896,10 @@ def test_a_private_red_three_cannot_qualify_an_exposed_pile_of_two():
     review = scoring.project_review(game, 0)
     assert review["redThreeQualified"] is False
     assert review["score"]["redThrees"] == -600
-    assert review["score"]["cards"] == 10
-    assert review["score"]["total"] == -890
+    assert review["debt"] == 900
+    assert review["redThreeDebt"] == 600
+    assert review["score"]["cards"] == 0
+    assert review["score"]["total"] == -900
 
 
 def test_older_scoring_records_use_the_original_public_red_count_for_qualification():

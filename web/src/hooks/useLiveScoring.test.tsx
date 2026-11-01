@@ -289,6 +289,100 @@ it("waits for an accepted payment, opens qualified reds and counts to minus five
   expect(view.result.current.snapshot?.hand).toHaveLength(0);
   expect(paid.scoring.confirmed).toBe(false);
 });
+it.each(["individual", "partnership"] as const)(
+  "gathers committed reds as debt and follows the server breaking all four books (%s)",
+  (mode) => {
+    const scenario = SCORING_SCENARIOS.find(
+      (item) => item.id === "short-reds-debt",
+    )!;
+    const source = scoringSnapshot(scenario, scoringSequence(scenario)[0], 0);
+    source.scoringMode = mode;
+    if (mode === "partnership") {
+      source.players = source.players.map((player, index) => ({
+        ...player,
+        team: index % 3,
+      }));
+      source.sides = source.sides.slice(0, 3);
+      source.players[0].redThrees = scenario.reds.slice(0, 1);
+      source.players[3].redThrees = scenario.reds.slice(1);
+    }
+    source.scoring = {
+      ...round().scoring!,
+      debt: 630,
+      remaining: 630,
+      redThreeDebt: 600,
+      redThreeQualified: false,
+      options: scenario.melds.map((meld) => ({
+        id: meld.id,
+        label: meld.rank,
+        points: meld.cards.reduce((sum, card) => sum + card.value, 0),
+        bonusAtRisk: meld.bonus,
+        cardIds: meld.cards.map((card) => card.id),
+        redThree: false,
+      })),
+      score: {
+        ...round().scoring!.score,
+        cards: 495,
+        debt: 30,
+        redThrees: -600,
+        redCredit: 0,
+        books: 1400,
+        total: 1265,
+        uncovered: 630,
+      },
+    };
+    const view = renderHook(
+      ({ snapshot }) => useLiveScoring(snapshot, true, false),
+      { initialProps: { snapshot: source } },
+    );
+    act(() => vi.advanceTimersByTime(1200));
+    expect(view.result.current.beat?.kind).toBe("gather");
+    expect(
+      view.result.current.snapshot?.hand.filter((card) => card.redThree),
+    ).toHaveLength(2);
+    expect(
+      view.result.current.snapshot?.players.flatMap(
+        (player) => player.redThrees,
+      ),
+    ).toEqual([]);
+    const broken = scenario.melds
+      .filter((meld) => meld.complete)
+      .map((meld) => meld.id);
+    const canceled = scenario.melds.flatMap((meld) =>
+      meld.cards.map((card) => card.id),
+    );
+    const paid = {
+      ...source,
+      scoring: {
+        ...source.scoring!,
+        revision: 1,
+        remaining: 135,
+        options: [],
+        usedPiles: scenario.melds.map((meld) => meld.id),
+        canceled,
+        broken,
+        score: {
+          ...source.scoring!.score,
+          books: 0,
+          total: -135,
+          uncovered: 135,
+          canceled,
+          broken,
+          lostBooks: 4,
+        },
+      },
+    };
+    view.rerender({ snapshot: paid });
+    for (let step = 0; step < 100 && !view.result.current.done; step++)
+      act(() => vi.advanceTimersByTime(view.result.current.beat!.duration));
+    const final = view.result.current.beat!;
+    expect(view.result.current.done).toBe(true);
+    expect(final.broken).toHaveLength(4);
+    expect(final.base + final.cardValue).toBe(paid.scoring.score.total);
+    expect(final.uncovered).toBe(135);
+  },
+);
+
 it("pauses while hidden and resumes without changing the accepted score", () => {
   const source = round();
   const view = renderHook(() => useLiveScoring(source, true, false));

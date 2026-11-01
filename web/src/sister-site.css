@@ -730,9 +730,12 @@ a {
 }
 .play-choices {
   display: flex;
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
   justify-content: center;
   align-items: stretch;
-  gap: 32px;
+  gap: 18px;
 }
 .play-choice {
   display: flex;
@@ -1357,8 +1360,6 @@ a {
   }
   .play-choices {
     flex-direction: column;
-    max-width: 300px;
-    margin-inline: auto;
     gap: 20px;
   }
   .play-choice {

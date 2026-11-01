@@ -366,6 +366,9 @@ def finish_round(game, went_out, reason):
 
 def remove_side(game, team):
     """Retire a conceding side without moving its cards into anyone else's hand."""
+    if game["phase"] == "scoring":
+        from .scoring import upgrade_pending_reviews
+        upgrade_pending_reviews(game)
     roster = game["players"]
     removed = [p for p in roster if p["team"] == team]
     remaining = [p for p in roster if p["team"] != team]
@@ -432,6 +435,11 @@ def assert_conservation(game):
 
 def project(game, viewer_id):
     """Keep hands private during play and reveal all remaining cards at round end."""
+    # Project upgraded decision tokens without rewriting saved reviews on reads.
+    if game["phase"] == "scoring" and any("redThreeDebt" not in review for review in game["scoring"]["sides"]):
+        from .scoring import upgrade_pending_reviews
+        game = copy.deepcopy(game)
+        upgrade_pending_reviews(game)
     # Older saved tables receive the same cover arrangement as their next move.
     if game["phase"] in ("play", "draw"):
         game = copy.deepcopy(game)

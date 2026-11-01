@@ -33,8 +33,9 @@ it("opens the chosen gallery with real game cards and the bonus and threes secti
   expect(dialog.querySelectorAll(".card-art")).toHaveLength(4);
   expect(reference.getByRole("region", { name: "Bonuses" })).toBeTruthy();
   const threes = within(reference.getByRole("region", { name: "Threes" }));
-  expect(threes.getByText("+300 each")).toBeTruthy();
-  expect(threes.getAllByText("−300 each")).toHaveLength(2);
+  expect(threes.getByText("+300 bonus + 5 card points each")).toBeTruthy();
+  expect(threes.getByText("−300 each")).toBeTruthy();
+  expect(threes.getByText("300 debt each; no card points")).toBeTruthy();
   expect(threes.getByText("−100 each")).toBeTruthy();
   expect(reference.getByText("+1,300")).toBeTruthy();
   expect(
