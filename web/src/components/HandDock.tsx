@@ -22,6 +22,7 @@ export function HandDock({
   navigation,
   publicPlayerId,
   publicSlots,
+  ownerBack,
 }: {
   mobile: boolean;
   expanded: boolean;
@@ -43,6 +44,7 @@ export function HandDock({
   };
   publicPlayerId?: string;
   publicSlots?: ConcealedSlot[];
+  ownerBack?: string;
 }) {
   const id = useId();
   const dock = useRef<HTMLElement>(null);
@@ -236,7 +238,7 @@ export function HandDock({
               aria-label={`Open ${title.toLowerCase()}`}
               onClick={() => onExpand(true)}
             >
-              <Card card={card} />
+              <Card card={card} ownerBack={ownerBack} />
             </button>
           ))}
           {cards.length > 4 && (

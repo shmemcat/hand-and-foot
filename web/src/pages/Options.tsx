@@ -1,4 +1,6 @@
 import { AnimationOption } from "../components/AnimationOption";
+import { CardBackOption } from "../components/CardBackOption";
+import { CardBackDisplayOption } from "../components/CardBackDisplayOption";
 import { useId } from "react";
 import { Link } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
@@ -16,6 +18,8 @@ export function Options() {
       <div className="page-body preferences-body">
         <TurnSoundOption />
         <AnimationOption />
+        <CardBackOption />
+        <CardBackDisplayOption />
         <section aria-labelledby={followTitle}>
           <h2 id={followTitle}>Follow Turn</h2>
           <p id={followDescription} className="preference-hint">

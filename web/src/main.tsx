@@ -11,6 +11,10 @@ import { About, Rules, NotFound } from "./pages/Info";
 import { Leaderboard } from "./pages/Leaderboard";
 import { Preview } from "./pages/Preview";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import {
+  CardBackProvider,
+  CardBackPreviewProvider,
+} from "./context/CardBackContext";
 import { User } from "./pages/User";
 import { AchievementEvents } from "./components/AchievementEvents";
 import { AchievementNotifications } from "./components/AchievementNotifications";
@@ -148,6 +152,18 @@ function AppRoutes() {
   const { user } = useAuth();
   return (
     <Routes key={user?.id ?? "guest"}>
+      {import.meta.env.DEV && (
+        <Route
+          path="/preview/card-backs"
+          element={
+            <CardBackPreviewProvider>
+              <React.Suspense fallback={null}>
+                <Options />
+              </React.Suspense>
+            </CardBackPreviewProvider>
+          }
+        />
+      )}
       {import.meta.env.DEV && (
         <Route
           path="/preview/user"
@@ -338,17 +354,19 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       basename={import.meta.env.BASE_URL.replace(/\/$/, "") || "/"}
     >
       <AuthProvider>
-        <PreferencesProvider>
-          <SoundProvider>
-            <TurnSoundProvider>
-              <AchievementNotifications />
-              <AchievementEvents />
-              <Shell>
-                <AppRoutes />
-              </Shell>
-            </TurnSoundProvider>
-          </SoundProvider>
-        </PreferencesProvider>
+        <CardBackProvider>
+          <PreferencesProvider>
+            <SoundProvider>
+              <TurnSoundProvider>
+                <AchievementNotifications />
+                <AchievementEvents />
+                <Shell>
+                  <AppRoutes />
+                </Shell>
+              </TurnSoundProvider>
+            </SoundProvider>
+          </PreferencesProvider>
+        </CardBackProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>,

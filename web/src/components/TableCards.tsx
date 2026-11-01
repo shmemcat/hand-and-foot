@@ -19,6 +19,7 @@ import {
   RED_REPLACEMENT_MS,
 } from "../hooks/useDrawMotion";
 import "../table-motion.css";
+import { DEFAULT_CARD_BACK } from "../lib/cardBacks";
 
 export function TableCards({
   flight,
@@ -28,6 +29,9 @@ export function TableCards({
   board?: RefObject<HTMLDivElement | null>;
 }) {
   const { event, from, to } = flight;
+  const ownerBack =
+    flight.before.players.find((player) => player.id === event.playerId)
+      ?.cardBack ?? DEFAULT_CARD_BACK;
   const [origin, setOrigin] = useState<{
     id: string;
     position: CardPosition;
@@ -136,6 +140,7 @@ export function TableCards({
             >
               <div className="table-card-front">
                 <Card
+                  ownerBack={ownerBack}
                   card={
                     flight.concealed ? undefined : (flight.card ?? undefined)
                   }
@@ -144,6 +149,7 @@ export function TableCards({
               </div>
               <div className="table-card-back">
                 <Card
+                  ownerBack={ownerBack}
                   card={reveal ? (flight.card ?? undefined) : undefined}
                   small
                 />

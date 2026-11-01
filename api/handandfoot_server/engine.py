@@ -451,6 +451,7 @@ def project(game, viewer_id):
     scoring_players = [p for p in game["players"] if p["team"] == viewer["team"]] if game["phase"] == "scoring" else []
     players = [{
         "id": p["id"], "name": p["name"], "team": p["team"], "bot": p["bot"], "profileIcon": p.get("profileIcon", "user"),
+        "cardBack": p.get("cardBack", "single-leaves"),
         "chosen": p["chosen"], "inFoot": p["inFoot"],
         "handCount": len(p["hand"]) + (len(p["foot"]) if round_review else 0) if p["chosen"] else 11,
         "footCount": 0 if round_review else len(p["foot"]) if p["chosen"] else 11,

@@ -22,6 +22,15 @@ const show = () =>
       <ScoringPreview />
     </MemoryRouter>,
   );
+const finishFlight = (node: Element) =>
+  fireEvent(
+    node,
+    // React selects the prefixed event when jsdom lacks AnimationEvent.
+    new Event(
+      "AnimationEvent" in window ? "animationend" : "webkitAnimationEnd",
+      { bubbles: true },
+    ),
+  );
 it("keeps the settlement piles mounted in the footer opposite Follow turn while hidden", () => {
   const view = show();
   const footer = view.container.querySelector(".board-footer-summary")!;
@@ -340,3 +349,54 @@ it("pairs solid card flights from the actual hand and table, then clears them on
   fireEvent.scroll(window);
   expect(view.container.querySelectorAll(".score-card-flight")).toHaveLength(0);
 });
+
+it.each([0.5, 1, 2])(
+  "waits for counted cards to arrive before adding their points at %s× speed",
+  (speed) => {
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(300, 500, 62, 87),
+    );
+    const view = show();
+    fireEvent.change(screen.getByLabelText("Scoring playback speed"), {
+      target: { value: speed },
+    });
+    const beats = scoringSequence(SCORING_SCENARIOS[0]);
+    const index = beats.findIndex(
+      (beat) => beat.kind === "count" && beat.transfers.length > 1,
+    );
+    fireEvent.change(screen.getByLabelText("Scoring step"), {
+      target: { value: index - 1 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Next scoring step" }));
+    const flights = [
+      ...view.container.querySelectorAll<HTMLElement>(".score-card-flight"),
+    ];
+    expect(flights).toHaveLength(beats[index].transfers.length);
+    expect(flights.at(-1)!.style.animationDuration).toBe(`${600 / speed}ms`);
+    const before =
+      beats[index].base + beats[index].cardValue - beats[index].delta!;
+    act(() => vi.advanceTimersByTime(599 / speed));
+    expect(
+      view.container.querySelector(
+        '.score-running-count strong [aria-hidden="true"]',
+      )!.textContent,
+    ).toBe(before.toLocaleString());
+    expect(view.container.querySelector(".score-tally-add")).toBeNull();
+    finishFlight(flights[0]);
+    expect(view.container.querySelector(".score-tally-add")).toBeNull();
+    finishFlight(flights.at(-1)!);
+    expect(
+      view.container.querySelector(".score-running-count strong .sr-only")!
+        .textContent,
+    ).toBe((beats[index].base + beats[index].cardValue).toLocaleString());
+    expect(view.container.querySelector(".score-tally-add")!.textContent).toBe(
+      `+${beats[index].delta}`,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Skip to total" }));
+    expect(
+      view.container.querySelector(
+        '.score-running-count strong [aria-hidden="true"]',
+      )!.textContent,
+    ).toBe("2,985");
+  },
+);

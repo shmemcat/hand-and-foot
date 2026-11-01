@@ -14,6 +14,7 @@ class Accounts:
         self.revoked = set()
         self.unavailable = False
         self.app = None
+        self.card_backs = {}
 
     def refresh(self):
         pass
@@ -27,7 +28,7 @@ class Accounts:
             raise AccountsUnavailable()
         if value in self.revoked:
             return None
-        return AccountIdentity(int(value), "Player" + value, "cat", True)
+        return AccountIdentity(int(value), "Player" + value, "cat", True, self.card_backs.get(value, "single-leaves"))
 
     def public_profiles(self, ids):
         assert not self.app.extensions["room_lock"]._is_owned()
@@ -64,6 +65,29 @@ def test_authoritative_identity_cross_device_and_account_isolation(app):
     assert second_device.get(f'{ROOT}/rooms/{room["code"]}').status_code == 403
     one.delete_cookie("cards_session")
     assert one.get(f'{ROOT}/rooms/{room["code"]}').status_code == 403
+
+
+def test_card_back_is_public_without_exposing_display_and_refreshes_in_saved_games(app):
+    http, headers = client(app)
+    accounts = app.extensions["accounts"]
+    accounts.card_backs["1"] = "trump-crest"
+    sign_in(http)
+    room = create(http, headers, playMode="practice")
+    owner = next(p for p in room["players"] if p["id"] == room["viewerId"])
+    assert owner["cardBack"] == "trump-crest"
+    assert all(p["cardBack"] == "single-leaves" for p in room["players"] if p["bot"])
+    assert "card_back_display" not in str(room)
+    accounts.card_backs["1"] = "celestial-seal"
+    changed = http.get(f'{ROOT}/rooms/{room["code"]}').json
+    assert changed["revision"] == room["revision"] + 1
+    assert next(p for p in changed["players"] if p["id"] == room["viewerId"])["cardBack"] == "celestial-seal"
+    with app.app_context():
+        data = db.session.get(Room, room["code"]).payload
+        assert data["players"][0]["cardBack"] == "celestial-seal"
+        assert data["game"]["players"][0]["cardBack"] == "celestial-seal"
+    second, _ = client(app)
+    sign_in(second)
+    assert second.get(f'{ROOT}/rooms/{room["code"]}').json["players"][0]["cardBack"] == "celestial-seal"
 
 
 def test_guest_lobby_transfers_host_but_played_games_do_not(app):

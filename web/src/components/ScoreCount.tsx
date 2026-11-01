@@ -66,10 +66,15 @@ export function SettlementPiles({ beat }: { beat?: ScoreBeat }) {
 export function ScoreCount({
   beat,
   beatKey,
+  pending = false,
 }: {
   beat: ScoreBeat;
   beatKey: string;
+  pending?: boolean;
 }) {
+  const waitingForCards =
+    pending && beat.transfers.some((transfer) => transfer.target === "count");
+  const cardValue = beat.cardValue - (waitingForCards ? (beat.delta ?? 0) : 0);
   return (
     <div
       className="score-running-count"
@@ -79,7 +84,7 @@ export function ScoreCount({
     >
       <span>ROUND COUNT</span>
       <strong>
-        <AnimatedNumber value={beat.base + beat.cardValue} />
+        <AnimatedNumber value={beat.base + cardValue} />
       </strong>
       <small>
         {[
@@ -92,14 +97,16 @@ export function ScoreCount({
           "wait",
         ].includes(beat.kind)
           ? `${beat.remaining} pts left to reconcile`
-          : `${beat.base.toLocaleString()} base ${beat.cardValue < 0 ? "−" : "+"} ${Math.abs(beat.cardValue).toLocaleString()} cards`}
+          : `${beat.base.toLocaleString()} base ${cardValue < 0 ? "−" : "+"} ${Math.abs(cardValue).toLocaleString()} cards`}
       </small>
-      {beat.delta !== undefined && ["bonus", "count"].includes(beat.kind) && (
-        <span className="score-tally-add" key={beatKey}>
-          {beat.delta < 0 ? "−" : "+"}
-          {Math.abs(beat.delta).toLocaleString()}
-        </span>
-      )}
+      {!waitingForCards &&
+        beat.delta !== undefined &&
+        ["bonus", "count"].includes(beat.kind) && (
+          <span className="score-tally-add" key={beatKey}>
+            {beat.delta < 0 ? "−" : "+"}
+            {Math.abs(beat.delta).toLocaleString()}
+          </span>
+        )}
     </div>
   );
 }

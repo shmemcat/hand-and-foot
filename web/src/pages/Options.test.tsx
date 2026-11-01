@@ -46,7 +46,7 @@ it("keeps standard cards despite an older style preference and defaults to keepi
   ).not.toContain("indexed-card");
   expect(screen.getByRole("heading", { name: "Turn Indicator" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Follow Turn" })).toBeTruthy();
-  expect(screen.getAllByRole("radio")).toHaveLength(2);
+  expect(screen.getAllByRole("radio")).toHaveLength(4);
   expect(
     screen.getByRole<HTMLInputElement>("radio", {
       name: /^Keep Follow turn checked/,

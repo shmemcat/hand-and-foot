@@ -26,6 +26,8 @@ export type BookExample =
   | "finish-wild"
   | "overfull"
   | "three"
+  | "three-first"
+  | "three-last"
   | "burst";
 type BookMode = "practice" | "online" | "partnership" | "bot" | "reduced";
 const face = (id: string, rank: string, suit = "hearts"): Card => ({
@@ -82,6 +84,15 @@ export function bookExample(
   );
   const adding = example === "add-clean" || example === "add-dirty";
   const openWild = example === "wild-two" || example === "wild-joker";
+  const three = ["three", "three-first", "three-last"].includes(example);
+  const closingRank =
+    example === "three-first"
+      ? "A"
+      : example === "three-last"
+        ? "4"
+        : example === "three"
+          ? "J"
+          : "K";
   let last =
     example === "reds"
       ? reds[2]
@@ -93,12 +104,12 @@ export function bookExample(
                   example,
                 )
               ? "2"
-              : "K",
+              : closingRank,
           example === "wild-joker" ? "joker" : "hearts",
         );
   const book = set(
     "closing-book",
-    example === "dirty" ? "Q" : "K",
+    example === "dirty" ? "Q" : closingRank,
     openWild ? 4 : adding ? 7 : 6,
     adding || (played && !openWild),
   );
@@ -163,11 +174,9 @@ export function bookExample(
     ...(["first", "last"].includes(example)
       ? []
       : [set("existing-book", "A", 7, true)]),
-    ...(example === "three" ? [set("neighbor-open", "Q", 6)] : []),
+    ...(three ? [set("neighbor-open", "Q", 6)] : []),
     ...(example === "reds" || (example === "whole" && !played) ? [] : [book]),
-    ...(example === "last"
-      ? []
-      : [set("remaining-open", "10", example === "three" ? 6 : 3)]),
+    ...(example === "last" ? [] : [set("remaining-open", "10", three ? 6 : 3)]),
     ...(["multiple", "burst"].includes(example) ? [second] : []),
     ...(example === "burst"
       ? [
@@ -335,6 +344,12 @@ export function BookPreview() {
             <option value="wild-joker">Add a Joker to an open meld</option>
             <option value="last">Close the only open pile</option>
             <option value="three">Close the middle of three open piles</option>
+            <option value="three-first">
+              Close the first of three open piles
+            </option>
+            <option value="three-last">
+              Close the last of three open piles
+            </option>
             <option value="multiple">
               Close two books and red threes together
             </option>

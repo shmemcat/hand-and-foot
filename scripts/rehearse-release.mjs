@@ -117,6 +117,16 @@ try {
   });
   const signed = await account("login", { username: email, password });
   await account("profile", { profile_icon: "cat" });
+  const appearance = await account("profile", {
+    card_back: {
+      game: "handandfoot",
+      design: "fern-sprig",
+      display: "players",
+    },
+  });
+  assert.equal(appearance.user.card_backs.handandfoot, "fern-sprig");
+  assert.equal(appearance.user.card_back_display.handandfoot, "players");
+  assert.equal(appearance.user.card_backs.golf, "argyle");
   const session = await call("/api/hand-and-foot/session");
   assert.equal(session.user.id, signed.user.id);
   assert.equal((await call("/api/golf/session")).user.id, signed.user.id);
@@ -131,6 +141,7 @@ try {
     { "X-Handandfoot-CSRF": session.csrf },
   );
   assert.equal(room.players[0].name, username);
+  assert.equal(room.players[0].cardBack, "fern-sprig");
   for (const transport of ["polling", "websocket"]) {
     const socket = io(base + "/hand-and-foot", {
       path: "/hand-and-foot/socket.io",
@@ -170,6 +181,10 @@ try {
   }
   await stack.restart("handandfoot");
   assert.equal(
+    (await call(`/api/hand-and-foot/rooms/${room.code}`)).players[0].cardBack,
+    "fern-sprig",
+  );
+  assert.equal(
     (await call(`/api/hand-and-foot/rooms/${room.code}`)).viewerId,
     room.viewerId,
   );
@@ -195,6 +210,7 @@ try {
     images,
     health,
     sharedAccounts: true,
+    cardBackProfile: true,
     transports: ["polling", "websocket"],
     restartRecovery: true,
     deletion: true,

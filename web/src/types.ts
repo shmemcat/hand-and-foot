@@ -20,6 +20,7 @@ export type Meld = {
 };
 export type Player = {
   profileIcon?: string;
+  cardBack?: string;
   id: string;
   name: string;
   team: number;

@@ -65,7 +65,7 @@ def register_cleanup(app, lock, announce):
                         if player.get("key") == principal or player.get("accountId") == uid:
                             if data.get("game"):
                                 data["game"].get("playerAchievements", {}).pop(player["id"], None)
-                            player.update(key=None, accountId=None, name="Deleted player", away=not player["bot"], utcOffsetMinutes=None)
+                            player.update(key=None, accountId=None, name="Deleted player", profileIcon="user", cardBack="single-leaves", away=not player["bot"], utcOffsetMinutes=None)
                             touched = True
                 if not touched:
                     continue

@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from "react";
 import type { Card, Snapshot } from "../types";
-import { afterCardAnimations } from "../lib/cardAnimations";
+import { afterCardAnimations, isPileScrollClamp } from "../lib/cardAnimations";
 import { landingPosition, type CardPosition } from "./useMeldMotion";
 
 export const BOOK_CLOSE_MS = 900;
@@ -265,6 +265,7 @@ export function useBookClosing(
       if (document.hidden) cancel();
     };
     const scroll = (event: Event) => {
+      if (isPileScrollClamp(event)) return;
       // The shrinking footer can clamp its scroll without moving either book row.
       if (
         event.target instanceof Element &&

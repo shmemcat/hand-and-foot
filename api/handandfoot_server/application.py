@@ -183,8 +183,9 @@ def create_app(config=None):
                         existing["name"] = user.username
                         existing["accountId"] = user.id
                         existing["profileIcon"] = user.profile_icon
+                        existing["cardBack"] = user.handandfoot_card_back
                     else:
-                        guest.update(key=key, name=user.username, accountId=user.id, profileIcon=user.profile_icon)
+                        guest.update(key=key, name=user.username, accountId=user.id, profileIcon=user.profile_icon, cardBack=user.handandfoot_card_back)
                     data["token"] = engine.uid()
                     save(row, data)
                     announce(row.code, data["revision"])
@@ -263,7 +264,7 @@ def create_app(config=None):
         else:
             lobby.normalize(data)
             side_count = data["capacity"] // 2 if data["scoringMode"] == "partnership" else data["capacity"]
-            roster = [{"id": p["id"], "name": p["name"], "profileIcon": p.get("profileIcon", "user"), "bot": p["bot"], "team": p["lobbySeat"] % side_count if p["lobbySeat"] is not None else -1, "handCount": 0, "footCount": 0, "inFoot": False, "chosen": False, "redThrees": [], "ready": False, "away": p.get("away", False)} for p in data["players"]]
+            roster = [{"id": p["id"], "name": p["name"], "profileIcon": p.get("profileIcon", "user"), "cardBack": p.get("cardBack", "single-leaves"), "bot": p["bot"], "team": p["lobbySeat"] % side_count if p["lobbySeat"] is not None else -1, "handCount": 0, "footCount": 0, "inFoot": False, "chosen": False, "redThrees": [], "ready": False, "away": p.get("away", False)} for p in data["players"]]
             by_id = {p["id"]: p for p in roster}
             base.update(players=roster,
                         lobbyFillBots=data.get("lobbyFillBots", True),
@@ -329,7 +330,7 @@ def create_app(config=None):
     def new_player(name, key=None, *, bot=False):
         owner = int(key.split(":")[1]) if isinstance(key, str) and key.startswith("account:") else None
         user = request.environ.get("handandfoot.user")
-        return {"id": engine.uid(), "key": key, "accountId": owner, "profileIcon": user.profile_icon if user and owner == user.id else "user", "name": name, "bot": bot, "lastSeen": time.time(), "away": False, "utcOffsetMinutes": None if bot else utc_offset()}
+        return {"id": engine.uid(), "key": key, "accountId": owner, "profileIcon": user.profile_icon if user and owner == user.id else "user", "cardBack": user.handandfoot_card_back if user and owner == user.id else "single-leaves", "name": name, "bot": bot, "lastSeen": time.time(), "away": False, "utcOffsetMinutes": None if bot else utc_offset()}
 
     def start(data, *, fill_bots=True):
         for person in players(data):
@@ -511,12 +512,20 @@ def create_app(config=None):
             player = member(data, actor())
             if data.get("_storage_pruned"):
                 return jsonify(projection(data, actor()))
+            user = request.environ.get("handandfoot.user")
+            card_back = user.handandfoot_card_back if user else "single-leaves"
+            appearance_changed = player.get("cardBack", "single-leaves") != card_back
+            for person in [*data["players"], *players(data)]:
+                if person["id"] == player["id"]:
+                    person["cardBack"] = card_back
             player["lastSeen"] = time.time()
             if not data.get("game") and utc_offset() is not None:
                 player["utcOffsetMinutes"] = utc_offset()
             if data["playMode"] == "practice" and player.get("away"):
                 player.update(away=False, bot=False)
-            save(row, data, changed=False)
+            save(row, data, changed=appearance_changed)
+            if appearance_changed:
+                announce(code, data["revision"])
             return jsonify(projection(data, actor()))
 
     @app.post(ROOT + "/rooms/<code>/commands")
@@ -615,7 +624,7 @@ def create_app(config=None):
                     if data["scoringMode"] == "partnership":
                         seat = p["team"] + team_seats.get(p["team"], 0) * side_count
                         team_seats[p["team"]] = team_seats.get(p["team"], 0) + 1
-                    data["players"].append({k: p[k] for k in ("id", "key", "name", "bot", "lastSeen", "away")} | {"accountId": p.get("accountId"), "lobbySeat": seat, "profileIcon": p.get("profileIcon", "user"), "utcOffsetMinutes": p.get("utcOffsetMinutes"), "botDifficulty": p.get("botDifficulty", data.get("botDifficulty", bots.DEFAULT_DIFFICULTY))})
+                    data["players"].append({k: p[k] for k in ("id", "key", "name", "bot", "lastSeen", "away")} | {"accountId": p.get("accountId"), "lobbySeat": seat, "profileIcon": p.get("profileIcon", "user"), "cardBack": p.get("cardBack", "single-leaves"), "utcOffsetMinutes": p.get("utcOffsetMinutes"), "botDifficulty": p.get("botDifficulty", data.get("botDifficulty", bots.DEFAULT_DIFFICULTY))})
                 data["game"] = None
                 start(data)
             elif action == "leave":

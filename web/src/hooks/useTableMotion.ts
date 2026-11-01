@@ -10,6 +10,7 @@ import type { Card, Snapshot, TableEvent } from "../types";
 import {
   afterCardAnimations,
   BOARD_TRANSITION_MS,
+  isPileScrollClamp,
 } from "../lib/cardAnimations";
 import { footGatherDuration } from "../lib/footMotion";
 import type { CardPosition } from "./useMeldMotion";
@@ -116,7 +117,9 @@ export function useTableMotion(
   const waitingFoot = waitingForMeld ? queue[0] : null;
   const flight =
     canPresent &&
-    !boardChanged &&
+    // A board switch can settle the final discard, but must never briefly
+    // release its scoring barrier while the queue adopts the new footer.
+    (!boardChanged || queue[0]?.event.faceDown) &&
     !suspended &&
     !waitingForMeld &&
     queue[0]?.scope === scope &&
@@ -472,6 +475,7 @@ export function useTableMotion(
       if (document.hidden) clear();
     };
     const scroll = (event: Event) => {
+      if (isPileScrollClamp(event)) return;
       if (
         flight?.concealed &&
         flight.event.kind === "draw" &&

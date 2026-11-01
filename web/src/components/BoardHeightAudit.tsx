@@ -18,6 +18,21 @@ type Report = {
   footFrames: number;
   ranges: Record<string, Range>;
   scroll: Record<string, ScrollRange>;
+  meldVisibility: Record<
+    string,
+    {
+      initialClip: number;
+      maxClip: number;
+      initialFraction: number;
+      clippedFrames: number;
+      firstClip?: {
+        frame: number;
+        parts: { kind: string; rect: DOMRect }[];
+        row?: DOMRect;
+        strip?: DOMRect;
+      };
+    }
+  >;
   changes: {
     frame: number;
     heights: Record<string, number>;
@@ -32,8 +47,52 @@ const emptyReport = (): Report => ({
   footFrames: 0,
   ranges: {},
   scroll: {},
+  meldVisibility: {},
   changes: [],
 });
+
+/** Measure visible card faces and captions against their actual ancestor clips. */
+export function meldClipping(pile: HTMLElement) {
+  let clipped = 0;
+  let fraction = 0;
+  for (const part of pile.querySelectorAll<HTMLElement>(
+    ".card, .meld-kind, .meld-count",
+  )) {
+    const style = getComputedStyle(part);
+    if (style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+    const rect = part.getBoundingClientRect();
+    if (!rect.width || !rect.height) continue;
+    for (
+      let parent = part.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      const clip = getComputedStyle(parent);
+      const bounds = parent.getBoundingClientRect();
+      const margin = parseFloat(clip.overflowClipMargin) || 0;
+      if (/hidden|auto|scroll|clip/.test(clip.overflowX)) {
+        const loss = Math.max(
+          0,
+          Math.min(rect.width, bounds.left - margin - rect.left),
+          Math.min(rect.width, rect.right - bounds.right - margin),
+        );
+        clipped = Math.max(clipped, loss);
+        fraction = Math.max(fraction, loss / rect.width);
+      }
+      if (/hidden|auto|scroll|clip/.test(clip.overflowY)) {
+        const loss = Math.max(
+          0,
+          Math.min(rect.height, bounds.top - margin - rect.top),
+          Math.min(rect.height, rect.bottom - bounds.bottom - margin),
+        );
+        clipped = Math.max(clipped, loss);
+        fraction = Math.max(fraction, loss / rect.height);
+      }
+      if (parent.classList.contains("game-page")) break;
+    }
+  }
+  return { pixels: clipped, fraction };
+}
 
 /** Development-only, real-browser check of every painted animation frame. */
 export function BoardHeightAudit({
@@ -124,6 +183,37 @@ export function BoardHeightAudit({
         range.maxHeight = Math.max(range.maxHeight, state.height);
         result.scroll[selector] = range;
       }
+      for (const pile of document.querySelectorAll<HTMLElement>(
+        ".open-piles .meld-pile[data-meld-id]",
+      )) {
+        const { pixels: clipped, fraction } = meldClipping(pile);
+        const visibility: Report["meldVisibility"][string] =
+          (result.meldVisibility[pile.dataset.meldId!] ??= {
+            initialClip: clipped,
+            maxClip: clipped,
+            initialFraction: fraction,
+            clippedFrames: 0,
+          });
+        visibility.maxClip = Math.max(visibility.maxClip, clipped);
+        // Compare the fraction lost: an already offscreen card can rotate to a
+        // wider box without losing any more of its visible face.
+        const lostVisibility = fraction > visibility.initialFraction + 0.01;
+        visibility.clippedFrames += Number(lostVisibility);
+        if (lostVisibility && !visibility.firstClip)
+          visibility.firstClip = {
+            frame: result.frames,
+            parts: [
+              ...pile.querySelectorAll<HTMLElement>(
+                ".card, .meld-kind, .meld-count",
+              ),
+            ].map((part) => ({
+              kind: part.className,
+              rect: part.getBoundingClientRect(),
+            })),
+            row: pile.closest(".pile-row-content")?.getBoundingClientRect(),
+            strip: pile.closest(".open-piles")?.getBoundingClientRect(),
+          };
+      }
       if (key !== previous) {
         result.changes.push({
           frame: result.frames,
@@ -158,6 +248,9 @@ export function BoardHeightAudit({
       Number(range.yFrames > 0 && !range.first.y && !range.last.y),
     0,
   );
+  const clippedMelds = Object.values(report.meldVisibility).filter(
+    ({ clippedFrames }) => clippedFrames > 0,
+  ).length;
   return (
     <p
       role="status"
@@ -171,7 +264,7 @@ export function BoardHeightAudit({
     >
       Board height check:{" "}
       {report.status === "complete"
-        ? `${variation.toFixed(2)}px variation across ${report.frames} frames · ${scrollbarFlashes} scrollbar flashes`
+        ? `${variation.toFixed(2)}px variation across ${report.frames} frames · ${scrollbarFlashes} scrollbar flashes · ${clippedMelds} clipped melds`
         : report.status === "sampling"
           ? "measuring animation…"
           : "play an animation to measure"}

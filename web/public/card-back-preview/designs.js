@@ -10,7 +10,7 @@ export const designs = [
     "id": "02-four-suit-seal",
     "name": "Four-suit seal",
     "family": "Cards",
-    "palette": "Parchment / Burgundy",
+    "palette": "Petal pink / Burgundy",
     "description": "A compact oval seal with all four suit silhouettes and a clean open field."
   },
   {
@@ -24,7 +24,7 @@ export const designs = [
     "id": "04-heart-locket",
     "name": "Heart locket",
     "family": "Cards",
-    "palette": "Oat / Wine",
+    "palette": "Antique rose / Wine",
     "description": "Two hearts in a delicate elongated locket, with tiny gold clasps."
   },
   {
@@ -45,7 +45,7 @@ export const designs = [
     "id": "07-suit-ribbon",
     "name": "Suit ribbon",
     "family": "Cards",
-    "palette": "Parchment / Burgundy",
+    "palette": "Petal pink / Burgundy",
     "description": "An airy vertical ribbon holding a heart and a club, with symmetrical curled tails."
   },
   {
@@ -59,7 +59,7 @@ export const designs = [
     "id": "09-trump-crest",
     "name": "Trump crest",
     "family": "Cards",
-    "palette": "Oat / Wine",
+    "palette": "Antique rose / Wine",
     "description": "A pair of small heraldic shields, each holding a bold club."
   },
   {
@@ -73,7 +73,7 @@ export const designs = [
     "id": "11-house-chip",
     "name": "House chip",
     "family": "Casino",
-    "palette": "Parchment / Burgundy",
+    "palette": "Petal pink / Burgundy",
     "description": "One substantial casino chip in the middle of a quiet solid-color back."
   },
   {
@@ -94,7 +94,7 @@ export const designs = [
     "id": "14-deco-palace",
     "name": "Deco palace",
     "family": "Casino",
-    "palette": "Oat / Wine",
+    "palette": "Antique rose / Wine",
     "description": "A compact Art Deco sunburst with stepped architecture and a jewel at its center."
   },
   {
@@ -115,7 +115,7 @@ export const designs = [
     "id": "17-club-lounge",
     "name": "Club lounge",
     "family": "Casino",
-    "palette": "Parchment / Burgundy",
+    "palette": "Petal pink / Burgundy",
     "description": "A club-house badge with a pair of club silhouettes and a broad oval frame."
   },
   {
@@ -129,7 +129,7 @@ export const designs = [
     "id": "19-table-stakes",
     "name": "Table stakes",
     "family": "Casino",
-    "palette": "Oat / Wine",
+    "palette": "Antique rose / Wine",
     "description": "Two tidy stacks of chips surrounding one small gold diamond."
   },
   {
@@ -150,7 +150,7 @@ export const designs = [
     "id": "22-gilded-volume",
     "name": "Gilded volume",
     "family": "Books",
-    "palette": "Parchment / Burgundy",
+    "palette": "Petal pink / Burgundy",
     "description": "A pair of small leatherbound volumes with gold-tooled covers."
   },
   {
@@ -164,7 +164,7 @@ export const designs = [
     "id": "24-quill-and-page",
     "name": "Quill & page",
     "family": "Books",
-    "palette": "Oat / Wine",
+    "palette": "Antique rose / Wine",
     "description": "A handwritten page and a sweeping quill, mirrored into a literary crest."
   },
   {
@@ -185,7 +185,7 @@ export const designs = [
     "id": "27-story-door",
     "name": "Story door",
     "family": "Books",
-    "palette": "Parchment / Burgundy",
+    "palette": "Petal pink / Burgundy",
     "description": "Books become a little doorway, with arched gold frames leading into the center."
   },
   {
@@ -199,7 +199,7 @@ export const designs = [
     "id": "29-seven-card-book",
     "name": "Seven-card book",
     "family": "Books",
-    "palette": "Oat / Wine",
+    "palette": "Antique rose / Wine",
     "description": "A Hand & Foot book: seven cards fan out above a small gold binding."
   },
   {
@@ -208,5 +208,165 @@ export const designs = [
     "family": "Books",
     "palette": "Dusty rose / Cocoa",
     "description": "Two interlocked books tied with a continuous gold ribbon, joining the card and library themes."
+  },
+  {
+    "id": "31-grand-folio",
+    "name": "Grand folio",
+    "palette": "Petal pink / Burgundy",
+    "description": "One generous open folio, with broad curved pages and simple gold lettering lines.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "32-turning-leaf",
+    "name": "Turning leaf",
+    "palette": "Rose clay / Petal",
+    "description": "A single page caught mid-turn, sweeping upward from an open book.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "33-concertina",
+    "name": "Concertina",
+    "palette": "Blush / Plum",
+    "description": "An accordion-fold book opens into a crisp, sculptural zigzag.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "34-ribboned-chapters",
+    "name": "Ribboned chapters",
+    "palette": "Dusty rose / Cocoa",
+    "description": "A closed volume tied with a generous ribbon bow, like a treasured gift.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "35-library-window",
+    "name": "Library window",
+    "palette": "Antique rose / Wine",
+    "description": "Four gilded book spines stand inside a tall arched library window.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "36-between-bookends",
+    "name": "Between bookends",
+    "palette": "Petal pink / Burgundy",
+    "description": "A small shelf of distinct book spines, held between sculpted bookends.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "37-midnight-reader",
+    "name": "Midnight reader",
+    "palette": "Blush / Plum",
+    "description": "A crescent moon and three small stars over an open book.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "38-by-candlelight",
+    "name": "By candlelight",
+    "palette": "Rose clay / Petal",
+    "description": "A warm little candle rises behind an open book, with a gold pool of light.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "39-secret-library",
+    "name": "Secret library",
+    "palette": "Dusty rose / Cocoa",
+    "description": "An antique key crosses a small locked book, with a single bold gold key bow.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "40-paper-heart",
+    "name": "Paper heart",
+    "palette": "Antique rose / Wine",
+    "description": "Two curled leaves of a book meet to form a heart, with a delicate spine below.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "41-literary-butterfly",
+    "name": "Literary butterfly",
+    "palette": "Petal pink / Burgundy",
+    "description": "Four folded pages become butterfly wings, with the spine as a slender gold body.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "42-story-tree",
+    "name": "Story tree",
+    "palette": "Rose clay / Petal",
+    "description": "A branching story tree grows from an open book, with broad page-shaped leaves.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "43-pressed-pages",
+    "name": "Pressed pages",
+    "palette": "Antique rose / Wine",
+    "description": "A graceful pressed sprig rests across one open book.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "44-first-draft",
+    "name": "First draft",
+    "palette": "Dusty rose / Cocoa",
+    "description": "A fountain-pen nib bridges two folded manuscript pages, like a tiny publisher’s mark.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "45-library-cart",
+    "name": "Library cart",
+    "palette": "Blush / Plum",
+    "description": "A miniature library cart with two shelves of books and two little wheels.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "46-reading-hour",
+    "name": "Reading hour",
+    "palette": "Petal pink / Burgundy",
+    "description": "A pair of round reading glasses rests on an open book, with generous curves and few details.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "47-chapter-seal",
+    "name": "Chapter seal",
+    "palette": "Rose clay / Petal",
+    "description": "A tiny wax seal fastens a ribbon around a tilted book, with a heart impressed in the seal.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "48-marbled-volume",
+    "name": "Marbled volume",
+    "palette": "Dusty rose / Cocoa",
+    "description": "A handsome hardback with flowing marbled-paper curves confined to its cover.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "49-page-compass",
+    "name": "Page compass",
+    "palette": "Blush / Plum",
+    "description": "Four little open books radiate from one gold center, creating a compass of pages.",
+    "family": "Books",
+    "collection": "library"
+  },
+  {
+    "id": "50-storybook-castle",
+    "name": "Storybook castle",
+    "palette": "Antique rose / Wine",
+    "description": "A small fairytale castle rises from an open book, its towers finished with gold flags.",
+    "family": "Books",
+    "collection": "library"
   }
 ];

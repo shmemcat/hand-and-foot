@@ -1,6 +1,7 @@
 import type { Card as Face } from "../types";
-import { asset } from "../lib/assets";
 import { iconData } from "./iconData";
+import { useCardBack } from "../context/CardBackContext";
+import { cardBackAsset, normalizeCardBack } from "../lib/cardBacks";
 
 const suits = {
   hearts: iconData.heart,
@@ -22,6 +23,8 @@ export function Card({
   disabled = false,
   indexed = false,
   pointsLeft,
+  back,
+  ownerBack,
 }: {
   card?: Face;
   selected?: boolean;
@@ -30,7 +33,16 @@ export function Card({
   disabled?: boolean;
   indexed?: boolean;
   pointsLeft?: number;
+  back?: string;
+  ownerBack?: string;
 }) {
+  const { cardBack, displayMode } = useCardBack();
+  const backId = normalizeCardBack(
+    back ??
+      (displayMode === "players" && ownerBack !== undefined
+        ? ownerBack
+        : cardBack),
+  );
   const className = `card ${small ? "card-small" : ""} ${selected ? "selected" : ""} ${indexed ? "indexed-card" : ""} ${card && ["hearts", "diamonds"].includes(card.suit) ? "red" : ""} ${card?.wild ? "wild" : ""}`;
   const suit = card
     ? suits[card.suit as keyof typeof suits] || suits.joker
@@ -80,13 +92,13 @@ export function Card({
     <>
       <img
         className="card-back light-back"
-        src={asset(`cards/card-back-light${small ? "-mini" : ""}.svg`)}
+        src={cardBackAsset(backId, "light", small)}
         alt=""
         draggable="false"
       />
       <img
         className="card-back dark-back"
-        src={asset(`cards/card-back-dark${small ? "-mini" : ""}.svg`)}
+        src={cardBackAsset(backId, "dark", small)}
         alt=""
         draggable="false"
       />
@@ -98,6 +110,7 @@ export function Card({
       key={card?.id ?? "back"}
       type="button"
       className={className}
+      data-card-back={card ? undefined : backId}
       aria-label={card ? cardName(card) : "Face-down card"}
       aria-pressed={selected}
       onClick={onClick}
@@ -109,6 +122,7 @@ export function Card({
     <div
       key={card?.id ?? "back"}
       className={className}
+      data-card-back={card ? undefined : backId}
       role="img"
       aria-label={card ? cardName(card) : "Face-down card"}
     >

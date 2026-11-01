@@ -4,8 +4,18 @@ export type AccountUser = {
   profile_icon?: string;
   email?: string;
   email_verified?: boolean;
+  card_backs?: { handandfoot?: string };
+  card_back_display?: { handandfoot?: string };
 };
-export type ProfileUpdate = { profile_icon?: string; email?: string };
+export type ProfileUpdate = {
+  profile_icon?: string;
+  email?: string;
+  card_back?: {
+    game: "handandfoot";
+    design?: string;
+    display?: "uniform" | "players";
+  };
+};
 export type AccountSession = {
   user: AccountUser | null;
   csrf_token: string;

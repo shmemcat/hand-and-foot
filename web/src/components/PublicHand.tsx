@@ -18,6 +18,7 @@ export function PublicHand({
   drawKey,
   cards,
   handTabs,
+  ownerBack,
 }: {
   playerId: string;
   title: string;
@@ -28,6 +29,7 @@ export function PublicHand({
   drawKey?: string;
   cards?: Face[];
   handTabs?: ReactNode;
+  ownerBack?: string;
 }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(count / 10));
@@ -69,7 +71,7 @@ export function PublicHand({
               data-concealed-hidden={slot.hidden}
               data-concealed-leaving={slot.leaving}
             >
-              <Card card={cards?.[start + index]} />
+              <Card card={cards?.[start + index]} ownerBack={ownerBack} />
             </div>
           ))}
         </div>

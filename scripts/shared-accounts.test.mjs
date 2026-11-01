@@ -122,6 +122,13 @@ test(
       );
       cookies.set("cards_session", "another-preview-account-cookie");
       await account(hand, "profile", { profile_icon: "cat" });
+      await account(hand, "profile", {
+        card_back: {
+          game: "handandfoot",
+          design: "fern-sprig",
+          display: "players",
+        },
+      });
       for (const base of [
         gateway,
         ...roles.map((role) => stack.webBase(role)),
@@ -130,6 +137,9 @@ test(
         assert.equal(state.user.id, login.user.id);
         assert.equal(state.user.name, username);
         assert.equal(state.user.profile_icon, "cat");
+        assert.equal(state.user.card_backs.handandfoot, "fern-sprig");
+        assert.equal(state.user.card_back_display.handandfoot, "players");
+        assert.equal(state.user.card_backs.golf, "argyle");
       }
       // Exercise each game's own private cookie reader, not just its account proxy.
       assert.equal(
@@ -154,6 +164,7 @@ test(
       assert.equal(room.hostId, guestLobby.hostId);
       assert.equal(room.waitingPlayers[0].id, guestLobby.viewerId);
       assert.equal(room.players[0].profileIcon, "cat");
+      assert.equal(room.players[0].cardBack, "fern-sprig");
       assert.deepEqual(
         (await call(hand, "/api/hand-and-foot/active")).rooms.map(
           (item) => item.code,
@@ -179,6 +190,10 @@ test(
       );
       await account(hand, "session");
       await account(hand, "login", { username, password });
+      assert.equal(
+        (await account(hand, "session")).user.card_backs.handandfoot,
+        "fern-sprig",
+      );
       assert.equal(
         (await call(hand, `/api/hand-and-foot/rooms/${room.code}`)).viewerId,
         room.viewerId,

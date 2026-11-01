@@ -13,6 +13,7 @@ import { Card } from "../components/Card";
 import { ClosingBooks } from "../components/ClosingBooks";
 import { ScoreHalo } from "../components/ScoreHalo";
 import { ScoreFlightClip } from "../components/ScoreFlightClip";
+import { ScoreCount } from "../components/ScoreCount";
 import {
   BOOK_CLOSE_MS,
   BOOK_DESCEND_MS,
@@ -93,6 +94,7 @@ export function ScoringPreview() {
   const previousHeld = useRef(new Set<string>());
   const animate = useRef(false);
   const [flights, setFlights] = useState<Flight[]>([]);
+  const [countPending, setCountPending] = useState(false);
   const [openingFlight, setOpeningFlight] = useState<BookClosingFlight | null>(
     null,
   );
@@ -106,6 +108,7 @@ export function ScoringPreview() {
     const change = () => {
       setReduced(media.matches);
       setFlights([]);
+      setCountPending(false);
       setOpeningFlight(null);
     };
     media.addEventListener("change", change);
@@ -137,6 +140,11 @@ export function ScoringPreview() {
       }
     sources.current = captured;
     animate.current = motion && !reduced;
+    setCountPending(
+      motion &&
+        !reduced &&
+        beats[next].transfers.some((move) => move.target === "count"),
+    );
     if (!motion) setNumberKey((value) => value + 1);
     setFlights([]);
     setOpeningFlight(null);
@@ -275,10 +283,15 @@ export function ScoringPreview() {
       });
     });
     setFlights(next);
+    if (!next.some((flight) => flight.transfer.target === "count"))
+      setCountPending(false);
   }, [step, replay, reduced]);
   useEffect(() => {
     if (!flights.length) return;
-    const clear = () => setFlights([]);
+    const clear = () => {
+      setFlights([]);
+      setCountPending(false);
+    };
     const timer = window.setTimeout(
       clear,
       (Math.max(...flights.map((flight) => flight.duration + flight.delay)) +
@@ -318,6 +331,7 @@ export function ScoringPreview() {
   function play() {
     if (playing) {
       setFlights([]);
+      setCountPending(false);
       setOpeningFlight(null);
     }
     if (finalStep) {
@@ -379,30 +393,16 @@ export function ScoringPreview() {
     </div>
   );
   const tally = (
-    <div
-      className="score-running-count"
-      data-score-target="count"
-      role="group"
-      aria-label="Running round score"
-    >
-      <span>ROUND COUNT</span>
-      <strong>
-        <AnimatedNumber key={numberKey} value={beat.base + beat.cardValue} />
-      </strong>
-      <small>
-        {["ready", "gather", "pair", "break", "uncovered", "return"].includes(
-          beat.kind,
-        )
-          ? `${beat.remaining} pts left to reconcile`
-          : `${beat.base.toLocaleString()} base ${beat.cardValue < 0 ? "−" : "+"} ${Math.abs(beat.cardValue).toLocaleString()} cards`}
-      </small>
-      {beat.delta !== undefined && ["bonus", "count"].includes(beat.kind) && (
-        <span className="score-tally-add" key={`${replay}-${step}`}>
-          {signed(beat.delta)}
-        </span>
-      )}
-    </div>
+    <ScoreCount
+      key={numberKey}
+      beat={beat}
+      beatKey={`${scenarioId}-${replay}-${step}`}
+      pending={countPending}
+    />
   );
+  const lastCountFlight = flights
+    .filter((flight) => flight.transfer.target === "count")
+    .at(-1);
 
   return (
     <div
@@ -594,6 +594,13 @@ export function ScoringPreview() {
             data-score-flight-id={flight.transfer.card.id}
             aria-hidden="true"
             key={`${scenarioId}-${replay}-${step}-${flight.transfer.card.id}`}
+            onAnimationEnd={(event) => {
+              if (
+                event.target === event.currentTarget &&
+                flight === lastCountFlight
+              )
+                setCountPending(false);
+            }}
             style={
               {
                 left: flight.from.left,

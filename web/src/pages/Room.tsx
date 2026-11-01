@@ -238,6 +238,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
   const [leavingScores, setLeavingScores] = useState(false);
   const [totalsLanded, setTotalsLanded] = useState(false);
   const [scoringBoardHeight, setScoringBoardHeight] = useState(0);
+  const [countedScoreKey, setCountedScoreKey] = useState("");
   const settlingScore = useRef("");
   const [removed, setRemoved] = useState(false);
   const refreshing = useRef<{ code: string } | null>(null);
@@ -1233,6 +1234,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
         }
         count={footerFootSource?.count ?? footerPlayer.footCount}
         owner={viewingOwnHand ? "Your" : `${footerPlayer.name}’s`}
+        ownerBack={footerPlayer.cardBack ?? "single-leaves"}
       />
     ) : null;
   const ownHandTitle =
@@ -1594,7 +1596,16 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             </div>
           </div>
           {scoring.beat && !mobileGame && (
-            <ScoreCount beat={scoring.beat} beatKey={scoring.key} />
+            <ScoreCount
+              beat={scoring.beat}
+              beatKey={scoring.key}
+              pending={
+                countedScoreKey !== scoring.key &&
+                !opening.reduced &&
+                !scoring.paused &&
+                viewed === viewer?.team
+              }
+            />
           )}
           {rehearsal?.headerSummary ?? (
             <GameMenu
@@ -1872,6 +1883,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             }
             foot={footerFoot}
             publicPlayerId={viewingOwnHand ? undefined : footerPlayer?.id}
+            ownerBack={footerPlayer?.cardBack ?? "single-leaves"}
             publicSlots={
               viewingOwnHand || review ? undefined : concealedHand.slots
             }
@@ -1926,7 +1938,16 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
                     aria-atomic="true"
                   >
                     {mobileGame && scoring.beat ? (
-                      <ScoreCount beat={scoring.beat} beatKey={scoring.key} />
+                      <ScoreCount
+                        beat={scoring.beat}
+                        beatKey={scoring.key}
+                        pending={
+                          countedScoreKey !== scoring.key &&
+                          !opening.reduced &&
+                          !scoring.paused &&
+                          viewed === viewer?.team
+                        }
+                      />
                     ) : mobileGame && footMotion.active ? (
                       <span className="mobile-target-hint">
                         Picking up your foot…
@@ -2295,6 +2316,7 @@ export function Room({ rehearsal }: { rehearsal?: RoomRehearsal } = {}) {
             ) : (
               <PublicHand
                 playerId={footerPlayer!.id}
+                ownerBack={footerPlayer?.cardBack ?? "single-leaves"}
                 title={footerTitle}
                 count={
                   revealedCards?.length ??
@@ -2468,6 +2490,7 @@ ${selector} > .meld-kind, ${selector} > .meld-count {opacity:0;transition:none;}
             reduced={opening.reduced}
             paused={scoring.paused}
             enabled={viewed === viewer?.team}
+            onCounted={setCountedScoreKey}
           />
         )}
         {(opening.error || turnReady.error) && (

@@ -1,7 +1,8 @@
-import { useRef } from "react";
-import { fireEvent, render } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { useRef, useState } from "react";
+import { act, fireEvent, render } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ScoreMotion } from "./ScoreMotion";
+import { ScoreCount } from "./ScoreCount";
 import { ScoreFlightClip } from "./ScoreFlightClip";
 import {
   SCORING_SCENARIOS,
@@ -115,3 +116,90 @@ it("keeps the hand boundary while its final card leaves and removes the row", ()
   ).toBe(before);
   expect(before).toContain("380px 470px");
 });
+
+afterEach(() => vi.useRealTimers());
+
+const finishFlight = (node: Element) =>
+  fireEvent(
+    node,
+    // React selects the prefixed event when jsdom lacks AnimationEvent.
+    new Event(
+      "AnimationEvent" in window ? "animationend" : "webkitAnimationEnd",
+      { bubbles: true },
+    ),
+  );
+
+it.each(["arrival", "scroll", "timeout"])(
+  "holds the card addition until flight completion (%s)",
+  (completion) => {
+    vi.useFakeTimers();
+    function Counting({ beat, index }: { beat: ScoreBeat; index: number }) {
+      const board = useRef<HTMLDivElement>(null);
+      const [counted, setCounted] = useState("");
+      const key = String(index);
+      return (
+        <div ref={board} className="game-page">
+          {beat.melds
+            .flatMap((meld) => meld.cards)
+            .map((card) => (
+              <div data-card-id={card.id} key={card.id}>
+                <div className="card" />
+              </div>
+            ))}
+          <ScoreCount beat={beat} beatKey={key} pending={counted !== key} />
+          <ScoreMotion
+            board={board}
+            beat={beat}
+            beatKey={key}
+            reduced={false}
+            paused={false}
+            onCounted={setCounted}
+          />
+        </div>
+      );
+    }
+    const beats = scoringSequence(
+      SCORING_SCENARIOS.find((scenario) => scenario.id === "no-debt")!,
+    );
+    const index = beats.findIndex(
+      (beat) => beat.kind === "count" && beat.transfers.length > 1,
+    );
+    const beat = beats[index];
+    const before = beat.base + beat.cardValue - beat.delta!;
+    const view = render(<Counting beat={beats[index - 1]} index={index - 1} />);
+    view.rerender(<Counting beat={beat} index={index} />);
+    const total = () =>
+      view.container.querySelector(
+        '.score-running-count strong [aria-hidden="true"]',
+      )!.textContent;
+    const target = () =>
+      view.container.querySelector(".score-running-count strong .sr-only")!
+        .textContent;
+    const flights = [
+      ...view.container.querySelectorAll<HTMLElement>(".score-card-flight"),
+    ];
+    expect(flights).toHaveLength(beat.transfers.length);
+    act(() => vi.advanceTimersByTime(460));
+    finishFlight(flights[0]);
+    finishFlight(flights.at(-1)!.querySelector(".card")!);
+    expect(total()).toBe(before.toLocaleString());
+    expect(target()).toBe(before.toLocaleString());
+    expect(
+      view.container.querySelector(".score-running-count > small")!.textContent,
+    ).toContain(`${(beat.cardValue - beat.delta!).toLocaleString()} cards`);
+    expect(view.container.querySelector(".score-tally-add")).toBeNull();
+
+    if (completion === "arrival") finishFlight(flights.at(-1)!);
+    else if (completion === "scroll") fireEvent.scroll(window);
+    else
+      act(() =>
+        vi.advanceTimersByTime(600 + (flights.length - 1) * 35 + 40 - 460),
+      );
+    expect(target()).toBe((beat.base + beat.cardValue).toLocaleString());
+    expect(view.container.querySelector(".score-tally-add")!.textContent).toBe(
+      `+${beat.delta}`,
+    );
+    act(() => vi.advanceTimersByTime(500));
+    expect(total()).toBe((beat.base + beat.cardValue).toLocaleString());
+  },
+);

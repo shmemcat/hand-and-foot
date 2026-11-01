@@ -7,7 +7,7 @@ import {
   type RefObject,
 } from "react";
 import type { Card, Snapshot } from "../types";
-import { afterCardAnimations } from "../lib/cardAnimations";
+import { afterCardAnimations, isPileScrollClamp } from "../lib/cardAnimations";
 
 export const MELD_FLIGHT_MS = 440;
 export type CardPosition = {
@@ -330,6 +330,7 @@ export function useMeldMotion(
       if (current.current) cancel();
     };
     const scroll = (event: Event) => {
+      if (isPileScrollClamp(event)) return;
       // A shrinking hand can clamp its horizontal scroll during confirmation.
       // The flight already owns its source positions; its table targets stay put.
       if (

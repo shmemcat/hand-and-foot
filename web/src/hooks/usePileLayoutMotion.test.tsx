@@ -247,31 +247,24 @@ function ClosingRow({
 }
 
 it.each([0, 1, 2])(
-  "keeps survivors visible when closing pile %s of three, then restores the row clip",
+  "slides survivors from their original columns when closing pile %s of three",
   (closingIndex) => {
     const view = render(<ClosingRow closingIndex={closingIndex} />);
-    const row = view.container.querySelector<HTMLElement>(".pile-row-content")!;
     view.rerender(<ClosingRow closed closingIndex={closingIndex} />);
     expect(moves).toHaveLength(2);
     expect(moves.map((move) => move.frames[0].transform)).toEqual([
       `translate(${closingIndex === 0 ? 98 : -98}px, 0px)`,
       `translate(${closingIndex === 2 ? -98 : 98}px, 0px)`,
     ]);
-    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("98px");
-    act(() => moves[0].onfinish!());
-    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("98px");
-    act(() => moves[1].onfinish!());
-    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("");
   },
 );
 
 it.each(["reduced", "board"])(
-  "clears the expanded row clip when a pile slide is canceled by %s",
+  "cancels surviving pile slides when interrupted by %s",
   (reason) => {
     const view = render(<ClosingRow />);
-    const row = view.container.querySelector<HTMLElement>(".pile-row-content")!;
     view.rerender(<ClosingRow closed paused />);
-    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("98px");
+    expect(moves).toHaveLength(2);
     expect(moves.every((move) => move.playState === "paused")).toBe(true);
     view.rerender(
       <ClosingRow
@@ -280,7 +273,6 @@ it.each(["reduced", "board"])(
         scope={reason === "board" ? "other-board" : "round-1"}
       />,
     );
-    expect(row.style.getPropertyValue("overflow-clip-margin")).toBe("");
     expect(moves.every((move) => move.cancel.mock.calls.length === 1)).toBe(
       true,
     );
@@ -430,6 +422,25 @@ it.each(["tableau", "tableau-content"])(
     act(() => resize());
     expect(moves).toHaveLength(1);
     expect(moves[0].cancel).not.toHaveBeenCalled();
+  },
+);
+
+it.each([1, 0.85])(
+  "preserves a scrolled pile's screen position when its row shrinks at scale %s",
+  (zoom) => {
+    const view = render(<Board left={300 * zoom} zoom={zoom} />);
+    const strip = view.container.querySelector<HTMLElement>(".open-piles")!;
+    strip.scrollLeft = rowScroll = 100;
+    // Scrolling alone need not render Room before the next confirmed play.
+    fireEvent.scroll(strip);
+    Object.defineProperties(strip, {
+      scrollWidth: { configurable: true, value: 200 },
+      clientWidth: { configurable: true, value: 140 },
+    });
+    strip.scrollLeft = rowScroll = 60;
+    view.rerender(<Board left={250 * zoom} zoom={zoom} />);
+    expect(moves).toHaveLength(1);
+    expect(moves[0].frames[0].transform).toBe("translate(10px, 0px)");
   },
 );
 

@@ -7,10 +7,12 @@ export function FootPreview({
   topCard,
   count,
   owner = "Your",
+  ownerBack,
 }: {
   topCard: Face | null;
   count: number;
   owner?: string;
+  ownerBack?: string;
 }) {
   const tooltipId = useId();
   const [hovered, setHovered] = useState(false);
@@ -32,14 +34,14 @@ export function FootPreview({
       onBlur={() => setFocused(false)}
     >
       <span className="foot-stack" aria-hidden="true">
-        <Card small />
-        <Card small />
+        <Card small ownerBack={ownerBack} />
+        <Card small ownerBack={ownerBack} />
         {topCard ? (
           <span className={`card foot-rank${red ? " red" : ""}`}>
             {topCard.rank === "Joker" ? <Icon name="joker" /> : topCard.rank}
           </span>
         ) : (
-          <Card small />
+          <Card small ownerBack={ownerBack} />
         )}
       </span>
       <span>Foot · {count} cards</span>

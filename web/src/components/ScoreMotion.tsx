@@ -59,6 +59,7 @@ export function ScoreMotion({
   reduced,
   paused,
   enabled = true,
+  onCounted,
 }: {
   board: RefObject<HTMLDivElement | null>;
   beat: ScoreBeat;
@@ -66,6 +67,7 @@ export function ScoreMotion({
   reduced: boolean;
   paused: boolean;
   enabled?: boolean;
+  onCounted?: (beatKey: string) => void;
 }) {
   const prior = useRef<{
     key: string;
@@ -138,6 +140,7 @@ export function ScoreMotion({
     if (old?.key !== beatKey) {
       setFlights([]);
       setOpening(null);
+      let counting = false;
       if (old && enabled && !reduced && !document.hidden) {
         if (beat.kind === "break") {
           const pile = root.querySelector(
@@ -257,8 +260,10 @@ export function ScoreMotion({
             });
           });
           setFlights(next);
+          counting = next.some((flight) => flight.transfer.target === "count");
         }
       }
+      if (!counting) onCounted?.(beatKey);
     }
     const positions = new Map<string, Box>(),
       covers = new Set<string>();
@@ -292,6 +297,7 @@ export function ScoreMotion({
     const clear = () => {
       setFlights([]);
       setOpening(null);
+      onCounted?.(beatKey);
     };
     const visibility = () => {
       if (document.hidden) clear();
@@ -316,13 +322,17 @@ export function ScoreMotion({
       window.removeEventListener("touchstart", clear);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [flights, opening]);
+  }, [flights, opening, beatKey, onCounted]);
   useEffect(() => {
     if (reduced || !enabled || paused) {
       setFlights([]);
       setOpening(null);
+      onCounted?.(beatKey);
     }
-  }, [reduced, enabled, paused]);
+  }, [reduced, enabled, paused, beatKey, onCounted]);
+  const lastCountFlight = flights
+    .filter((flight) => flight.transfer.target === "count")
+    .at(-1);
   const moving = [
     ...flights.map(({ transfer }) => transfer.card),
     ...(opening?.cards.map(({ card }) => card) ?? []),
@@ -362,6 +372,13 @@ export function ScoreMotion({
             data-score-flight-id={flight.transfer.card.id}
             aria-hidden="true"
             key={`${beatKey}-${flight.transfer.card.id}`}
+            onAnimationEnd={(event) => {
+              if (
+                event.target === event.currentTarget &&
+                flight === lastCountFlight
+              )
+                onCounted?.(beatKey);
+            }}
             style={
               {
                 left: flight.from.left - origin.left,

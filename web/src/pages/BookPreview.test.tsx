@@ -5,6 +5,7 @@ import { Room } from "./Room";
 import { BookPreview, bookExample, type BookExample } from "./BookPreview";
 import { BOOK_CLOSE_MS } from "../hooks/useBookClosing";
 import { MELD_FLIGHT_MS } from "../hooks/useMeldMotion";
+import { markPileScrollClamp } from "../lib/cardAnimations";
 import type { Snapshot } from "../types";
 
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ user: null }) }));
@@ -119,6 +120,8 @@ it.each([
   "finish-wild",
   "overfull",
   "three",
+  "three-first",
+  "three-last",
   "burst",
 ] as BookExample[])(
   "keeps the desktop height under CSS control while closing %s",
@@ -195,6 +198,25 @@ it("lands all seven cards in a new open pile before gathering and raising the bo
     view.container.querySelector('.closed-books [data-meld-id="closing-book"]'),
   ).toBeTruthy();
   advance(BOOK_CLOSE_MS);
+  expect(view.container.querySelector(".book-closing-layer")).toBeNull();
+});
+
+it("keeps incoming cards and book closing running through a row's automatic scroll clamp", () => {
+  const view = render(room(bookExample("crowded", false)));
+  view.rerender(room(bookExample("crowded", true)));
+  const row = view.container.querySelector<HTMLElement>(".open-piles")!;
+  row.scrollLeft = 60;
+  markPileScrollClamp(row);
+  fireEvent.scroll(row);
+  expect(view.container.querySelector(".meld-flight-layer")).toBeTruthy();
+  advance(MELD_FLIGHT_MS);
+  expect(view.container.querySelector(".book-closing-layer")).toBeTruthy();
+  markPileScrollClamp(row);
+  fireEvent.scroll(row);
+  expect(view.container.querySelector(".book-closing-layer")).toBeTruthy();
+  // Actual navigation still settles the animation immediately.
+  row.scrollLeft = 61;
+  fireEvent.scroll(row);
   expect(view.container.querySelector(".book-closing-layer")).toBeNull();
 });
 

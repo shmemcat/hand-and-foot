@@ -36,6 +36,7 @@ def compact(data):
                     "accountId",
                     "name",
                     "profileIcon",
+                    "cardBack",
                     "bot",
                     "lastSeen",
                     "away",

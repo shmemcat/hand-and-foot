@@ -1,16 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import { palettes, CENTER_ART_SCALE } from "./card-back-palettes.mjs";
 
 // Review collection; run with `node scripts/generate-card-back-concepts.mjs`.
 const destination = new URL("../web/public/card-back-preview/", import.meta.url);
 mkdirSync(new URL("assets/", destination), { recursive: true });
 
-const palettes = [
-  { name: "Rose clay / Petal", light: { base: "#C1948A", ink: "#51303A", gold: "#ECD2A0", soft: "#E9BDB4" }, dark: { base: "#4B303B", ink: "#E5B1B6", gold: "#C7AA6A", soft: "#76515F" } },
-  { name: "Parchment / Burgundy", light: { base: "#E9DCCB", ink: "#613A43", gold: "#A6874C", soft: "#D0AAA2" }, dark: { base: "#572D3B", ink: "#F1DAD0", gold: "#D2B477", soft: "#865162" } },
-  { name: "Blush / Plum", light: { base: "#DCAAA2", ink: "#613A43", gold: "#FAE2B5", soft: "#EFC9BC" }, dark: { base: "#402A33", ink: "#DCAAA2", gold: "#C7AA6A", soft: "#704653" } },
-  { name: "Oat / Wine", light: { base: "#D5BEA5", ink: "#613A43", gold: "#FAE4BD", soft: "#E9D6BB" }, dark: { base: "#633B47", ink: "#F4E8DD", gold: "#D2B477", soft: "#95616C" } },
-  { name: "Dusty rose / Cocoa", light: { base: "#CFA8A4", ink: "#51303A", gold: "#F6DBAB", soft: "#E8C4B9" }, dark: { base: "#392A2F", ink: "#E4B5AE", gold: "#C7AA6A", soft: "#70515A" } },
-];
 const g = (transform, art) => `<g transform="${transform}">${art}</g>`;
 const path = (d, color, w = 2.6, fill = "none") => `<path d="${d}" stroke="${color}" stroke-width="${w}" fill="${fill}" stroke-linecap="round" stroke-linejoin="round"/>`;
 const shape = (d, color) => `<path d="${d}" fill="${color}"/>`;
@@ -75,6 +69,42 @@ const designs = [
   { id: "30-bound-together", name: "Bound together", family: "Books", palette: 4, description: "Two interlocked books tied with a continuous gold ribbon, joining the card and library themes.", draw: p => twoWay(g("translate(-12 -27) rotate(-18)",closedBook(0,0,p,.94)) + path("M-42-8Q-8-40 16-6Q38 14 8 20Q-20 24-7-5",p.gold,3)) + centerGem(p) },
 ];
 
+const sparkle = (x, y, r, p) => g(`translate(${x} ${y})`,shape(`M0 ${-r}Q1-1 ${r} 0Q1 1 0 ${r}Q-1 1 ${-r} 0Q-1-1 0 ${-r}Z`,p.gold));
+const leaf = (x,y,rotation,p,scale=1) => g(`translate(${x} ${y}) rotate(${rotation}) scale(${scale})`,path("M0 0Q-17-6-11-25Q9-18 0 0ZM0 0-8-19",p.gold,2,p.soft));
+function spread(p) {
+  return path("M0-27Q-23-42-49-32V28Q-23 18 0 36Q23 18 49 28V-32Q23-42 0-27Z",p.ink,3,p.base)
+    + path("M0-27V36M-41-23Q-23-29-8-20M-41-10Q-23-16-8-7M-41 3Q-23-3-8 6M8-20Q23-29 41-23M8-7Q23-16 41-10M8 6Q23-3 41 3",p.gold,2.2)
+    + path("M-55-25V35Q-24 27 0 43Q24 27 55 35V-25",p.ink,2.2);
+}
+function spine(x,y,w,h,p,lean=0) {
+  return g(`translate(${x} ${y}) rotate(${lean} 0 ${h/2})`,rect(-w/2,-h/2,w,h,2,p.ink,p.base,2.5)
+    + path(`M${-w/2} ${-h/2+9}H${w/2}M${-w/2} ${h/2-9}H${w/2}`,p.gold,2)
+    + diamond(0,0,Math.min(w*.24,4),p.gold));
+}
+const libraryDesigns = [
+  { id: "31-grand-folio", name: "Grand folio", palette: 1, description: "One generous open folio, with broad curved pages and simple gold lettering lines.", draw: p => spread(p) + smallRule(-62,p) + smallRule(68,p) },
+  { id: "32-turning-leaf", name: "Turning leaf", palette: 0, description: "A single page caught mid-turn, sweeping upward from an open book.", draw: p => g("translate(0 14) scale(.93)",spread(p)) + path("M0-11Q-5-50 20-66Q44-48 40-9Q20-18 0-11Z",p.gold,2.8,p.soft) + path("M7-19Q10-43 20-57M14-28Q24-36 32-30M12-39Q24-47 32-40",p.ink,2.1) },
+  { id: "33-concertina", name: "Concertina", palette: 2, description: "An accordion-fold book opens into a crisp, sculptural zigzag.", draw: p => path("M-60-34-36-44-12-30 12-44 36-30 60-40V33L36 43 12 29-12 43-36 29-60 39Z",p.ink,2.8,p.base) + path("M-36-44V29M-12-30V43M12-44V29M36-30V43",p.gold,2.5) + path("M-53-17-43-21M-53-6-43-10M-29-23-19-17M-29-12-19-6M-5-13 5-18M-5-2 5-7M19-23 29-17M19-12 29-6M43-13 53-17M43-2 53-6",p.ink,1.9) + twoWay(diamond(0,-69,5,p.gold)) },
+  { id: "34-ribboned-chapters", name: "Ribboned chapters", palette: 4, description: "A closed volume tied with a generous ribbon bow, like a treasured gift.", draw: p => rect(-36,-55,72,110,6,p.ink,p.base,3) + path("M-25-55V55M-36 40H36M-31 47H31",p.ink,2.2) + path("M-2-55V55M8-55V55M-36-3H36M-36 7H36",p.gold,3) + path("M3 2Q-36-30-25-38Q-6-48 3 2Q27-41 39-28Q50-12 3 2M3 2-15 25M3 2 27 23",p.gold,2.8,p.soft) + circle(3,2,4,p.gold,p.gold) },
+  { id: "35-library-window", name: "Library window", palette: 3, description: "Four gilded book spines stand inside a tall arched library window.", draw: p => path("M-48 55V-28A48 48 0 0 1 48-28V55Z",p.gold,3) + path("M-39-26Q0-62 39-26M-48 13H48M-48 55H48",p.gold,2.3) + spine(-28,34,13,39,p) + spine(-10,32,14,43,p) + spine(9,35,15,37,p) + spine(28,31,13,45,p) + diamond(0,-35,10,p.ink) + path("M0-16V5",p.ink,2.5) },
+  { id: "36-between-bookends", name: "Between bookends", palette: 1, description: "A small shelf of distinct book spines, held between sculpted bookends.", draw: p => path("M-58 35V-19Q-58-33-45-33V35H-58M45 35V-19Q45-33 58-33V35H45M-61 41H61",p.gold,3) + spine(-31,3,15,61,p) + spine(-12,-3,17,73,p) + spine(8,4,16,59,p) + spine(27,2,14,63,p,-9) + smallRule(-65,p) + smallRule(66,p) },
+  { id: "37-midnight-reader", name: "Midnight reader", palette: 2, description: "A crescent moon and three small stars over an open book.", draw: p => g("translate(0 20) scale(.9)",spread(p)) + path("M12-77A25 25 0 1 0 29-34A26 26 0 0 1 12-77Z",p.gold,2.4,p.soft) + sparkle(-40,-43,5,p) + sparkle(38,-59,4,p) + sparkle(-23,-77,3,p) },
+  { id: "38-by-candlelight", name: "By candlelight", palette: 0, description: "A warm little candle rises behind an open book, with a gold pool of light.", draw: p => circle(0,-32,40,p.gold,"none",1.6) + rect(-11,-46,22,47,3,p.ink,p.soft,2.6) + path("M-11-39Q-4-31 0-39Q5-48 11-40M0-46V-55",p.gold,2.3) + path("M0-57Q-15-65 0-81Q15-65 0-57Z",p.gold,2.5,p.soft) + g("translate(0 25) scale(.88)",spread(p)) },
+  { id: "39-secret-library", name: "Secret library", palette: 4, description: "An antique key crosses a small locked book, with a single bold gold key bow.", draw: p => g("rotate(-12)",rect(-31,-51,62,102,5,p.ink,p.base,3) + path("M-21-51V51M-31 36H31M-26 43H26",p.gold,2.2) + rect(-10,-31,28,44,3,p.gold,"none",2)) + g("translate(4 9) rotate(35)",circle(0,-38,14,p.gold,p.base,3) + circle(0,-38,5,p.ink) + path("M0-24V41H16V30H8V19H0M-5 41H5",p.gold,3.5)) },
+  { id: "40-paper-heart", name: "Paper heart", palette: 3, description: "Two curled leaves of a book meet to form a heart, with a delicate spine below.", draw: p => path("M0 44C-18 22-53-1-49-28C-45-53-12-56 0-30C12-56 45-53 49-28C53-1 18 22 0 44Z",p.ink,3,p.base) + path("M0 44V-30M-9 25Q-40-6-36-27Q-32-41-16-29M9 25Q40-6 36-27Q32-41 16-29M-11 8Q-29-10-26-23M11 8Q29-10 26-23M0 44V62",p.gold,2.6) + diamond(0,68,5,p.gold) },
+  { id: "41-literary-butterfly", name: "Literary butterfly", palette: 1, description: "Four folded pages become butterfly wings, with the spine as a slender gold body.", draw: p => [-1,1].map(side => g(`scale(${side} 1)`,path("M4-4Q13-49 53-57Q62-20 4-4ZM4 4Q26 0 49 26Q35 52 4 4Z",p.ink,2.7,p.base) + path("M9-9Q30-34 45-44M11-3Q34-18 49-31M10 9 37 28M15 17 32 33",p.gold,2.3))).join("") + path("M0-25V32M0-22Q-5-39-14-40M0-22Q5-39 14-40",p.gold,3) + diamond(0,0,7,p.gold) },
+  { id: "42-story-tree", name: "Story tree", palette: 0, description: "A branching story tree grows from an open book, with broad page-shaped leaves.", draw: p => path("M0 19V-55M0-18-26-39M0-3 28-23M0-32 22-52",p.ink,2.8) + leaf(-24,-37,-45,p,.9) + leaf(25,-22,68,p,.9) + leaf(20,-50,58,p,.85) + leaf(0,-53,0,p,.85) + g("translate(0 34) scale(.83)",spread(p)) },
+  { id: "43-pressed-pages", name: "Pressed pages", palette: 3, description: "A graceful pressed sprig rests across one open book.", draw: p => g("translate(0 13) scale(.96)",spread(p)) + path("M-17 39Q-7-17 23-67",p.gold,2.6) + leaf(-11,15,-54,p,.8) + leaf(0,-13,49,p,.85) + leaf(11,-39,-49,p,.82) + leaf(23,-64,20,p,.65) },
+  { id: "44-first-draft", name: "First draft", palette: 4, description: "A fountain-pen nib bridges two folded manuscript pages, like a tiny publisher’s mark.", draw: p => twoWay(path("M-43-59H16L34-41V-13H-43ZM16-59V-41H34M-32-45H3M-32-34H-6M-32-23H3",p.ink,2.5,p.base)) + g("rotate(28)",path("M0-44-18-10 0 42 18-10Z",p.gold,3,p.soft) + path("M0 42V-7M-18-10 0-20 18-10",p.ink,2.4) + circle(0,-11,4,p.ink,p.base,2.3)) },
+  { id: "45-library-cart", name: "Library cart", palette: 2, description: "A miniature library cart with two shelves of books and two little wheels.", draw: p => path("M-47 39V-59H-58M-47-41H43V39ZM-47-3H43M-47 44H43",p.gold,3) + spine(-31,-22,14,31,p) + spine(-12,-24,16,35,p) + spine(9,-21,13,29,p) + spine(27,-23,12,33,p,-10) + path("M-33 12H22Q29 12 29 19T22 26H-33M-33 31H33M-29 18H21",p.ink,2.5) + circle(-30,54,7,p.ink,p.base,2.8) + circle(29,54,7,p.ink,p.base,2.8) },
+  { id: "46-reading-hour", name: "Reading hour", palette: 1, description: "A pair of round reading glasses rests on an open book, with generous curves and few details.", draw: p => g("translate(0 5)",spread(p)) + circle(-23,-9,19,p.ink,p.base,3) + circle(23,-9,19,p.ink,p.base,3) + path("M-4-9Q0-17 4-9M-42-11-50-28M42-11 50-28",p.gold,3) + smallRule(-61,p) + diamond(0,69,5,p.gold) },
+  { id: "47-chapter-seal", name: "Chapter seal", palette: 0, description: "A tiny wax seal fastens a ribbon around a tilted book, with a heart impressed in the seal.", draw: p => g("rotate(-11)",rect(-35,-53,70,106,6,p.ink,p.base,3) + path("M-24-53V53M-35 37H35M-30 44H30",p.gold,2.2) + path("M-2-53V-8L8-15 18-8V-53M-2 53V11L8 19 18 11V53",p.gold,2.5,p.soft) + circle(8,0,17,p.gold,p.soft,3) + suit("heart",8,0,.62,p.ink)) },
+  { id: "48-marbled-volume", name: "Marbled volume", palette: 4, description: "A handsome hardback with flowing marbled-paper curves confined to its cover.", draw: p => rect(-36,-59,72,118,6,p.ink,p.base,3) + path("M-24-59V59M-36 43H36M-31 50H31",p.gold,2.2) + rect(-15,-43,39,68,2,p.gold,"none",2) + path("M-12-30Q16-48 20-25Q24-8-3-4Q-20 0 1 17M-12-17Q6-33 13-19Q18-11-5-6M-8 10Q11-3 21 8M-8-40Q-5-29 6-29M6 23Q17 14 21 20",p.ink,2.2) + diamond(5,34,4,p.gold) },
+  { id: "49-page-compass", name: "Page compass", palette: 2, description: "Four little open books radiate from one gold center, creating a compass of pages.", draw: p => repeat(4,i => g(`rotate(${i*90}) translate(0 -33) scale(.56)`,book(0,0,1,p))) + circle(0,0,12,p.gold,p.base,2.6) + centerGem(p) + twoWay(diamond(0,-81,4,p.gold)) },
+  { id: "50-storybook-castle", name: "Storybook castle", palette: 3, description: "A small fairytale castle rises from an open book, its towers finished with gold flags.", draw: p => path("M-35 9V-39L-24-52-13-39V-11H13V-39L24-52 35-39V9M-13-11V-37L0-51 13-37V9M-35-39H-13M13-39H35M-13-37H13M-24-52V-67L-9-61-24-56M24-52V-67L39-61 24-56M0-51V-73L14-67 0-62",p.gold,2.6,p.base) + path("M-26-27V-18M26-27V-18M0-28V-18",p.ink,3) + g("translate(0 34) scale(.85)",spread(p)) },
+].map(design => ({...design,family:"Books",collection:"library"}));
+designs.push(...libraryDesigns);
+
 function border(p, index) {
   const outer = rect(14,14,212,308,8,p.gold,"none",2.2);
   const corners = index % 3 === 1
@@ -86,7 +116,7 @@ function svg(design, theme, index) {
   const p = palettes[design.palette][theme];
   // Mirrored and radial compositions balance the designs in either orientation.
   const frame = border(p,index);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="336" viewBox="0 0 240 336" role="img" aria-labelledby="title"><title id="title">${design.name.replaceAll("&","&amp;")} — ${theme} card back</title><rect width="240" height="336" rx="15" fill="#FAF6EE"/><rect x="7" y="7" width="226" height="322" rx="10" fill="${p.base}"/>${frame}<g transform="translate(120 168)">${design.draw(p)}</g></svg>\n`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="336" viewBox="0 0 240 336" role="img" aria-labelledby="title"><title id="title">${design.name.replaceAll("&","&amp;")} — ${theme} card back</title><rect width="240" height="336" rx="15" fill="#FAF6EE"/><rect x="7" y="7" width="226" height="322" rx="10" fill="${p.base}"/>${frame}<g data-artwork="center" transform="translate(120 168) scale(${CENTER_ART_SCALE})">${design.draw(p)}</g></svg>\n`;
 }
 
 for (const [index, design] of designs.entries()) {

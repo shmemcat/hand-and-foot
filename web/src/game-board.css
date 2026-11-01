@@ -1145,6 +1145,7 @@
   }
   .game-page .board-carousel .pile-group {
     --pile-min-width: 126px;
+    --pile-padding: 6px;
     display: block;
     max-width: none;
     min-height: 0;
@@ -1153,17 +1154,16 @@
     overscroll-behavior-x: contain;
     scrollbar-width: thin;
     scrollbar-color: var(--emblem) transparent;
-    padding-inline: 6px;
+    padding-inline: var(--pile-padding);
   }
   .game-page .pile-row-content {
     display: flex;
     flex-wrap: nowrap;
     align-items: flex-start;
+    justify-content: safe center;
     gap: var(--pile-gap);
-    width: min(
-      100%,
-      calc(var(--pile-count) * (176px + var(--pile-gap)) - var(--pile-gap))
-    );
+    /* Keep the clip at the viewport edges as piles close and recenter. */
+    width: 100%;
     min-width: max(
       0px,
       calc(
@@ -1172,8 +1172,11 @@
       )
     );
     margin-inline: auto;
-    /* Moving piles must not enlarge the row's resting scrollable bounds. */
-    overflow: clip;
+    /* Vertical reflows can paint freely without widening horizontal scrolling. */
+    overflow-x: clip;
+    overflow-y: visible;
+    /* Rotating corners can use the strip's padding, within its scroll bounds. */
+    overflow-clip-margin: var(--pile-padding);
   }
   .game-page .board-carousel .closed-books {
     --pile-min-width: 78px;
@@ -1190,9 +1193,22 @@
   }
   .game-page .pile-row-content > .meld-pile,
   .game-page .pile-row-content > .red-three-pile {
-    flex: 1 0 var(--pile-min-width);
-    min-width: var(--pile-min-width);
+    /* Pending books can share the row with new melds before they rise. The
+       resting row minimum still reserves full columns for scrollable rows. */
+    flex: 1 1 var(--pile-min-width);
+    min-width: 0;
     max-width: 176px;
+  }
+  /* Temporary columns must not turn surviving six-card piles upright and make
+     them taller than the fixed open-meld viewport. */
+  .game-page .six-card-meld .indexed-stack {
+    width: 106px;
+  }
+  .game-page .six-card-meld .meld-card-layers {
+    height: calc(var(--stack-height) - 25px);
+  }
+  .game-page .six-card-meld .meld-card-layer:last-child > .card {
+    transform: translateY(-10px) rotate(90deg);
   }
   .game-page .closed-books.dense-books .meld-kind {
     min-height: 0;

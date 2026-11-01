@@ -5,6 +5,7 @@ import {
   useRef,
   type RefObject,
 } from "react";
+import { markPileScrollClamp } from "../lib/cardAnimations";
 
 export const PILE_SHIFT_MS = 420;
 type Box = { left: number; top: number };
@@ -13,8 +14,9 @@ type Pile = {
   box: Box;
   row: string;
   zoom: number;
+  strip: HTMLElement | null;
+  scrollLeft: number;
   animation?: Animation;
-  clipMargin?: number;
 };
 type Options = {
   scope: string;
@@ -42,20 +44,6 @@ export function usePileLayoutMotion(
   const latest = useRef(options);
   latest.current = options;
   const previous = useRef(new Map<string, Pile>());
-  const clippingRows = useRef(new Set<HTMLElement>());
-  const updateClipping = useCallback(() => {
-    const margins = new Map<HTMLElement, number>();
-    for (const pile of previous.current.values()) {
-      const row = pile.node.closest<HTMLElement>(".pile-row-content");
-      if (row && pile.animation && pile.clipMargin)
-        margins.set(row, Math.max(margins.get(row) ?? 0, pile.clipMargin));
-    }
-    for (const row of clippingRows.current)
-      if (!margins.has(row)) row.style.removeProperty("overflow-clip-margin");
-    for (const [row, margin] of margins)
-      row.style.setProperty("overflow-clip-margin", `${Math.ceil(margin)}px`);
-    clippingRows.current = new Set(margins.keys());
-  }, []);
   const scope = useRef("");
   const observer = useRef<ResizeObserver | null>(null);
   const observed = useRef<HTMLElement | null>(null);
@@ -102,7 +90,8 @@ export function usePileLayoutMotion(
       };
       const row = node.closest(".closed-books") ? "closed" : "open";
       const old = previous.current.get(id);
-      const pile: Pile = { node, box, row, zoom };
+      const scrollLeft = strip?.scrollLeft ?? 0;
+      const pile: Pile = { node, box, row, zoom, strip, scrollLeft };
       next.set(id, pile);
       if (
         !enabled ||
@@ -114,15 +103,24 @@ export function usePileLayoutMotion(
         old?.animation?.cancel();
         continue;
       }
+      const clamped = Boolean(
+        strip &&
+          old.strip === strip &&
+          old.scrollLeft > scrollLeft &&
+          scrollLeft === Math.max(0, strip.scrollWidth - strip.clientWidth),
+      );
+      const scrollShift = clamped ? (scrollLeft - old.scrollLeft) * zoom : 0;
+      if (clamped) markPileScrollClamp(strip!);
       const moved =
         Math.abs(box.left - old.box.left) > 0.5 ||
-        Math.abs(box.top - old.box.top) > 0.5;
+        Math.abs(box.top - old.box.top) > 0.5 ||
+        scrollShift !== 0;
       if (!moved) {
         pile.animation = old.animation;
-        pile.clipMargin = old.clipMargin;
         continue;
       }
-      const fromX = (old.box.left + delta.x * old.zoom - box.left) / zoom;
+      const fromX =
+        (old.box.left + delta.x * old.zoom - box.left + scrollShift) / zoom;
       const fromY = (old.box.top + delta.y * old.zoom - box.top) / zoom;
       old.animation?.cancel();
       if (typeof node.animate !== "function") continue;
@@ -144,19 +142,14 @@ export function usePileLayoutMotion(
       );
       if (settings.paused) animation.pause();
       pile.animation = animation;
-      // The row can shrink before its surviving piles reach their new columns.
-      // Expand only its paint clip, leaving the resting scroll bounds intact.
-      pile.clipMargin = Math.max(Math.abs(fromX), Math.abs(fromY));
       animation.onfinish = () => {
         const current = previous.current.get(id);
         if (current?.animation === animation) current.animation = undefined;
-        updateClipping();
       };
     }
     for (const [id, pile] of previous.current)
       if (!next.has(id)) pile.animation?.cancel();
     previous.current = next;
-    updateClipping();
     scope.current = settings.scope;
   };
   const observeBoard = useCallback(() => {
@@ -191,14 +184,20 @@ export function usePileLayoutMotion(
     const reset = () => {
       for (const pile of previous.current.values()) pile.animation?.cancel();
       previous.current.clear();
-      updateClipping();
       scope.current = "";
       update.current();
     };
     const hide = () => {
       if (document.hidden) reset();
     };
+    const scroll = (event: Event) => {
+      // Remember manual scrolling even when it does not render Room again.
+      for (const pile of previous.current.values())
+        if (pile.strip === event.target)
+          pile.scrollLeft = pile.strip?.scrollLeft ?? 0;
+    };
     document.addEventListener("visibilitychange", hide);
+    window.addEventListener("scroll", scroll, true);
     return () => {
       observer.current?.disconnect();
       observer.current = null;
@@ -206,8 +205,8 @@ export function usePileLayoutMotion(
       observedMelds.current = null;
       for (const pile of previous.current.values()) pile.animation?.cancel();
       previous.current.clear();
-      updateClipping();
       document.removeEventListener("visibilitychange", hide);
+      window.removeEventListener("scroll", scroll, true);
     };
-  }, [observeBoard, updateClipping]);
+  }, [observeBoard]);
 }

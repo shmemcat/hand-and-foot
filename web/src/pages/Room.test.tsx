@@ -367,23 +367,43 @@ it.each(
     (["practice", "online"] as const).flatMap((playMode) =>
       [false, true].flatMap((skipAnimation) =>
         [0, 1].flatMap((viewedTeam) =>
-          [false, true].map(
-            (missedScoring) =>
-              [
-                scoringMode,
-                playMode,
-                skipAnimation,
-                viewedTeam,
-                missedScoring,
-              ] as const,
+          [false, true].flatMap((missedScoring) =>
+            [
+              "before",
+              ...(playMode === "online" && !skipAnimation && viewedTeam === 1
+                ? [
+                    "during-flight",
+                    "during-pause",
+                    "during-flight-arrow",
+                    "during-pause-arrow",
+                  ]
+                : []),
+            ].map(
+              (navigation) =>
+                [
+                  scoringMode,
+                  playMode,
+                  skipAnimation,
+                  viewedTeam,
+                  missedScoring,
+                  navigation,
+                ] as const,
+            ),
           ),
         ),
       ),
     ),
   ),
 )(
-  "animates %s %s scoring after another player goes out (skip: %s, viewed team: %s, missed scoring: %s)",
-  async (scoringMode, playMode, skipAnimation, viewedTeam, missedScoring) => {
+  "animates %s %s scoring after another player goes out (skip: %s, viewed team: %s, missed scoring: %s, navigation: %s)",
+  async (
+    scoringMode,
+    playMode,
+    skipAnimation,
+    viewedTeam,
+    missedScoring,
+    navigation,
+  ) => {
     vi.useFakeTimers();
     vi.mocked(window.matchMedia).mockImplementation(
       (query) =>
@@ -542,8 +562,26 @@ it.each(
     await act(async () => vi.advanceTimersByTime(3000));
     expect(command).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).toBeNull();
+    const switchToOwnBoard = () => {
+      fireEvent.click(
+        navigation.endsWith("-arrow")
+          ? screen.getByRole("button", { name: "Previous board" })
+          : within(
+              screen.getByRole("navigation", {
+                name:
+                  scoringMode === "individual"
+                    ? "Player boards"
+                    : "Team boards",
+              }),
+            ).getAllByRole("button")[0],
+      );
+      expect(screen.getByRole("region", { name: "Your board" })).toBeTruthy();
+    };
+    if (navigation.startsWith("during-flight")) switchToOwnBoard();
     await act(async () => vi.advanceTimersByTime(DISCARD_FLIGHT_MS));
+    if (navigation.startsWith("during-pause")) switchToOwnBoard();
     expect(command).not.toHaveBeenCalled();
+    expect(document.querySelector(".live-scoring")).toBeNull();
     await act(async () => vi.advanceTimersByTime(GOING_OUT_PAUSE_MS));
     expect(
       screen.getByRole("group", { name: "Running round score" }),

@@ -16,6 +16,7 @@ class AccountIdentity:
     username: str
     profile_icon: str
     email_verified: bool
+    handandfoot_card_back: str = "single-leaves"
 
 
 @dataclass(frozen=True)
