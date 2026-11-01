@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>30 card back ideas · Hand &amp; Foot</title>
+    <link rel="stylesheet" href="preview.css" />
+    <script type="module" src="preview.js"></script>
+  </head>
+  <body>
+    <main>
+      <header class="heading">
+        <div>
+          <p class="eyebrow">HAND &amp; FOOT / COLLECTION 01</p>
+          <h1>A little luck.<br />A good book.</h1>
+          <p class="intro">30 card backs. Rich color, a central emblem, and room to breathe.<br class="desktop-break" /> Cards, casino classics, and the pleasures of a well-stocked library.</p>
+        </div>
+        <aside class="reference" aria-label="Current card back for reference">
+          <div class="reference-pair"><img src="../cards/card-back-light.svg" width="56" height="78" alt="Current card back, light mode" /><img src="../cards/card-back-dark.svg" width="56" height="78" alt="Current card back, dark mode" /></div>
+          <p>The current back<span>Our palette, for reference</span></p>
+        </aside>
+      </header>
+
+      <div class="collection-row">
+        <nav class="families" aria-label="Design theme">
+          <button type="button" data-family="all" aria-pressed="true">All <span>30</span></button>
+          <button type="button" data-family="Cards" aria-pressed="false">Cards <span>10</span></button>
+          <button type="button" data-family="Casino" aria-pressed="false">Casino <span>10</span></button>
+          <button type="button" data-family="Books" aria-pressed="false">Books <span>10</span></button>
+        </nav>
+        <p class="palette-note">Cream · rose clay · burgundy · antique gold</p>
+      </div>
+
+      <div class="toolbar">
+        <fieldset class="mode-control">
+          <legend>Preview</legend>
+          <div class="segments">
+            <label><input type="radio" name="mode" value="light" checked /><span>Light</span></label>
+            <label><input type="radio" name="mode" value="dark" /><span>Dark</span></label>
+            <label><input type="radio" name="mode" value="both" /><span>Both</span></label>
+          </div>
+        </fieldset>
+        <div class="size-control"><label for="preview-size">Card size</label>
+          <select id="preview-size">
+            <option value="40">Compact · 40 px</option>
+            <option value="56">Opponents · 56 px</option>
+            <option value="76">Your hand · 76 px</option>
+            <option value="112" selected>Enlarged · 112 px</option>
+          </select>
+        </div>
+        <div class="shortlist-controls">
+          <button type="button" id="shortlist-filter" aria-pressed="false">Shortlist <span id="pick-count">0</span></button>
+          <button type="button" id="copy-picks" disabled>Copy picks</button>
+        </div>
+      </div>
+      <div class="gallery-note"><p id="result-count">Showing all 30 designs.</p><p>Click a card to enlarge. Shortlist your favorites, then send me their numbers.</p></div>
+      <p id="announcement" class="sr-only" aria-live="polite"></p>
+      <section id="gallery" class="gallery" aria-label="30 card back concepts" data-mode="light" data-size="112"></section>
+      <p id="empty" hidden>No shortlisted designs in this view. Choose another theme or turn off Shortlist.</p>
+      <footer><p id="picks-summary">No favorites yet.</p><p>Design preview · Your shortlist is saved in this browser.</p></footer>
+    </main>
+    <dialog id="detail" aria-labelledby="detail-title" aria-describedby="detail-description">
+      <div class="detail-header"><div><p class="eyebrow" id="detail-family"></p><h2 id="detail-title"></h2></div><button type="button" id="close-detail" aria-label="Close preview">Close</button></div>
+      <p id="detail-description"></p>
+      <div id="detail-pair" class="detail-pair"></div>
+      <p class="detail-palette" id="detail-palette"></p>
+      <div class="detail-footer"><button type="button" id="detail-pick" aria-pressed="false">+ Shortlist</button><div class="detail-navigation"><button type="button" id="previous" aria-label="Previous design">Previous</button><button type="button" id="next" aria-label="Next design">Next</button></div></div>
+    </dialog>
+  </body>
+</html>
