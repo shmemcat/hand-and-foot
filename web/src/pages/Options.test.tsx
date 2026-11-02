@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
-import { Options } from "./Options";
+import { OptionsContent as Options } from "./Options";
 import { PreferencesProvider } from "../context/PreferencesContext";
 import { TurnSoundProvider } from "../context/TurnSoundContext";
 import { Card } from "../components/Card";

@@ -31,6 +31,13 @@ const Profile = React.lazy(() =>
 const Options = React.lazy(() =>
   import("./pages/Options").then((module) => ({ default: module.Options })),
 );
+const OptionsPreview = import.meta.env.DEV
+  ? React.lazy(() =>
+      import("./pages/Options").then((module) => ({
+        default: module.OptionsContent,
+      })),
+    )
+  : () => null;
 
 const OpeningPreview = import.meta.env.DEV
   ? React.lazy(() =>
@@ -158,7 +165,7 @@ function AppRoutes() {
           element={
             <CardBackPreviewProvider>
               <React.Suspense fallback={null}>
-                <Options />
+                <OptionsPreview />
               </React.Suspense>
             </CardBackPreviewProvider>
           }

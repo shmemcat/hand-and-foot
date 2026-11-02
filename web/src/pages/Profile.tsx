@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { PageTitle } from "../components/PageTitle";
 import { ProfileIcon } from "../components/ProfileIcon";
 import { Icon } from "../components/Icons";
@@ -45,6 +45,7 @@ export function Profile() {
       .toLowerCase()
       .includes(filter.trim().toLowerCase()),
   );
+  if (!user && !loading) return <Navigate to="/user" replace />;
   return (
     <div className="page profile-page">
       <PageTitle>PROFILE</PageTitle>

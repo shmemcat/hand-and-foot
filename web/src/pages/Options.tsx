@@ -2,13 +2,25 @@ import { AnimationOption } from "../components/AnimationOption";
 import { CardBackOption } from "../components/CardBackOption";
 import { CardBackDisplayOption } from "../components/CardBackDisplayOption";
 import { useId } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import { PageTitle } from "../components/PageTitle";
 import { usePreferences } from "../context/PreferencesContext";
 import { TurnSoundOption } from "../context/TurnSoundContext";
 import "../account.css";
 
 export function Options() {
+  const { user, loading } = useAuth();
+  if (!user)
+    return loading ? (
+      <p role="status">Loading…</p>
+    ) : (
+      <Navigate to="/user" replace />
+    );
+  return <OptionsContent />;
+}
+
+export function OptionsContent() {
   const { preferences, update } = usePreferences();
   const followTitle = useId();
   const followDescription = useId();

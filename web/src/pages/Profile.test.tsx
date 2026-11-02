@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { Profile } from "./Profile";
 const auth = vi.hoisted(() => ({
@@ -68,15 +68,16 @@ it("keeps failed email changes editable and reports the service error", async ()
     ).toBe(false),
   );
 });
-it("provides a sign-in route for guests without exposing profile controls", () => {
+it("redirects guests to sign in without exposing profile controls", () => {
   auth.user = null;
   render(
-    <MemoryRouter>
-      <Profile />
+    <MemoryRouter initialEntries={["/profile"]}>
+      <Routes>
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/user" element={<h1>Sign in</h1>} />
+      </Routes>
     </MemoryRouter>,
   );
-  expect(
-    screen.getByRole("link", { name: "Sign In" }).getAttribute("href"),
-  ).toBe("/user");
+  expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
   expect(screen.queryByLabelText("Email address")).toBeNull();
 });
