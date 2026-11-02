@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  SCORING_SCENARIOS,
-  scoringSequence,
-  scoringSnapshot,
-  scoringHeldCards,
-  rawCardValue,
-  debtCardValue,
-} from "./scoringSequence";
+import { scoringSequence, scoringHeldCards, rawCardValue, debtCardValue } from "./scoringSequence";
+import { SCORING_SCENARIOS, scoringSnapshot } from "../test/fixtures/scoring";
+
 
 describe("physical end-of-round score count", () => {
   it("breaks one clean book when that loses less than two dirty books", () => {

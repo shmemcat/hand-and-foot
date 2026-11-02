@@ -3,7 +3,7 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Card } from "../components/Card";
 import { MeldPile } from "../components/MeldPile";
-import { mobilePreviewSnapshot } from "../pages/MobilePreview";
+import { mobileTableFixture } from "../test/fixtures/mobile";
 import type { Snapshot } from "../types";
 import { MOBILE_PLAY_MS, useMobilePlayMotion } from "./useMobilePlayMotion";
 import { BOOK_CLOSE_MS } from "./useBookClosing";
@@ -93,7 +93,7 @@ function played(before: Snapshot, targets: number[]): Snapshot {
 }
 
 it("waits for confirmed card IDs and visits each destination page in order", () => {
-  const before = mobilePreviewSnapshot();
+  const before = mobileTableFixture();
   before.phase = "draw";
   const table = render(<Table snapshot={before} />);
   const output = () => table.container.querySelector("output")!;
@@ -115,7 +115,7 @@ it("waits for confirmed card IDs and visits each destination page in order", () 
 });
 
 it("animates a private final discard even when its public event hides the face", () => {
-  const before = mobilePreviewSnapshot(1);
+  const before = mobileTableFixture(1);
   const table = render(<Table snapshot={before} />);
   const next: Snapshot = {
     ...before,
@@ -147,7 +147,7 @@ it("animates a private final discard even when its public event hides the face",
 });
 
 it("lands the hand cards in an open pile before gathering all seven into a completed book", () => {
-  const before = mobilePreviewSnapshot();
+  const before = mobileTableFixture();
   const table = render(<Table snapshot={before} />);
   const next = played(before, [0, 0]);
   next.sides[0].melds[0].complete = true;
@@ -174,7 +174,7 @@ it("lands the hand cards in an open pile before gathering all seven into a compl
 });
 
 it("finishes multiple newly completed books in order and settles interrupted movement", () => {
-  const before = mobilePreviewSnapshot();
+  const before = mobileTableFixture();
   const table = render(<Table snapshot={before} />);
   const next = played(before, [0, 0, 2, 2, 2]);
   next.sides[0].melds[0].complete = next.sides[0].melds[2].complete = true;
@@ -195,7 +195,7 @@ it("finishes multiple newly completed books in order and settles interrupted mov
 });
 
 it("first presents a whole new seven-card draft as an open pile before closing its new server ID", () => {
-  const before = mobilePreviewSnapshot(10);
+  const before = mobileTableFixture(10);
   before.hand = before.hand.map((card, index) =>
     index < 7 ? { ...card, rank: "A", wild: false, value: 20 } : card,
   );
@@ -227,7 +227,7 @@ it("first presents a whole new seven-card draft as an open pile before closing i
 });
 
 it("settles immediately for reduced motion, interruption, and a new round", () => {
-  const before = mobilePreviewSnapshot();
+  const before = mobileTableFixture();
   const table = render(<Table snapshot={before} />);
   const next = played(before, [0]);
   table.rerender(<Table snapshot={next} reduced />);
@@ -245,7 +245,7 @@ it("settles immediately for reduced motion, interruption, and a new round", () =
 });
 
 it("leaves red-three replacement to the draw animation instead of starting a discard", () => {
-  const before = mobilePreviewSnapshot(2);
+  const before = mobileTableFixture(2);
   before.hand[0] = {
     ...before.hand[0],
     rank: "3",

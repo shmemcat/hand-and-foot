@@ -179,7 +179,7 @@ export function usePileLayoutMotion(
     }
   }, [options.paused]);
   useEffect(() => {
-    // Effect replay during StrictMode or a preview refresh must reconnect too.
+    // Effect replay during StrictMode must reconnect too.
     observeBoard();
     const reset = () => {
       for (const pile of previous.current.values()) pile.animation?.cancel();

@@ -110,6 +110,7 @@ export type TableEvent = {
 };
 export type BotDifficulty = "easy" | "medium" | "hard";
 export type Snapshot = {
+  spectating?: boolean;
   botDifficulty?: BotDifficulty;
   lobbySeats?: (Player | null)[];
   lobbyFillBots?: boolean;

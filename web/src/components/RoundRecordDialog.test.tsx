@@ -1,14 +1,23 @@
 import { useState } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { RoundRecordDialog } from "./RoundRecordDialog";
 import { Room } from "../pages/Room";
-import { roundRecordExample } from "../lib/roundRecordExamples";
+import { getRoom } from "../lib/api";
+import { roundRecordExample } from "../test/fixtures/roundRecord";
 import { completedRoundRecords, recordGameTotal } from "../lib/roundRecords";
 import type { Snapshot } from "../types";
 
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ user: null }) }));
+vi.mock("socket.io-client", () => ({
+  io: () => ({ on: vi.fn(), emit: vi.fn(), disconnect: vi.fn() }),
+}));
+vi.mock("../lib/api", async (original) => ({
+  ...(await original<typeof import("../lib/api")>()),
+  getRoom: vi.fn(),
+  socketCredentials: vi.fn().mockResolvedValue({ csrf: "test" }),
+}));
 vi.mock("../context/SoundContext", () => ({
   useSound: () => ({ play: vi.fn() }),
 }));
@@ -166,12 +175,17 @@ it("browses saved scores after reloading and sorts without changing the saved hi
   expect(snapshot).toEqual(original);
 });
 
-it("opens from the live round badge, including an empty first-round record, without exposing the hand", () => {
+it("opens from the live round badge, including an empty first-round record, without exposing the hand", async () => {
   const snapshot = { ...roundRecordExample(), round: 1, history: [] };
-  render(
-    <MemoryRouter>
-      <Room rehearsal={{ snapshot, onChoose: () => {} }} />
-    </MemoryRouter>,
+  vi.mocked(getRoom).mockResolvedValue(snapshot);
+  await act(async () =>
+    render(
+      <MemoryRouter initialEntries={[`/room/${snapshot.code}`]}>
+        <Routes>
+          <Route path="/room/:code" element={<Room />} />
+        </Routes>
+      </MemoryRouter>,
+    ),
   );
   const trigger = screen.getByRole("button", {
     name: "Round 1. View round record",

@@ -58,7 +58,7 @@ export function RoundScoreSheet({
   const waiting = Boolean(viewer?.ready || leavingScores || busy);
   const [hostHint, setHostHint] = useState(false);
   const hostHintId = useId();
-  const continueButton = (
+  const continueButton = snapshot.spectating ? <p role="status">Watching · Waiting for the players…</p> : (
     <button
       autoFocus={!inline && !waitingForHost}
       className="button full"
@@ -287,7 +287,7 @@ export function RoundScoreSheet({
               disabled={busy || leavingScores}
               onClick={onLeave}
             >
-              {snapshot.playMode === "practice" ? "Home" : "Leave Lobby"}
+              {snapshot.spectating ? "Stop Watching" : snapshot.playMode === "practice" ? "Home" : "Leave Lobby"}
             </button>
           )}
         </div>

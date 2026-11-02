@@ -14,7 +14,6 @@ const children = [
       env: {
         ...process.env,
         UV_CACHE_DIR: path.join(root, "api/.local/uv-cache"),
-        HANDANDFOOT_DEVELOPMENT_FIXTURES: "1",
       },
     },
   ),

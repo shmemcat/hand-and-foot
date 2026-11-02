@@ -842,6 +842,21 @@ legend {
 .card:has(.card-back) {
   border: 0;
 }
+.card-back-layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+.card-back-entering {
+  opacity: 0;
+}
+.card-back-entering[data-ready="true"] {
+  animation: card-back-arrive 140ms ease-out both;
+}
+@keyframes card-back-arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .card.red {
   color: var(--red);
 }

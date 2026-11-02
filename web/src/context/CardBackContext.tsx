@@ -136,31 +136,3 @@ export function CardBackProvider({ children }: { children: ReactNode }) {
 export function useCardBack() {
   return useContext(Context);
 }
-
-// Local design review uses the real picker without writing account preferences.
-export function CardBackPreviewProvider({ children }: { children: ReactNode }) {
-  const [cardBack, setCardBack] = useState<CardBackId>(DEFAULT_CARD_BACK);
-  const [displayMode, setDisplayMode] =
-    useState<CardBackDisplayMode>("uniform");
-  return (
-    <Context.Provider
-      value={{
-        cardBack,
-        displayMode,
-        available: true,
-        saving: false,
-        displaySaving: false,
-        error: "",
-        displayError: "",
-        choose: async (id) => {
-          setCardBack(normalizeCardBack(id));
-        },
-        chooseDisplay: async (mode) => {
-          setDisplayMode(normalizeCardBackDisplay(mode));
-        },
-      }}
-    >
-      {children}
-    </Context.Provider>
-  );
-}

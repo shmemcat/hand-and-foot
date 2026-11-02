@@ -21,6 +21,7 @@ export function useTurnReady(
   const blocking = Boolean(presentation && !presentation.complete);
   const needsAck = Boolean(
     snapshot?.status !== "closed" &&
+      !snapshot?.spectating &&
       blocking &&
       snapshot &&
       !presentation!.ready.includes(snapshot.viewerId),

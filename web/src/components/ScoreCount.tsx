@@ -1,7 +1,7 @@
 import { Card } from "./Card";
 import { AnimatedNumber } from "./ScoringReview";
 import { scoringHeldCards, type ScoreBeat } from "../lib/scoringSequence";
-import "../scoring-preview.css";
+import "../scoring-motion.css";
 
 export function SettlementPiles({ beat }: { beat?: ScoreBeat }) {
   return (

@@ -57,11 +57,8 @@ it.each(["/", "/play", "/room/ABC234"])(
   },
 );
 
-it("keeps the gear hidden for signed-out accounts and visible in the development user preview", () => {
+it("keeps the gear hidden for signed-out accounts", () => {
   account.user = null;
-  const view = render(page());
+  render(page());
   expect(screen.queryByRole("button", { name: "Settings menu" })).toBeNull();
-  view.unmount();
-  render(page("/preview/user"));
-  expect(screen.getByRole("button", { name: "Settings menu" })).toBeTruthy();
 });

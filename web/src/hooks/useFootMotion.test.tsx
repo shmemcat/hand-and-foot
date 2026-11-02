@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Card } from "../components/Card";
-import { footSnapshot } from "../lib/footSequence";
+import { footSnapshot } from "../test/fixtures/foot";
 import { FOOT_SETTLE_MS, footGatherDuration } from "../lib/footMotion";
 import type { Snapshot } from "../types";
 import { MELD_FLIGHT_MS } from "./useMeldMotion";
@@ -16,14 +16,7 @@ function Table({
   playing?: boolean;
 }) {
   const board = useRef<HTMLDivElement>(null);
-  const motion = useFootMotion(
-    snapshot,
-    snapshot,
-    board,
-    false,
-    playing,
-    false,
-  );
+  const motion = useFootMotion(snapshot, snapshot, board, false, playing);
   return (
     <div ref={board}>
       <header className="game-header">

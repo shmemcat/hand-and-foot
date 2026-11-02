@@ -12,16 +12,7 @@ import "../account.css";
 export function Shell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isHome = location.pathname === "/";
-  const isTable =
-    location.pathname.startsWith("/room/") ||
-    location.pathname === "/preview/board" ||
-    location.pathname === "/preview/mobile" ||
-    location.pathname === "/preview/opening" ||
-    location.pathname === "/preview/draw" ||
-    location.pathname === "/preview/pickup" ||
-    location.pathname === "/preview/red-threes" ||
-    location.pathname === "/preview/foot" ||
-    location.pathname === "/preview/scoring";
+  const isTable = location.pathname.startsWith("/room/");
   const sound = useSound();
   const { user } = useAuth();
   const { preferences, update } = usePreferences();
@@ -38,18 +29,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
       "/scores": "Leaderboard",
       "/leaderboard": "Leaderboard",
       "/about": "About",
-      "/preview": "Preview",
-      "/preview/board": "Full Desktop Board",
-      "/preview/mobile": "Mobile Table",
-      "/preview/user": "User Preview",
-      "/preview/opening": "Opening Rehearsal",
-      "/preview/draw": "Draw Rehearsal",
-      "/preview/pickup": "Discard Pickup",
-      "/preview/foot": "Into Your Foot",
-      "/preview/red-threes": "Red 3 Celebration",
-      "/preview/scoring": "Counting the Round",
-      "/preview/endings": "Round & Game Endings",
-      "/preview/endings/designs": "Score Panel Ideas",
       "/user": user ? "User" : "Sign In",
       "/options": "Options",
       "/profile": "Profile",

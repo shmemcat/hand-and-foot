@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Room } from "./Room";
 import { command, getRoom } from "../lib/api";
-import { footSnapshot } from "../lib/footSequence";
+import { footSnapshot } from "../test/fixtures/foot";
 import { KEEP_AFTER_DISCARD } from "../lib/goingOut";
 import { DRAW_FLIGHT_MS, DRAW_STAGGER_MS } from "../hooks/useDrawMotion";
 import { MELD_FLIGHT_MS } from "../hooks/useMeldMotion";

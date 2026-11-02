@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import "../scoring-preview.css";
+import "../scoring-motion.css";
 
 type Halo = {
   id: string;

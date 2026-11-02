@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { command } from "../lib/api";
 import { BOARD_TRANSITION_MS } from "../lib/cardAnimations";
-import { footSnapshot } from "../lib/footSequence";
+import { footSnapshot } from "../test/fixtures/foot";
 import { useTurnReady } from "./useTurnReady";
 
 vi.mock("../lib/api", () => ({ command: vi.fn() }));

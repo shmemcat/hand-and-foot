@@ -4,11 +4,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ScoreMotion } from "./ScoreMotion";
 import { ScoreCount } from "./ScoreCount";
 import { ScoreFlightClip } from "./ScoreFlightClip";
-import {
-  SCORING_SCENARIOS,
-  scoringSequence,
-  type ScoreBeat,
-} from "../lib/scoringSequence";
+import { scoringSequence, type ScoreBeat } from "../lib/scoringSequence";
+import { SCORING_SCENARIOS } from "../test/fixtures/scoring";
+
 
 let handScroll = 0;
 beforeEach(() => {

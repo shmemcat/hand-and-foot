@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="240" height="336" viewBox="0 0 240 336" role="img" aria-labelledby="title">
-  <title id="title">Petal tile — dark Hand &amp; Foot card back</title>
-  <defs><clipPath id="edge"><rect x="19" y="19" width="202" height="298" rx="4"/></clipPath><pattern id="pattern" x="120" y="168" width="48" height="48" patternUnits="userSpaceOnUse" patternTransform="translate(120 168) scale(1.55) translate(-120 -168)"><g transform="translate(24 24) rotate(45)"><path d="M0 0Q-20-18 0-32Q20-18 0 0Z" fill="#F1DAD0" opacity="0.34"/><path d="M0-3V-27" fill="none" stroke="#F1DAD0" stroke-width="1.1" opacity="0.8" stroke-linecap="round" stroke-linejoin="round"/></g><g transform="translate(24 24) rotate(135)"><path d="M0 0Q-20-18 0-32Q20-18 0 0Z" fill="#F1DAD0" opacity="0.34"/><path d="M0-3V-27" fill="none" stroke="#F1DAD0" stroke-width="1.1" opacity="0.8" stroke-linecap="round" stroke-linejoin="round"/></g><g transform="translate(24 24) rotate(225)"><path d="M0 0Q-20-18 0-32Q20-18 0 0Z" fill="#F1DAD0" opacity="0.34"/><path d="M0-3V-27" fill="none" stroke="#F1DAD0" stroke-width="1.1" opacity="0.8" stroke-linecap="round" stroke-linejoin="round"/></g><g transform="translate(24 24) rotate(315)"><path d="M0 0Q-20-18 0-32Q20-18 0 0Z" fill="#F1DAD0" opacity="0.34"/><path d="M0-3V-27" fill="none" stroke="#F1DAD0" stroke-width="1.1" opacity="0.8" stroke-linecap="round" stroke-linejoin="round"/></g><circle cx="24" cy="24" r="3" fill="#F1DAD0" opacity="0.8"/></pattern><g id="art"><rect width="240" height="336" fill="url(#pattern)"/></g></defs>
-  <rect width="240" height="336" rx="16" fill="#FAF6EE"/>
-  <rect x="7" y="7" width="226" height="322" rx="11" fill="#572D3B"/>
-
-
-
-<g data-artwork="pattern"><g clip-path="url(#edge)"><use href="#art"/></g></g><rect x="14" y="14" width="212" height="308" rx="8" fill="none" stroke="#D2B477" stroke-width="2.2"/></svg>

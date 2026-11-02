@@ -444,18 +444,22 @@ def project(game, viewer_id):
     if game["phase"] in ("play", "draw"):
         game = copy.deepcopy(game)
         arrange_book_covers(game)
-    viewer = next(p for p in game["players"] if p["id"] == viewer_id)
+    viewer = next((p for p in game["players"] if p["id"] == viewer_id), None)
+    spectating = viewer is None
+    if spectating:
+        viewer = {"team": game["players"][game["actor"]]["team"],
+                  "hand": [], "foot": [], "chosen": True}
     from .scoring import project_review
     cards = game["cards"]
     round_review = game["phase"] in ("round_over", "finished")
-    scoring_players = [p for p in game["players"] if p["team"] == viewer["team"]] if game["phase"] == "scoring" else []
+    scoring_players = [p for p in game["players"] if p["team"] == viewer["team"]] if game["phase"] == "scoring" and not spectating else []
     players = [{
         "id": p["id"], "name": p["name"], "team": p["team"], "bot": p["bot"], "profileIcon": p.get("profileIcon", "user"),
         "cardBack": p.get("cardBack", "single-leaves"),
         "chosen": p["chosen"], "inFoot": p["inFoot"],
         "handCount": len(p["hand"]) + (len(p["foot"]) if round_review else 0) if p["chosen"] else 11,
         "footCount": 0 if round_review else len(p["foot"]) if p["chosen"] else 11,
-        "footTop": cards[p["foot"][0]] if not round_review and p["chosen"] and p["foot"] else None,
+        "footTop": cards[p["foot"][0]] if not spectating and not round_review and p["chosen"] and p["foot"] else None,
         **({"roundCards": [cards[i] for i in [*p["hand"], *p["foot"]]]} if round_review else {}),
         "redThrees": [cards[i] for i in p["redThrees"]],
         "ready": p["id"] in game["ready"], "away": p.get("away", False),
@@ -479,7 +483,7 @@ def project(game, viewer_id):
         "pickupDrawPending": bool(game.get("pickupDrawPending")),
         # Unlike the command token, this stays stable through every move in a turn.
         "turnId": game.get("turnId", game["dealId"]),
-        "round": game["round"], "targetScore": game["targetScore"], "phase": game["phase"], "token": (f'{game["dealId"]}:choose:{viewer_id}' if game["phase"] == "choose" else f'{game["dealId"]}:opening' if game["phase"] == "draw" and opening_pending(game) else f'{game["dealId"]}:turn:{game["turnPresentation"]["id"]}' if turn_pending(game) else f'{game["dealId"]}:ready' if game["phase"] in ("round_over", "finished") else f'{game["dealId"]}:scoring:{viewer["team"]}:{game["scoring"]["sides"][viewer["team"]]["revision"]}' if game["phase"] == "scoring" else game["token"]),
+        "round": game["round"], "targetScore": game["targetScore"], "phase": game["phase"], "token": "" if spectating else (f'{game["dealId"]}:choose:{viewer_id}' if game["phase"] == "choose" else f'{game["dealId"]}:opening' if game["phase"] == "draw" and opening_pending(game) else f'{game["dealId"]}:turn:{game["turnPresentation"]["id"]}' if turn_pending(game) else f'{game["dealId"]}:ready' if game["phase"] in ("round_over", "finished") else f'{game["dealId"]}:scoring:{viewer["team"]}:{game["scoring"]["sides"][viewer["team"]]["revision"]}' if game["phase"] == "scoring" else game["token"]),
         "opening": {"id": game["dealId"], "ready": game.get("openingReady", []), "complete": not opening_pending(game)} if "openingReady" in game else None,
         "turnPresentation": {**copy.deepcopy(game["turnPresentation"]), "complete": not turn_pending(game)} if game.get("turnPresentation") else None,
         "actorId": game["players"][game["actor"]]["id"],
@@ -495,5 +499,5 @@ def project(game, viewer_id):
         "tableEvents": copy.deepcopy(game.get("tableEvents", [])),
         "discardCount": len(game["discard"]), "stockCount": len(game["stock"]),
         "history": copy.deepcopy(game["history"]), "winners": game["winners"][:],
-        "scoring": project_review(game, viewer["team"]),
+        "scoring": project_review(game, viewer["team"]) if not spectating else None,
     }

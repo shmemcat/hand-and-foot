@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { Lobby } from "./Lobby";
-import { ENDING_EXAMPLES, endingSnapshot } from "../lib/endingExamples";
+import { ENDING_EXAMPLES, endingSnapshot } from "../test/fixtures/endings";
 import type { Snapshot } from "../types";
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({ user: null, loading: false }),

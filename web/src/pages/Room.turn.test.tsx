@@ -5,7 +5,7 @@ import { getRoom } from "../lib/api";
 import { DISCARD_FLIGHT_MS } from "../hooks/useTableMotion";
 import { MOBILE_PLAY_MS } from "../hooks/useMobilePlayMotion";
 import type { Snapshot } from "../types";
-import { mobilePreviewSnapshot } from "./MobilePreview";
+import { mobileTableFixture } from "../test/fixtures/mobile";
 import { Room } from "./Room";
 import { PreferencesProvider } from "../context/PreferencesContext";
 
@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 function fixture(partnership = false) {
-  const snapshot = mobilePreviewSnapshot(3, partnership);
+  const snapshot = mobileTableFixture(3, partnership);
   snapshot.phase = "draw";
   snapshot.sides.forEach((side) => {
     side.melds = [];

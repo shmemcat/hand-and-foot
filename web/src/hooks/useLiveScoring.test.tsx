@@ -1,12 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useLiveScoring } from "./useLiveScoring";
-import {
-  SCORING_SCENARIOS,
-  scoringHeldCards,
-  scoringSequence,
-  scoringSnapshot,
-} from "../lib/scoringSequence";
+import { scoringHeldCards, scoringSequence } from "../lib/scoringSequence";
+import { SCORING_SCENARIOS, scoringSnapshot } from "../test/fixtures/scoring";
+
 import type { Snapshot } from "../types";
 
 function round(): Snapshot {

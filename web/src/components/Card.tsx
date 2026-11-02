@@ -1,7 +1,8 @@
 import type { Card as Face } from "../types";
 import { iconData } from "./iconData";
 import { useCardBack } from "../context/CardBackContext";
-import { cardBackAsset, normalizeCardBack } from "../lib/cardBacks";
+import { normalizeCardBack } from "../lib/cardBacks";
+import { CardBackArtwork } from "./CardBackArtwork";
 
 const suits = {
   hearts: iconData.heart,
@@ -25,6 +26,7 @@ export function Card({
   pointsLeft,
   back,
   ownerBack,
+  fadeBack = false,
 }: {
   card?: Face;
   selected?: boolean;
@@ -35,6 +37,7 @@ export function Card({
   pointsLeft?: number;
   back?: string;
   ownerBack?: string;
+  fadeBack?: boolean;
 }) {
   const { cardBack, displayMode } = useCardBack();
   const backId = normalizeCardBack(
@@ -89,20 +92,7 @@ export function Card({
       )}
     </>
   ) : (
-    <>
-      <img
-        className="card-back light-back"
-        src={cardBackAsset(backId, "light", small)}
-        alt=""
-        draggable="false"
-      />
-      <img
-        className="card-back dark-back"
-        src={cardBackAsset(backId, "dark", small)}
-        alt=""
-        draggable="false"
-      />
-    </>
+    <CardBackArtwork id={backId} small={small} fade={fadeBack} />
   );
   // A new physical card must not inherit the previous face's SVG color transitions.
   return onClick ? (

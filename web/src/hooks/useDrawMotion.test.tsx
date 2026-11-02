@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { footSnapshot } from "../lib/footSequence";
+import { footSnapshot } from "../test/fixtures/foot";
 import {
   useDrawMotion,
   REPLACEMENT_DRAW_MS,

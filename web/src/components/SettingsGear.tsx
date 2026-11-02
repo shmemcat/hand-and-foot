@@ -77,7 +77,6 @@ export const SettingsGear: React.FC<SettingsGearProps> = ({ exclude }) => {
 
 const GEAR_ROUTES: Record<string, string | undefined> = {
   "/user": undefined,
-  "/preview/user": undefined,
   "/profile": "/profile",
   "/options": "/options",
 };
@@ -86,11 +85,7 @@ export function GearOverlay() {
   const { user } = useAuth();
   const { pathname } = useLocation();
 
-  const isGearPage =
-    pathname in GEAR_ROUTES &&
-    (pathname !== "/preview/user" || import.meta.env.DEV);
-  const isPreview = import.meta.env.DEV && pathname === "/preview/user";
-  const show = isGearPage && (!!user || isPreview);
+  const show = pathname in GEAR_ROUTES && !!user;
 
   return (
     <div className={styles.overlay}>

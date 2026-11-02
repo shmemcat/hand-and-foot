@@ -62,7 +62,6 @@ export function useTableMotion(
   presented: Snapshot | null,
   board: RefObject<HTMLDivElement | null>,
   reduced: boolean,
-  rehearsal: boolean,
   viewedTeam?: number,
   speed = 1,
   localDiscardHandled = false,
@@ -85,7 +84,7 @@ export function useTableMotion(
     publicPositions: CardPosition[];
   } | null>(null);
   const clear = useCallback(() => setQueue([]), []);
-  const canPresent = !rehearsal && !document.hidden;
+  const canPresent = !document.hidden;
   const enabled = canPresent && !reduced;
   const scope = incoming ? scopeOf(incoming) : "";
   const prior = previous.current;

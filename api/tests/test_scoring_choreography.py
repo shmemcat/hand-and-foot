@@ -1,5 +1,6 @@
 import pytest
-from handandfoot_server import engine, fixtures, scoring
+from handandfoot_server import engine, scoring
+from scoring_cases import SCORING_CASES, populate_scoring_case
 from test_engine import book, rig, take
 
 
@@ -72,11 +73,11 @@ def test_scoring_reveals_combined_hand_and_foot_only_to_the_scoring_side(mode, c
         assert view["scoringFoot"] is None
 
 
-@pytest.mark.parametrize("fixture", fixtures.SCORING_FIXTURES)
-def test_live_scoring_fixtures_conserve_cards_and_wait_for_confirmation(fixture):
+@pytest.mark.parametrize("fixture", SCORING_CASES)
+def test_scoring_cases_conserve_cards_and_wait_for_confirmation(fixture):
     players = [{"id": str(i), "name": f"Player {i}", "bot": i != 0} for i in range(6)]
     game = engine.new_game(players, "individual", seed=47)
-    fixtures.populate(game, fixture)
+    populate_scoring_case(game, fixture)
     engine.assert_conservation(game)
     assert game["phase"] == "scoring"
     before = game["sides"][0]["score"]

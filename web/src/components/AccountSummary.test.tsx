@@ -60,21 +60,19 @@ it("loads personal statistics, separates modes, and conceals secret names and de
   ).toBeTruthy();
 });
 
-it("uses difficulty-specific records without mixing them with the legacy bot total", () => {
-  render(
-    <AccountSummary
-      preview={{
-        ...data,
-        stats: {
-          ...data.stats,
-          easy: { ...empty, games: 2, wins: 1 },
-          medium: { ...empty, games: 4, wins: 3 },
-          hard: { ...empty, games: 3, wins: 1 },
-          multiplayer: { ...empty, games: 1 },
-        },
-      }}
-    />,
-  );
+it("uses difficulty-specific records without mixing them with the legacy bot total", async () => {
+  request.mockResolvedValueOnce({
+    ...data,
+    stats: {
+      ...data.stats,
+      easy: { ...empty, games: 2, wins: 1 },
+      medium: { ...empty, games: 4, wins: 3 },
+      hard: { ...empty, games: 3, wins: 1 },
+      multiplayer: { ...empty, games: 1 },
+    },
+  });
+  render(<AccountSummary />);
+  await screen.findByText("75%");
   fireEvent.click(screen.getByRole("button", { name: "Separate" }));
   expect(
     within(screen.getByLabelText("Your statistics")).getByText("75%"),

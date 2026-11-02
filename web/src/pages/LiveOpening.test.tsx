@@ -3,11 +3,9 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Room } from "./Room";
 import { command, getRoom } from "../lib/api";
-import {
-  INITIAL_OPENING,
-  openingSnapshot,
-  samplePiles,
-} from "../lib/openingSequence";
+import { INITIAL_OPENING } from "../lib/openingSequence";
+import { openingSnapshot, samplePiles } from "../test/fixtures/opening";
+
 import type { Snapshot } from "../types";
 
 const sound = vi.hoisted(() => ({ play: vi.fn() }));

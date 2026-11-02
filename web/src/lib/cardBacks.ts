@@ -1,4 +1,4 @@
-// Approved artwork is published by scripts/publish-approved-card-backs.mjs.
+// Approved card-back collection.
 import { asset } from "./assets";
 
 export const DEFAULT_CARD_BACK = "single-leaves";

@@ -43,7 +43,7 @@ type Flight = {
 const vars = (values: Record<string, string | number>) =>
   values as CSSProperties;
 
-/** The approved opening motion, shared by live rounds and the rehearsal. */
+/** The approved opening motion for live rounds. */
 export function OpeningMotion({
   state,
   snapshot,

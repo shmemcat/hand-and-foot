@@ -84,7 +84,11 @@ def test_last_connection_marks_away_and_http_or_another_player_cannot_reclaim_it
     outsider = client(app)
     sign_in(outsider[0], "3")
     socket = app.extensions["socketio"].test_client(app, namespace=NAMESPACE, flask_test_client=outsider[0], auth={"csrf": outsider[1]["X-Handandfoot-CSRF"]})
-    assert "error" in socket.emit("handandfoot:subscribe", {"code": code}, namespace=NAMESPACE, callback=True)
+    assert socket.emit("handandfoot:subscribe", {"code": code}, namespace=NAMESPACE, callback=True) == {"ok": True}
+    public = view(outsider, code)
+    assert public["spectating"] and public["viewerId"] == ""
+    assert public["footPreview"] is None and public["hand"] == []
+    assert outsider[0].get(ROOT + "/active").json["rooms"] == []
     assert view(members[0], code)["players"][1]["away"]
     socket.disconnect(namespace=NAMESPACE)
     returning = socket_for(app, members[1], code)

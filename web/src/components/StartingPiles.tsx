@@ -1,7 +1,7 @@
 import type { Card as Face } from "../types";
 import { Card } from "./Card";
 
-/** Shared by the live choice and the opening rehearsal's outgoing piles. */
+/** The two starting piles shown during the live hand choice. */
 export function StartingPiles({
   piles,
   onChoose,

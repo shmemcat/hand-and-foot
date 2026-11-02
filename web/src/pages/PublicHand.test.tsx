@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { getRoom } from "../lib/api";
-import { mobilePreviewSnapshot } from "./MobilePreview";
+import { mobileTableFixture } from "../test/fixtures/mobile";
 import { Room } from "./Room";
 
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ user: null }) }));
@@ -35,7 +35,7 @@ it.each([false, true])(
           removeEventListener: vi.fn(),
         }) as unknown as MediaQueryList,
     );
-    const snapshot = mobilePreviewSnapshot(8);
+    const snapshot = mobileTableFixture(8);
     snapshot.players[1].handCount = 23;
     snapshot.players[1].footTop = {
       id: "public-foot-top",
@@ -124,7 +124,7 @@ it.each([false, true])(
           removeEventListener: vi.fn(),
         }) as unknown as MediaQueryList,
     );
-    const snapshot = mobilePreviewSnapshot(8, true);
+    const snapshot = mobileTableFixture(8, true);
     const partner = snapshot.players.find(
       (p) => p.team === snapshot.players[0].team && p.id !== snapshot.viewerId,
     )!;
@@ -136,13 +136,14 @@ it.each([false, true])(
     vi.mocked(getRoom).mockResolvedValue(snapshot);
     await act(async () => {
       render(
-        <MemoryRouter>
-          <Room
-            rehearsal={{ snapshot, onChoose: () => {}, followTurn: false }}
-          />
+        <MemoryRouter initialEntries={[`/room/${snapshot.code}`]}>
+          <Routes>
+            <Route path="/room/:code" element={<Room />} />
+          </Routes>
         </MemoryRouter>,
       );
     });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Follow turn" }));
     expect(
       screen.queryByRole("combobox", { name: "Player hand to view" }),
     ).toBeNull();
@@ -204,7 +205,7 @@ it.each(
           removeEventListener: vi.fn(),
         }) as unknown as MediaQueryList,
     );
-    const snapshot = mobilePreviewSnapshot(8, partnership);
+    const snapshot = mobileTableFixture(8, partnership);
     snapshot.phase = phase;
     snapshot.actorId = null;
     snapshot.footTop = null;

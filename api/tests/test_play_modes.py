@@ -270,13 +270,16 @@ def test_online_partners_and_tied_sides_receive_wins_from_the_confirmed_match(ap
         assert MatchResult.query.count() == 1
 
 
-def test_preview_games_and_rematches_never_create_results_or_saved_tables(app):
-    app.config["DEVELOPMENT_FIXTURES"] = True
+def test_legacy_preview_games_and_rematches_never_create_results_or_saved_tables(app):
     http, headers = client(app)
     sign_in(http)
-    response = http.post(ROOT + "/fixtures", headers=headers, json={"fixture": "going-out"})
-    assert response.status_code == 200, response.json
-    room = response.json
+    room = create(http, headers, playMode="practice", capacity=2, scoringMode="individual")
+    with app.app_context():
+        row = db.session.get(Room, room["code"])
+        data = copy.deepcopy(row.payload)
+        data["developmentFixture"] = True
+        row.payload = data
+        db.session.commit()
     for _ in range(2):
         prepare_last_round(app, room["code"])
         confirm(http, headers, room["code"])

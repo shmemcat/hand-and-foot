@@ -8,7 +8,7 @@ import {
   pickupBeats,
   pickupFrame,
   type PickupScenario,
-} from "../lib/pickupSequence";
+} from "../test/fixtures/pickup";
 import type { Snapshot } from "../types";
 import { MELD_FLIGHT_MS, useMeldMotion } from "./useMeldMotion";
 

@@ -61,7 +61,6 @@ def create_app(config=None):
         SESSION_COOKIE_NAME="handandfoot_session", SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=os.environ.get("HANDANDFOOT_SECURE_COOKIE") == "1",
         MAX_CONTENT_LENGTH=32768, START_WORKER=True, BOT_INTERVAL=1.5,
-        DEVELOPMENT_FIXTURES=os.environ.get("HANDANDFOOT_DEVELOPMENT_FIXTURES") == "1",
         ALLOWED_ORIGINS=[value.strip() for value in os.environ.get("CORS_ORIGINS", "http://127.0.0.1:3004,http://localhost:3004,https://cards.shmem.dev").split(",") if value.strip()],
         CARDS_ACCOUNTS_URL=os.environ.get("CARDS_ACCOUNTS_URL", ""),
         CARDS_SERVICE_ID=os.environ.get("CARDS_SERVICE_ID", "handandfoot-game"),
@@ -98,6 +97,7 @@ def create_app(config=None):
     app.extensions["accounts"] = accounts
     socket_actors = {}
     subscriptions = {}
+    spectator_rooms = {}
     next_storage_cleanup = [time.monotonic() + CLEANUP_INTERVAL_SECONDS]
 
     def cleanup_storage(now=None):
@@ -251,16 +251,23 @@ def create_app(config=None):
             raise PermissionError("Join this table before viewing it.")
         return player
 
+    def can_spectate(data, key):
+        return (data["playMode"] == "online" and bool(data.get("game"))
+                and not data.get("_storage_pruned")
+                and key not in data.get("removed", {})
+                and not any(p.get("key") == key for p in players(data)))
+
     def projection(data, key):
-        player = member(data, key)
+        player = None if can_spectate(data, key) else member(data, key)
         base = {key: data[key] for key in ("code", "capacity", "scoringMode", "playMode", "revision", "hostId", "status", "targetScore")}
-        base["viewerId"] = player["id"]
+        base["viewerId"] = player["id"] if player else ""
+        base["spectating"] = player is None
         base["botDifficulty"] = data.get("botDifficulty", bots.DEFAULT_DIFFICULTY)
         base["developmentFixture"] = bool(data.get("developmentFixture"))
         if data.get("closedReason"):
             base["closedReason"] = data["closedReason"]
         if data.get("game"):
-            base.update(engine.project(data["game"], player["id"]))
+            base.update(engine.project(data["game"], player["id"] if player else None))
         else:
             lobby.normalize(data)
             side_count = data["capacity"] // 2 if data["scoringMode"] == "partnership" else data["capacity"]
@@ -432,28 +439,6 @@ def create_app(config=None):
             db.session.commit()
             return jsonify(projection(data, actor()))
 
-    @app.post(ROOT + "/fixtures")
-    def create_fixture():
-        if not app.config["DEVELOPMENT_FIXTURES"]:
-            raise LookupError("This preview is available only in development.")
-        guard()
-        fixture = body().get("fixture")
-        from .fixtures import BOARD_FIXTURES, HAND_FIXTURES, OPENING_FIXTURES, FOOT_FIXTURES, GOING_OUT_FIXTURES, RED_THREE_FIXTURES, SCORING_FIXTURES, populate
-        if fixture not in ("scoring", "dense", "catchup", *BOARD_FIXTURES, *HAND_FIXTURES, *OPENING_FIXTURES, *FOOT_FIXTURES, *GOING_OUT_FIXTURES, *RED_THREE_FIXTURES, *SCORING_FIXTURES):
-            raise ValueError("Choose one of the available development previews.")
-        with lock:
-            code = ''.join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
-            while db.session.get(Room, code):
-                code = ''.join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
-            player = new_player("You", actor())
-            individual_fixture = fixture in HAND_FIXTURES or fixture in BOARD_FIXTURES or fixture in OPENING_FIXTURES or fixture in FOOT_FIXTURES or fixture in GOING_OUT_FIXTURES or fixture in RED_THREE_FIXTURES or fixture in SCORING_FIXTURES
-            data = {"code": code, "capacity": MAX_PLAYERS, "scoringMode": "individual" if individual_fixture else "partnership", "playMode": "practice", "players": [player], "hostId": player["id"], "revision": 0, "token": engine.uid(), "status": "lobby", "game": None, "targetScore": FAMILY.target_score, "developmentFixture": True}
-            start(data)
-            populate(data["game"], fixture)
-            db.session.add(Room(code=code, payload=data, updated_at=time.time()))
-            db.session.commit()
-            return jsonify(projection(data, actor()))
-
     @app.post(ROOT + "/rooms/<code>/join")
     def join(code):
         guard()
@@ -463,6 +448,8 @@ def create_app(config=None):
             row = room_for(code)
             data = copy.deepcopy(row.payload)
             if any(p.get("key") == actor() for p in players(data)):
+                return jsonify(projection(data, actor()))
+            if can_spectate(data, actor()):
                 return jsonify(projection(data, actor()))
             if data["status"] != "lobby" or len(data["players"]) >= data["capacity"]:
                 raise ValueError("This table has already started or is full.")
@@ -509,6 +496,8 @@ def create_app(config=None):
         with lock:
             row = room_for(code)
             data = copy.deepcopy(row.payload)
+            if can_spectate(data, actor()):
+                return jsonify(projection(data, actor()))
             player = member(data, actor())
             if data.get("_storage_pruned"):
                 return jsonify(projection(data, actor()))
@@ -731,6 +720,9 @@ def create_app(config=None):
             announce(code, data["revision"])
 
     def unsubscribe(sid):
+        watched = spectator_rooms.pop(sid, None)
+        if watched:
+            leave_room(watched)
         previous = subscriptions.pop(sid, None)
         if previous and previous not in subscriptions.values():
             presence(*previous, away=True)
@@ -787,7 +779,15 @@ def create_app(config=None):
                 return {"error": "Choose a table."}
             with lock:
                 row = room_for(values["code"])
+                if can_spectate(row.payload, actor()):
+                    unsubscribe(request.sid)
+                    spectator_rooms[request.sid] = row.code
+                    join_room(row.code)
+                    return {"ok": True}
                 player = member(row.payload, actor())
+                watched = spectator_rooms.pop(request.sid, None)
+                if watched and watched != row.code:
+                    leave_room(watched)
                 subscription = (row.code, player["id"])
                 previous = subscriptions.get(request.sid)
                 if previous and previous != subscription:

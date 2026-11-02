@@ -103,7 +103,9 @@ def test_guest_lobby_transfers_host_but_played_games_do_not(app):
     assert guest.get(f'{ROOT}/rooms/{game["code"]}').status_code == 403
     assert move(http, headers, claimed, "start").status_code == 200
     http.delete_cookie("cards_session")
-    assert http.get(f'{ROOT}/rooms/{lobby["code"]}').status_code == 403
+    public = http.get(f'{ROOT}/rooms/{lobby["code"]}').json
+    assert public["spectating"] and public["viewerId"] == ""
+    assert public["hand"] == [] and public["footPreview"] is None
     guest.delete_cookie("cards_session")
     assert guest.get(f'{ROOT}/rooms/{game["code"]}').status_code == 200
 

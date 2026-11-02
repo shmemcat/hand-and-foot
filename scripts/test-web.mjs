@@ -9,7 +9,12 @@ const temp = path.join(root, ".local", "web-tests", randomUUID());
 mkdirSync(temp, { recursive: true });
 const result = spawnSync(
   process.execPath,
-  [path.join(root, "node_modules/vitest/vitest.mjs"), "run"],
+  [
+    path.join(root, "node_modules/vitest/vitest.mjs"),
+    "run",
+    "--maxWorkers=2",
+    ...process.argv.slice(2),
+  ],
   {
     cwd: path.join(root, "web"),
     stdio: "inherit",

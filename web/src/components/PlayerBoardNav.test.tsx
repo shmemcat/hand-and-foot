@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { PlayerBoardNav } from "./PlayerBoardNav";
-import { ENDING_EXAMPLES, endingSnapshot } from "../lib/endingExamples";
+import { ENDING_EXAMPLES, endingSnapshot } from "../test/fixtures/endings";
 
 it.each(["game-win", "game-partners"])(
   "shows a disconnected player’s badge and restores it on reconnect in %s",

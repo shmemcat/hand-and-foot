@@ -10,7 +10,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
 import { Room } from "./Room";
 import { GameApiError, getRoom, request } from "../lib/api";
-import { ENDING_EXAMPLES, endingSnapshot } from "../lib/endingExamples";
+import { ENDING_EXAMPLES, endingSnapshot } from "../test/fixtures/endings";
 import { writeStorage } from "../lib/storage";
 
 const auth = vi.hoisted(() => ({

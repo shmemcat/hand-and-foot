@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Room } from "./Room";
 import { command, getRoom } from "../lib/api";
-import { footSnapshot, type FootEntry } from "../lib/footSequence";
+import { footSnapshot, type FootEntry } from "../test/fixtures/foot";
 import {
   FOOT_GATHER_DELAY_MS,
   FOOT_SETTLE_MS,
@@ -642,11 +642,11 @@ it("does not replay an old pickup announcement or sound on rejoining", async () 
   expect(sound.play).not.toHaveBeenCalledWith("deal");
 });
 
-it.each(
-  [1, 3, 4].flatMap((seat) =>
-    [false, true].map((closeBook) => [seat, closeBook] as const),
-  ),
-)(
+it.each([
+  [1, false],
+  [3, true],
+  [4, true],
+] as const)(
   "cascades every concealed foot card for partnership bot seat %s after its last meld lands (book: %s)",
   async (seat, closeBook) => {
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(

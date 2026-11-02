@@ -8,7 +8,7 @@ import {
 } from "./useTableMotion";
 import { TableCards } from "../components/TableCards";
 import { Card } from "../components/Card";
-import { footSnapshot } from "../lib/footSequence";
+import { footSnapshot } from "../test/fixtures/foot";
 import {
   DRAW_FLIGHT_MS,
   DRAW_STAGGER_MS,
@@ -26,14 +26,7 @@ function Table({
   viewedTeam?: number;
 }) {
   const board = useRef<HTMLDivElement>(null);
-  const motion = useTableMotion(
-    snapshot,
-    snapshot,
-    board,
-    reduced,
-    false,
-    viewedTeam,
-  );
+  const motion = useTableMotion(snapshot, snapshot, board, reduced, viewedTeam);
   const view = motion.snapshot!;
   return (
     <div ref={board} className="game-page" data-blocked={motion.blocking}>

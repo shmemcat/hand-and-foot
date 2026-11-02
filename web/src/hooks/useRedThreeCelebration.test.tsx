@@ -3,7 +3,7 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import party from "party-js";
 import { useRedThreeCelebration } from "./useRedThreeCelebration";
-import { footSnapshot } from "../lib/footSequence";
+import { footSnapshot } from "../test/fixtures/foot";
 import type { Snapshot } from "../types";
 
 const sound = vi.hoisted(() => ({ play: vi.fn() }));

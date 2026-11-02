@@ -1,7 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { useCardMovementSounds } from "./useCardMovementSounds";
-import { footSnapshot } from "../lib/footSequence";
+import { footSnapshot } from "../test/fixtures/foot";
 import type { Snapshot, TableEvent } from "../types";
 
 const sound = vi.hoisted(() => ({ play: vi.fn() }));

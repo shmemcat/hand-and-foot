@@ -24,20 +24,18 @@ const emptyStats: Stats = {
   goingOut: 0,
 };
 
-export function AccountSummary({ preview }: { preview?: Summary }) {
-  const [data, setData] = useState<Summary | null>(preview ?? null);
+export function AccountSummary() {
+  const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [separate, setSeparate] = useState(false);
   const [category, setCategory] = useState<ResultCategory>("medium");
   useEffect(() => {
-    if (preview) return;
     const refresh = () => setAttempt((value) => value + 1);
     window.addEventListener(ACHIEVEMENT_EVENT, refresh);
     return () => window.removeEventListener(ACHIEVEMENT_EVENT, refresh);
-  }, [preview]);
+  }, []);
   useEffect(() => {
-    if (preview) return;
     let active = true;
     setError("");
     void request<Summary>("/achievements")
@@ -54,7 +52,7 @@ export function AccountSummary({ preview }: { preview?: Summary }) {
     return () => {
       active = false;
     };
-  }, [attempt, preview]);
+  }, [attempt]);
   if (error)
     return (
       <div className="account-load-error">

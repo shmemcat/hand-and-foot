@@ -242,16 +242,6 @@ export function Lobby({
             </section>
           )}
           <div className="lobby-start">
-            {missing > 0 && fillBots && (
-              <BotDifficulty
-                className="lobby-empty-seats"
-                value={snapshot.botDifficulty ?? "medium"}
-                disabled={busy || !isHost}
-                onChange={(botDifficulty) =>
-                  void run("lobby_options", { botDifficulty })
-                }
-              />
-            )}
             {missing > 0 && (
               <fieldset className="lobby-empty-seats">
                 <legend>Empty seats</legend>
@@ -291,6 +281,16 @@ export function Lobby({
                   </label>
                 </div>
               </fieldset>
+            )}
+            {missing > 0 && fillBots && (
+              <BotDifficulty
+                className="lobby-empty-seats"
+                value={snapshot.botDifficulty ?? "medium"}
+                disabled={busy || !isHost}
+                onChange={(botDifficulty) =>
+                  void run("lobby_options", { botDifficulty })
+                }
+              />
             )}
             {isHost ? (
               <>

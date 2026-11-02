@@ -22,7 +22,7 @@ export function GameMenu({
       (player) => player.id === snapshot.viewerId && player.team === side.id,
     ),
   );
-  const canConcede = snapshot.phase !== "finished";
+  const canConcede = !snapshot.spectating && snapshot.phase !== "finished";
   return (
     <div className="game-menu-controls">
       <ScoringCheatSheet />
@@ -95,7 +95,7 @@ export function GameMenu({
             View score sheet
           </button>
           <hr />
-          <h3>Your progress</h3>
+          {!snapshot.spectating && <><h3>Your progress</h3>
           <dl className="game-menu-facts">
             <div>
               <dt>Minimum to open</dt>
@@ -114,6 +114,7 @@ export function GameMenu({
               <dd>{ownSide?.dirty ?? 0}</dd>
             </div>
           </dl>
+          </>}
           <hr />
           {snapshot.playMode === "online" && canConcede && (
             <p className="menu-saved-seat-note">
@@ -128,7 +129,7 @@ export function GameMenu({
               onLeave();
             }}
           >
-            {canConcede ? "Concede" : "Leave lobby"}
+            {snapshot.spectating ? "Stop Watching" : canConcede ? "Concede" : "Leave lobby"}
           </button>
         </div>
       </details>

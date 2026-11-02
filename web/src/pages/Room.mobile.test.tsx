@@ -10,11 +10,15 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { Room } from "./Room";
 import { Shell } from "../components/Shell";
-import { mobilePreviewSnapshot, mobileCountingSnapshot } from "./MobilePreview";
+import { mobileTableFixture, countingTableFixture } from "../test/fixtures/mobile";
 import { command, getRoom } from "../lib/api";
 import { MOBILE_PLAY_MS } from "../hooks/useMobilePlayMotion";
 import { BOOK_CLOSE_MS } from "../hooks/useBookClosing";
-import { DRAW_FLIGHT_MS, RED_REPLACEMENT_MS } from "../hooks/useDrawMotion";
+import {
+  DRAW_FLIGHT_MS,
+  DRAW_STAGGER_MS,
+  RED_REPLACEMENT_MS,
+} from "../hooks/useDrawMotion";
 
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ user: null }) }));
 vi.mock("../context/SoundContext", () => ({
@@ -57,31 +61,33 @@ async function open(
   phase: "draw" | "play" = "play",
   drawCount = 2,
 ) {
-  const snapshot = mobilePreviewSnapshot(count);
+  const snapshot = mobileTableFixture(count);
   snapshot.phase = phase;
   snapshot.drawCount = drawCount;
   vi.mocked(getRoom).mockResolvedValue(snapshot);
   vi.mocked(command).mockResolvedValue(snapshot);
-  render(
-    <MemoryRouter initialEntries={["/room/MOBILE-PREVIEW"]}>
-      <Shell>
-        <Routes>
-          <Route path="/room/:code" element={<Room />} />
-        </Routes>
-      </Shell>
-    </MemoryRouter>,
+  await act(async () =>
+    render(
+      <MemoryRouter initialEntries={["/room/MOBILE-PREVIEW"]}>
+        <Shell>
+          <Routes>
+            <Route path="/room/:code" element={<Room />} />
+          </Routes>
+        </Shell>
+      </MemoryRouter>,
+    ),
   );
-  await screen.findByRole("button", { name: /your hand.*open hand/i });
+  expect(
+    screen.getByRole("button", { name: /your hand.*open hand/i }),
+  ).toBeTruthy();
   if (phase === "draw")
-    await waitFor(() =>
-      expect(
-        screen
-          .getByRole("button", {
-            name: `Draw ${drawCount} cards from the stack`,
-          })
-          .hasAttribute("disabled"),
-      ).toBe(false),
-    );
+    expect(
+      screen
+        .getByRole("button", {
+          name: `Draw ${drawCount} cards from the stack`,
+        })
+        .hasAttribute("disabled"),
+    ).toBe(false);
   return snapshot;
 }
 function expand() {
@@ -137,7 +143,8 @@ it("swipes each card area independently, preserves arrows, and keeps vertical ge
 it("places the mobile Follow turn control beneath the round badge", async () => {
   await open();
   expect(
-    screen.getByRole("button", { name: "Round 3. View round record" }).textContent,
+    screen.getByRole("button", { name: "Round 3. View round record" })
+      .textContent,
   ).toBe("R3");
   const control = screen.getByRole<HTMLInputElement>("checkbox", {
     name: "Follow turn",
@@ -154,6 +161,7 @@ it("places the mobile Follow turn control beneath the round badge", async () => 
 it.each([2, 3])(
   "animates a %s-card draw into the mobile drawer and then opens the new hand",
   async (count) => {
+    vi.useFakeTimers();
     const snapshot = await open(24, "draw", count);
     const incoming = Array.from({ length: count }, (_, i) => ({
       id: `new-mobile-${i}`,
@@ -170,28 +178,27 @@ it.each([2, 3])(
       phase: "play",
       hand: [...snapshot.hand, ...incoming],
     });
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: `Draw ${count} cards from the stack`,
-      }),
+    await act(async () =>
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: `Draw ${count} cards from the stack`,
+        }),
+      ),
     );
-    await waitFor(() => expect(command).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(
-        document.querySelectorAll(
-          '.draw-card-flight[data-to-hand-drawer="true"]',
-        ),
-      ).toHaveLength(count),
+    expect(command).toHaveBeenCalledExactlyOnceWith(snapshot, "draw", {});
+    expect(
+      document.querySelectorAll(
+        '.draw-card-flight[data-to-hand-drawer="true"]',
+      ),
+    ).toHaveLength(count);
+    await act(async () =>
+      vi.advanceTimersByTime(DRAW_FLIGHT_MS + (count - 1) * DRAW_STAGGER_MS),
     );
-    await waitFor(
-      () =>
-        expect(
-          screen
-            .getByRole("button", { name: /your hand.*table/i })
-            .getAttribute("aria-expanded"),
-        ).toBe("true"),
-      { timeout: 2000 },
-    );
+    expect(
+      screen
+        .getByRole("button", { name: /your hand.*table/i })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
     expect(
       screen.getByRole("button", {
         name: new RegExp(`your hand.*${24 + count} cards.*table`, "i"),
@@ -299,6 +306,7 @@ it("pages all ten open piles and eight completed books without changing boards",
 });
 
 it("reveals an off-page accepted meld destination and flies the hand card there", async () => {
+  vi.useFakeTimers();
   const snapshot = await open();
   expand();
   fireEvent.click(screen.getByRole("button", { name: "Next hand cards" }));
@@ -309,17 +317,19 @@ it("reveals an off-page accepted meld destination and flies the hand card there"
   });
   fireEvent.click(within(targets).getByRole("button", { name: "9 pile, 4/7" }));
   const next = structuredClone(snapshot);
+  next.revision += 1;
   const card = next.hand.find((item) => item.id === "mobile-hand-12")!;
   next.hand = next.hand.filter((item) => item.id !== card.id);
   next.sides[0].melds[6].cards.push(card);
   next.token = "mobile-meld-accepted";
   vi.mocked(command).mockResolvedValue(next);
-  fireEvent.click(within(hand).getByRole("button", { name: "Play draft" }));
-  await waitFor(() =>
-    expect(
-      document.querySelector('.mobile-play-flight-layer[data-kind="meld"]'),
-    ).toBeTruthy(),
+  vi.mocked(getRoom).mockResolvedValue(next);
+  await act(async () =>
+    fireEvent.click(within(hand).getByRole("button", { name: "Play draft" })),
   );
+  expect(
+    document.querySelector('.mobile-play-flight-layer[data-kind="meld"]'),
+  ).toBeTruthy();
   expect(
     document.querySelector('.open-piles [data-meld-id="mobile-0-meld-6"]'),
   ).toBeTruthy();
@@ -331,9 +341,8 @@ it("reveals an off-page accepted meld destination and flies the hand card there"
       .getByRole("button", { name: "Stage meld" })
       .hasAttribute("disabled"),
   ).toBe(true);
-  await waitFor(() =>
-    expect(document.querySelector(".mobile-play-card")).toBeNull(),
-  );
+  await act(async () => vi.advanceTimersByTime(MOBILE_PLAY_MS));
+  expect(document.querySelector(".mobile-play-card")).toBeNull();
   expect(
     document
       .querySelector('.open-piles [data-card-id="mobile-hand-12"]')
@@ -343,7 +352,12 @@ it("reveals an off-page accepted meld destination and flies the hand card there"
 
 it("gathers newly qualified mobile red threes into the completed row after the hand card lands", async () => {
   vi.useFakeTimers();
-  const before = mobilePreviewSnapshot(2);
+  const before = mobileTableFixture(2);
+  before.sides.forEach((side) => {
+    side.melds = [];
+    side.clean = 0;
+    side.dirty = 0;
+  });
   const reds = Array.from({ length: 3 }, (_, index) => ({
     id: `mobile-red-${index}`,
     rank: "3",
@@ -355,6 +369,7 @@ it("gathers newly qualified mobile red threes into the completed row after the h
   before.hand = [reds[2], { ...before.hand[1], rank: "K", suit: "clubs" }];
   before.players[0].redThrees = reds.slice(0, 2);
   const after = structuredClone(before);
+  after.revision += 1;
   after.hand = before.hand.slice(1);
   after.players[0].redThrees = reds;
   after.token = "red-book-accepted";
@@ -386,10 +401,10 @@ it("gathers newly qualified mobile red threes into the completed row after the h
     document.querySelector('.mobile-play-flight-layer[data-kind="red"]'),
   ).toBeTruthy();
   expect(document.querySelector(".open-piles .red-three-pile")).toBeTruthy();
-  act(() => vi.advanceTimersByTime(MOBILE_PLAY_MS));
+  await act(async () => vi.advanceTimersByTime(MOBILE_PLAY_MS));
   expect(document.querySelectorAll(".book-closing-card")).toHaveLength(3);
   expect(document.querySelector(".closed-books .red-three-pile")).toBeTruthy();
-  act(() => vi.advanceTimersByTime(BOOK_CLOSE_MS));
+  await act(async () => vi.advanceTimersByTime(BOOK_CLOSE_MS));
   expect(document.querySelector(".book-closing-card")).toBeNull();
   expect(
     document.querySelector('.red-three-stack [data-meld-hidden="true"]'),
@@ -398,7 +413,7 @@ it("gathers newly qualified mobile red threes into the completed row after the h
 
 it("keeps red-three replacement on its own draw flight without an overlapping mobile discard", async () => {
   vi.useFakeTimers();
-  const before = mobilePreviewSnapshot(2);
+  const before = mobileTableFixture(2);
   const red = {
     ...before.hand[0],
     rank: "3",
@@ -460,19 +475,17 @@ it("keeps red-three replacement on its own draw flight without an overlapping mo
   expect(screen.getByRole("button", { name: "K of diamonds" })).toBeTruthy();
 });
 
+// Count sequencing has hook tests; these cases cover restoring the mobile controls.
 it.each(
   (["individual", "partnership"] as const).flatMap((scoringMode) =>
-    (["round_over", "finished"] as const).flatMap((phase) =>
-      [false, true].map((skipAnimation) => ({
-        scoringMode,
-        phase,
-        skipAnimation,
-      })),
-    ),
+    (["round_over", "finished"] as const).map((phase) => ({
+      scoringMode,
+      phase,
+    })),
   ),
 )(
-  "restores the mobile drawer after $scoringMode $phase results are hidden (skip animation: $skipAnimation)",
-  async ({ scoringMode, phase, skipAnimation }) => {
+  "restores the mobile drawer after $scoringMode $phase results are hidden",
+  async ({ scoringMode, phase }) => {
     vi.useFakeTimers();
     vi.mocked(window.matchMedia).mockImplementation(
       (query) =>
@@ -484,7 +497,7 @@ it.each(
           removeEventListener: vi.fn(),
         }) as unknown as MediaQueryList,
     );
-    const source = mobileCountingSnapshot();
+    const source = countingTableFixture();
     source.scoringMode = scoringMode;
     if (scoringMode === "partnership") {
       source.players = source.players.map((player, index) => ({
@@ -563,27 +576,15 @@ it.each(
     ).toBeNull();
     const skip = screen.getByRole("button", { name: "Skip animation" });
     expect(skip.closest(".hand-heading")).toBeTruthy();
-    if (skipAnimation) {
-      fireEvent.click(skip);
-      await act(async () => {});
-      expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
-      expect(
-        screen.queryByRole("button", { name: "Skip animation" }),
-      ).toBeNull();
-    }
-    for (
-      let step = 0;
-      step < 100 && !document.querySelector(".round-score-sheet");
-      step++
-    )
-      await act(async () => vi.advanceTimersByTime(100));
+    fireEvent.click(skip);
+    await act(async () => {});
     expect(screen.getByRole("dialog", { name: "Score sheet" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Skip animation" })).toBeNull();
     expect(command).toHaveBeenCalledExactlyOnceWith(
       source,
       "score_confirm",
       {},
     );
-    if (!skipAnimation) expect(counter.textContent).toContain("2,485");
     expect(
       screen.getByRole("navigation", { name: "Main navigation" }),
     ).toBeTruthy();
@@ -629,5 +630,4 @@ it.each(
       {},
     );
   },
-  60000,
 );

@@ -40,10 +40,8 @@ export function useFootMotion(
   board: RefObject<HTMLDivElement | null>,
   reduced: boolean,
   meldActive: boolean,
-  rehearsal: boolean,
   ownBoard = true,
   mobile = false,
-  rehearsalAnimate = false,
 ) {
   const [desktop, setDesktop] = useState(
     () => window.matchMedia("(min-width: 769px)").matches,
@@ -55,9 +53,7 @@ export function useFootMotion(
   } | null>(null);
   const serial = useRef(0);
   const cancel = useCallback(() => setTransition(null), []);
-  const enabled = Boolean(
-    (!rehearsal || rehearsalAnimate) && (mobile || desktop),
-  );
+  const enabled = mobile || desktop;
   const canAnimate = Boolean(
     enabled &&
       !reduced &&

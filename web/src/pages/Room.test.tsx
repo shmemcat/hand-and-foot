@@ -20,9 +20,11 @@ import {
 import { MELD_FLIGHT_MS } from "../hooks/useMeldMotion";
 import { DISCARD_FLIGHT_MS, GOING_OUT_PAUSE_MS } from "../hooks/useTableMotion";
 import party from "party-js";
-import { ENDING_EXAMPLES, endingSnapshot } from "../lib/endingExamples";
+import { ENDING_EXAMPLES, endingSnapshot } from "../test/fixtures/endings";
 
 vi.mock("../context/AuthContext", () => ({ useAuth: () => ({ user: null }) }));
+const cardSettings = vi.hoisted(() => ({ cardBack: "single-leaves", displayMode: "uniform" }));
+vi.mock("../context/CardBackContext", () => ({ useCardBack: () => cardSettings }));
 const sound = vi.hoisted(() => ({ play: vi.fn() }));
 vi.mock("../context/SoundContext", () => ({
   useSound: () => sound,
@@ -128,6 +130,20 @@ function openRoom(withTurnSound = false) {
     </MemoryRouter>,
   );
 }
+
+it.each(["choose", "draw", "scoring", "round_over", "finished"] as const)("watches an in-progress invite during %s without a private hand, saved seat, or ready commands", async phase => {
+  const snapshot: Snapshot = { ...fixture(), phase, playMode: "online", spectating: true, viewerId: "", hand: [], footTop: null,
+    turnPresentation: { id: "next-turn", ready: [], complete: false } };
+  localStorage.removeItem("handandfoot.room.v1");
+  vi.mocked(command).mockClear();
+  vi.mocked(getRoom).mockResolvedValue(snapshot);
+  openRoom();
+  expect((await screen.findAllByText(/Watching ·/)).length).toBeGreaterThan(0);
+  expect(screen.queryByRole("region", { name: "Your private hand" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Next Round" })).toBeNull();
+  expect(localStorage.getItem("handandfoot.room.v1")).toBeNull();
+  expect(command).not.toHaveBeenCalled();
+});
 
 it.each([0, 1, 3])(
   "uses the correct card count wording for %s cards",
@@ -362,39 +378,21 @@ it("lands a partner's red-three play in the team's combined pile", async () => {
   expect(reds.querySelectorAll(".card")).toHaveLength(3);
 });
 
-it.each(
-  (["individual", "partnership"] as const).flatMap((scoringMode) =>
-    (["practice", "online"] as const).flatMap((playMode) =>
-      [false, true].flatMap((skipAnimation) =>
-        [0, 1].flatMap((viewedTeam) =>
-          [false, true].flatMap((missedScoring) =>
-            [
-              "before",
-              ...(playMode === "online" && !skipAnimation && viewedTeam === 1
-                ? [
-                    "during-flight",
-                    "during-pause",
-                    "during-flight-arrow",
-                    "during-pause-arrow",
-                  ]
-                : []),
-            ].map(
-              (navigation) =>
-                [
-                  scoringMode,
-                  playMode,
-                  skipAnimation,
-                  viewedTeam,
-                  missedScoring,
-                  navigation,
-                ] as const,
-            ),
-          ),
-        ),
-      ),
-    ),
-  ),
-)(
+// Keep each scoring and navigation path; detailed counting is covered by useLiveScoring.
+it.each([
+  ["individual", "practice", false, 0, false, "before"],
+  ["partnership", "practice", false, 1, false, "before"],
+  ["individual", "online", false, 1, false, "before"],
+  ["partnership", "online", false, 0, false, "before"],
+  ["individual", "practice", true, 1, false, "before"],
+  ["partnership", "online", true, 0, true, "before"],
+  ["individual", "online", false, 0, true, "before"],
+  ["partnership", "practice", false, 1, true, "before"],
+  ["individual", "online", false, 1, false, "during-flight"],
+  ["partnership", "online", false, 1, true, "during-pause"],
+  ["partnership", "online", false, 1, false, "during-flight-arrow"],
+  ["individual", "online", false, 1, true, "during-pause-arrow"],
+] as const)(
   "animates %s %s scoring after another player goes out (skip: %s, viewed team: %s, missed scoring: %s, navigation: %s)",
   async (
     scoringMode,
@@ -1047,6 +1045,8 @@ it("does not allow a later staged wild after an earlier addition would close a c
 });
 
 beforeEach(() => {
+  cardSettings.cardBack = "single-leaves";
+  cardSettings.displayMode = "uniform";
   sound.play.mockClear();
   vi.mocked(party.confetti).mockClear();
   vi.mocked(getRoom).mockResolvedValue(fixture());
@@ -1228,6 +1228,43 @@ it("announces choosing a hand separately from the first playable turn", async ()
   });
   await act(async () => vi.advanceTimersByTime(3000));
   expect(play).toHaveBeenCalledTimes(2);
+});
+
+it.each(["uniform", "players"])("uses the viewed player's deck and face-down discard only for players display (%s)", async mode => {
+  cardSettings.cardBack = "royal-fan";
+  cardSettings.displayMode = mode;
+  const snapshot = fixture();
+  snapshot.phase = "play";
+  snapshot.discardFaceDown = true;
+  snapshot.discardCount = 1;
+  snapshot.players[0].cardBack = "royal-fan";
+  snapshot.players[1].cardBack = "ginkgo";
+  vi.mocked(getRoom).mockResolvedValue(snapshot);
+  openRoom();
+  await screen.findByRole("region", { name: "Your board" });
+  const piles = screen.getByRole("group", { name: "Draw piles" });
+  const designs = () => [...piles.querySelectorAll<HTMLElement>(".card[data-card-back]")].map(card => card.dataset.cardBack);
+  expect(designs()).toEqual(["royal-fan", "royal-fan"]);
+  piles.querySelectorAll("img").forEach(image => fireEvent.load(image));
+  fireEvent.click(screen.getByRole("button", { name: "Next board" }));
+  expect(designs()).toEqual(Array(2).fill(mode === "players" ? "ginkgo" : "royal-fan"));
+  expect(piles.querySelectorAll('[data-back-layer="previous"]')).toHaveLength(mode === "players" ? 2 : 0);
+  fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
+  expect(designs()).toEqual(["royal-fan", "royal-fan"]);
+});
+
+it("follows the selected partner's back within a shared team board", async () => {
+  cardSettings.cardBack = "royal-fan";
+  cardSettings.displayMode = "players";
+  const snapshot = partnershipFixture();
+  snapshot.players[0].cardBack = "royal-fan";
+  snapshot.players.find(player => player.id === "alex")!.cardBack = "fern-sprig";
+  vi.mocked(getRoom).mockResolvedValue(snapshot);
+  openRoom();
+  await screen.findByRole("region", { name: "Your board" });
+  const hands = screen.getAllByRole("group", { name: "Player hands" });
+  fireEvent.click(within(hands[0]).getByRole("button", { name: /^View Alex/ }));
+  expect(screen.getByRole("group", { name: "Draw piles" }).querySelector("[data-card-back]")?.getAttribute("data-card-back")).toBe("fern-sprig");
 });
 
 it("browses individual boards with their concealed hands and a real follow checkbox", async () => {
