@@ -71,14 +71,14 @@ export const ACHIEVEMENTS: Definition[] = [
     "dirty_books",
     "Wild at Heart",
     "Have your side keep dirty books after scoring",
-    "heart",
+    "hat-wizard",
     [10, 50, 200],
   ),
   milestone(
     "going_out",
     "Closing Time",
     "Have your side go out",
-    "key",
+    "door-open",
     [10, 50, 200],
   ),
   milestone(
@@ -98,7 +98,7 @@ export const ACHIEVEMENTS: Definition[] = [
     "matched_set",
     "Matched Set",
     "Keep a clean book and a dirty book in the same round.",
-    "yin-yang",
+    "clone",
   ),
   goal(
     "big_hand",
@@ -106,7 +106,12 @@ export const ACHIEVEMENTS: Definition[] = [
     "Have your side score at least 3,000 points in one round.",
     "bolt",
   ),
-  goal("team_spirit", "Better Together", "Win a partnership game.", "heart"),
+  goal(
+    "team_spirit",
+    "Better Together",
+    "Win a partnership game.",
+    "handshake",
+  ),
   goal("own_two_feet", "On My Own", "Win an individual game.", "user-ninja"),
   goal("good_company", "Good Company", "Finish a multiplayer game.", "cards"),
   goal(
@@ -131,13 +136,13 @@ export const ACHIEVEMENTS: Definition[] = [
     "triple_threat",
     "Three's Company",
     "Keep at least three bonus-scoring red threes in one round.",
-    "clover",
+    "dice-three",
   ),
   secret(
     "seeing_red",
     "Scarlet Fever",
     "Keep at least six bonus-scoring red threes in one round.",
-    "fire",
+    "temperature-high",
   ),
   secret(
     "clean_sweep",
@@ -167,7 +172,7 @@ export const ACHIEVEMENTS: Definition[] = [
     "handle_with_care",
     "Mint Condition",
     "Keep at least three books without breaking any during scoring.",
-    "shield",
+    "shield-check",
   ),
   secret("hot_streak", "Hot Streak", "Win five games in a row.", "fire"),
   secret(
@@ -192,7 +197,7 @@ export const ACHIEVEMENTS: Definition[] = [
     "full_house",
     "Standing Room Only",
     "Finish multiplayer with at least four human players still at the table.",
-    "cards",
+    "house",
   ),
   secret(
     "scenic_route",
@@ -204,7 +209,7 @@ export const ACHIEVEMENTS: Definition[] = [
     "better_with_friends",
     "Better with Friends",
     "Finish a multiplayer game with at least two human players still at the table.",
-    "cards",
+    "user-group",
   ),
   secret(
     "early_bird",
