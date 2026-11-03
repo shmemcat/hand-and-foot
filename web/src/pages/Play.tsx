@@ -54,7 +54,7 @@ export function Play() {
             </small>
           </Link>
         </div>
-        <InProgressGames loading={active.checking} error={active.error} onRetry={active.retry}
+        <InProgressGames error={active.error} onRetry={active.retry}
           games={active.rooms.map(room => ({ id: room.code, title: room.playMode === "practice" ? `Bot game · ${room.botDifficulty ?? "Medium"}` : `Table ${room.code}`,
             mode: `${room.playMode === "practice" ? "Bots" : "Multiplayer"} · ${room.capacity} players`,
             progress: room.phase === "lobby" ? "Waiting in the lobby" : `Round ${room.round} · ${room.scoringMode === "partnership" ? "Partnership" : "Individual"}`,

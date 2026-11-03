@@ -16,14 +16,12 @@ export type SavedGameCard = {
 
 export function InProgressGames({
   games,
-  loading,
   error,
   onResume,
   onConcede,
   onRetry,
 }: {
   games: SavedGameCard[];
-  loading?: boolean;
   error?: string;
   onResume: (id: string) => void | Promise<void>;
   onConcede: (id: string) => void | Promise<void>;
@@ -62,9 +60,6 @@ export function InProgressGames({
       aria-labelledby={games.length ? heading : undefined}
     >
       {!!games.length && <h2 id={heading}>Games in progress</h2>}
-      {loading && !!games.length && (
-        <p role="status">Checking your saved games…</p>
-      )}
       {error && (
         <div role="alert">
           <p>{error}</p>
