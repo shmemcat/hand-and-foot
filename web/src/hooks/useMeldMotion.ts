@@ -270,6 +270,20 @@ export function useMeldMotion(
           });
       }
       if (cards.length) {
+        // Paint flights in the destination stack's order, including the natural
+        // card kept below wilds, rather than the hand or server card order.
+        const layerOrder = new Map(
+          [
+            ...board.current.querySelectorAll<HTMLElement>(
+              ".meld-pile [data-card-id], .red-three-pile [data-card-id]",
+            ),
+          ].map((layer, index) => [layer.dataset.cardId!, index]),
+        );
+        cards.sort(
+          (a, b) =>
+            (layerOrder.get(a.card.id) ?? -1) -
+            (layerOrder.get(b.card.id) ?? -1),
+        );
         const next: MeldFlight = {
           key: ++serial.current,
           token: incoming.token,

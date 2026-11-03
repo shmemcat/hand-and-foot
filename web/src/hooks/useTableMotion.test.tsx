@@ -16,6 +16,10 @@ import {
 } from "./useDrawMotion";
 import type { Snapshot, TableEvent } from "../types";
 
+vi.mock("../context/CardBackContext", () => ({
+  useCardBack: () => ({ cardBack: "royal-fan", displayMode: "players" }),
+}));
+
 function Table({
   snapshot,
   reduced = false,
@@ -197,6 +201,29 @@ it("shows a private two-card draw only as backs above the divider while watching
     source.hand.length,
   );
 });
+
+it.each([false, true])(
+  "uses your selected design for bot card flights and each human's own design (bot: %s)",
+  (bot) => {
+    const source = before();
+    source.players[1].bot = bot;
+    source.players[1].cardBack = bot ? "single-leaves" : "ginkgo";
+    const view = render(<Table snapshot={source} />);
+    view.rerender(
+      <Table snapshot={{ ...source, revision: 1, tableEvents: [draw, discard] }} />,
+    );
+    const backs = () =>
+      [
+        ...view.container.querySelectorAll<HTMLElement>(
+          ".table-card-flight [data-card-back]",
+        ),
+      ].map((card) => card.dataset.cardBack);
+    const expected = bot ? "royal-fan" : "ginkgo";
+    expect(backs()).toEqual(Array(4).fill(expected));
+    act(() => vi.advanceTimersByTime(DRAW_FLIGHT_MS + DRAW_STAGGER_MS));
+    expect(backs()).toEqual([expected]);
+  },
+);
 
 it("presents each count in a batched draw and discard before settling the final count", () => {
   const source = before();

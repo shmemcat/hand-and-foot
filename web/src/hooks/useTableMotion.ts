@@ -76,6 +76,7 @@ export function useTableMotion(
   const [queue, setQueue] = useState<TableFlight[]>([]);
   const [landedId, setLandedId] = useState<string | null>(null);
   const [readyId, setReadyId] = useState<string | null>(null);
+  const startedFootId = useRef<string | null>(null);
   const previous = useRef<{
     snapshot: Snapshot;
     positions: Map<string, CardPosition>;
@@ -112,7 +113,12 @@ export function useTableMotion(
     canPresent && !boardChanged
       ? newEvents.filter((event) => shouldShow(event) && visibleMotion(event))
       : [];
-  const waitingForMeld = Boolean(meldActive && queue[0]?.event.kind === "foot");
+  // Wait for the last hand meld, but never restart a pickup for later foot melds.
+  const waitingForMeld = Boolean(
+    meldActive &&
+      queue[0]?.event.kind === "foot" &&
+      startedFootId.current !== queue[0].event.id,
+  );
   const waitingFoot = waitingForMeld ? queue[0] : null;
   const flight =
     canPresent &&
@@ -154,6 +160,7 @@ export function useTableMotion(
     (!suspended && pendingEvents.length > 0);
 
   useLayoutEffect(() => {
+    if (flight?.event.kind === "foot") startedFootId.current = flight.event.id;
     if (!incoming || !board.current) {
       previous.current = null;
       if (queue.length) clear();

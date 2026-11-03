@@ -124,6 +124,97 @@ it("flies newly public bot melds from the divider only when their board is visib
   other.rerender(<Table snapshot={after} />);
   expect(other.container.querySelector(".meld-flight-layer")).toBeNull();
 });
+
+it.each(
+  ["2", "Joker"].flatMap((wild) =>
+    [false, true].map((opponent) => ({ wild, opponent })),
+  ),
+)(
+  "keeps a dirty meld's flight in its final stacking order with $wild (opponent: $opponent)",
+  ({ wild, opponent }) => {
+    const [source] = pair("new");
+    const actor = source.players.find((player) =>
+      opponent ? player.id !== source.viewerId : player.id === source.viewerId,
+    )!;
+    const cards: Snapshot["hand"] = [
+      {
+        id: "first-jack",
+        rank: "J",
+        suit: "clubs",
+        value: 10,
+        wild: false,
+        redThree: false,
+      },
+      {
+        id: "bottom-jack",
+        rank: "J",
+        suit: "diamonds",
+        value: 10,
+        wild: false,
+        redThree: false,
+      },
+      {
+        id: "last-wild",
+        rank: wild,
+        suit: wild === "Joker" ? "joker" : "spades",
+        value: wild === "Joker" ? 50 : 20,
+        wild: true,
+        redThree: false,
+      },
+    ];
+    const before: Snapshot = {
+      ...source,
+      actorId: actor.id,
+      phase: "play",
+      hand: opponent ? source.hand : [...cards, ...source.hand],
+      sides: source.sides.map((side) => ({ ...side, melds: [] })),
+    };
+    const after: Snapshot = {
+      ...before,
+      token: "dirty-meld",
+      hand: source.hand,
+      sides: before.sides.map((side) =>
+        side.id === actor.team
+          ? {
+              ...side,
+              melds: [
+                {
+                  id: "new-dirty-meld",
+                  creator: actor.id,
+                  kind: "set",
+                  rank: "J",
+                  cards,
+                  complete: false,
+                  dirty: true,
+                  bonus: 0,
+                },
+              ],
+            }
+          : side,
+      ),
+    };
+    const view = render(<Table snapshot={before} viewedTeam={actor.team} />);
+    view.rerender(<Table snapshot={after} viewedTeam={actor.team} />);
+    const ids = (selector: string) =>
+      [...view.container.querySelectorAll<HTMLElement>(selector)].map(
+        (node) => node.dataset.cardId,
+      );
+    const finalOrder = ["first-jack", "last-wild", "bottom-jack"];
+    expect(ids(".meld-card-layer")).toEqual(finalOrder);
+    expect(ids(".meld-card-flight")).toEqual(finalOrder);
+    act(() => vi.advanceTimersByTime(MELD_FLIGHT_MS / 2));
+    expect(ids(".meld-card-flight")).toEqual(finalOrder);
+    act(() => vi.advanceTimersByTime(MELD_FLIGHT_MS / 2));
+    expect(ids(".meld-card-flight")).toEqual([]);
+    expect(ids(".meld-card-layer")).toEqual(finalOrder);
+    expect(cards.map((card) => card.id)).toEqual([
+      "first-jack",
+      "bottom-jack",
+      "last-wild",
+    ]);
+  },
+);
+
 function pair(scenario: PickupScenario) {
   const beats = pickupBeats(scenario);
   return [

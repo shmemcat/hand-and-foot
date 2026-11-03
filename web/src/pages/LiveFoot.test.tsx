@@ -643,12 +643,13 @@ it("does not replay an old pickup announcement or sound on rejoining", async () 
 });
 
 it.each([
-  [1, false],
-  [3, true],
-  [4, true],
+  ["individual", 1, false],
+  ["partnership", 1, false],
+  ["partnership", 3, true],
+  ["partnership", 4, true],
 ] as const)(
-  "cascades every concealed foot card for partnership bot seat %s after its last meld lands (book: %s)",
-  async (seat, closeBook) => {
+  "cascades the foot once in %s for bot seat %s while it immediately melds from the foot (book: %s)",
+  async (mode, seat, closeBook) => {
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
       function (this: Element) {
         if (this.matches(".game-header")) return new DOMRect(0, 0, 1000, 200);
@@ -667,10 +668,10 @@ it.each([
       },
     );
     const [before, ready] = pair("play");
-    before.scoringMode = "partnership";
+    before.scoringMode = mode;
     before.players = before.players.map((player, index) => ({
       ...player,
-      team: index % 3,
+      team: mode === "partnership" ? index % 3 : index,
     }));
     const owner = before.players[seat];
     before.actorId = owner.id;
@@ -695,11 +696,13 @@ it.each([
         ? { cards: [...meld.cards, ...extra], complete: true, bonus: 500 }
         : {}),
     }));
-    before.sides = before.sides.slice(0, 3).map((side) => ({
-      ...side,
-      opened: true,
-      melds: side.id === owner.team ? melds : [],
-    }));
+    before.sides = before.sides
+      .slice(0, mode === "partnership" ? 3 : 6)
+      .map((side) => ({
+        ...side,
+        opened: true,
+        melds: side.id === owner.team ? melds : [],
+      }));
     const after: Snapshot = {
       ...before,
       revision: 2,
@@ -761,16 +764,53 @@ it.each([
       ),
     ).toBe(true);
     expect(document.querySelector(".public-hand-cards .card-art")).toBeNull();
-    await refresh({
+    const notice = document.querySelector(".foot-pickup-notice");
+    expect(notice?.textContent).toBe(`${owner.name} picked up their foot!`);
+    await advance(FOOT_GATHER_DELAY_MS);
+    const footCardsPlayed = closeBook ? 4 : 3;
+    const played: Snapshot = {
       ...after,
       revision: 3,
+      token: "bot-meld-from-foot",
       players: after.players.map((player) =>
-        player.id === owner.id ? { ...player, handCount: 8 } : player,
+        player.id === owner.id
+          ? { ...player, handCount: 11 - footCardsPlayed }
+          : player,
       ),
-    });
+      sides: after.sides.map((side) => ({
+        ...side,
+        melds: side.melds.map((meld) =>
+          meld.rank === "9"
+            ? {
+                ...meld,
+                complete: closeBook,
+                bonus: closeBook ? 500 : 0,
+                cards: [
+                  ...meld.cards,
+                  ...Array.from({ length: footCardsPlayed }, (_, index) => ({
+                    ...meld.cards[0],
+                    id: `bot-foot-nine-${index}`,
+                  })),
+                ],
+              }
+            : meld,
+        ),
+      })),
+    };
+    await refresh(played);
+    expect(document.querySelector(".meld-card-flight")).toBeTruthy();
+    expect(document.querySelector(".foot-pickup-notice")).toBe(notice);
+    expect(
+      document.querySelector('.foot-transition[data-gathering="true"]'),
+    ).toBeTruthy();
     expect(publicHandSlots(document.querySelector(".game-page"))).toHaveLength(
       11,
     );
+    await advance(MELD_FLIGHT_MS);
+    expect(document.querySelector(".foot-pickup-notice")).toBe(notice);
+    expect(
+      sound.play.mock.calls.filter(([name]) => name === "deal"),
+    ).toHaveLength(1);
     let finish: (() => void) | undefined;
     if (seat === 1 && !closeBook) {
       const finished = new Promise<void>((resolve) => {
@@ -778,7 +818,9 @@ it.each([
       });
       cards[0].getAnimations = () => [{ finished } as unknown as Animation];
     }
-    await advance(footGatherDuration(11));
+    await advance(
+      footGatherDuration(11) - FOOT_GATHER_DELAY_MS - MELD_FLIGHT_MS,
+    );
     if (finish) {
       expect(
         document.querySelector('.foot-transition[data-gathering="true"]'),
@@ -788,6 +830,16 @@ it.each([
     expect(
       document.querySelector('.foot-transition[data-gathering="true"]'),
     ).toBeNull();
+    expect(document.querySelector(".foot-pickup-notice")).toBeNull();
+    expect(publicHandSlots(document.querySelector(".game-page"))).toHaveLength(
+      11 - footCardsPlayed,
+    );
+    if (closeBook) await advance(BOOK_CLOSE_MS);
+    await refresh({ ...played, revision: 4 });
+    expect(document.querySelector(".foot-pickup-notice")).toBeNull();
+    expect(
+      sound.play.mock.calls.filter(([name]) => name === "deal"),
+    ).toHaveLength(1);
   },
 );
 

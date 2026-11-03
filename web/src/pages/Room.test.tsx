@@ -846,16 +846,21 @@ it.each([
         fireEvent.click(card);
       fireEvent.click(screen.getByRole("button", { name: "Stage meld" }));
     }
+    expect(screen.queryByRole("tooltip")).toBeNull();
     stageRank(firstRank);
     const play = screen.getByRole("button", {
       name: "Play draft",
     }) as HTMLButtonElement;
     expect(play.disabled).toBe(true);
+    expect(screen.queryByRole("tooltip")).toBeNull();
     fireEvent.click(play);
-    fireEvent.mouseEnter(screen.getByRole("group", { name: "Play draft" }));
+    const playControl = screen.getByRole("group", { name: "Play draft" });
+    fireEvent.mouseEnter(playControl);
     expect(screen.getByRole("tooltip").textContent).toBe(
       `Meld must be greater than or equal to ${minimum} points`,
     );
+    fireEvent.mouseLeave(playControl);
+    expect(screen.queryByRole("tooltip")).toBeNull();
     expect(command).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Clear draft" }));
     expect(
@@ -1230,7 +1235,12 @@ it("announces choosing a hand separately from the first playable turn", async ()
   expect(play).toHaveBeenCalledTimes(2);
 });
 
-it.each(["uniform", "players"])("uses the viewed player's deck and face-down discard only for players display (%s)", async mode => {
+it.each([
+  { mode: "uniform", bot: false, expected: "royal-fan" },
+  { mode: "players", bot: false, expected: "ginkgo" },
+  { mode: "uniform", bot: true, expected: "royal-fan" },
+  { mode: "players", bot: true, expected: "royal-fan" },
+])("uses the viewed player's design or your design for bots ($mode, bot: $bot)", async ({ mode, bot, expected }) => {
   cardSettings.cardBack = "royal-fan";
   cardSettings.displayMode = mode;
   const snapshot = fixture();
@@ -1238,7 +1248,8 @@ it.each(["uniform", "players"])("uses the viewed player's deck and face-down dis
   snapshot.discardFaceDown = true;
   snapshot.discardCount = 1;
   snapshot.players[0].cardBack = "royal-fan";
-  snapshot.players[1].cardBack = "ginkgo";
+  snapshot.players[1].bot = bot;
+  snapshot.players[1].cardBack = bot ? "single-leaves" : "ginkgo";
   vi.mocked(getRoom).mockResolvedValue(snapshot);
   openRoom();
   await screen.findByRole("region", { name: "Your board" });
@@ -1247,24 +1258,30 @@ it.each(["uniform", "players"])("uses the viewed player's deck and face-down dis
   expect(designs()).toEqual(["royal-fan", "royal-fan"]);
   piles.querySelectorAll("img").forEach(image => fireEvent.load(image));
   fireEvent.click(screen.getByRole("button", { name: "Next board" }));
-  expect(designs()).toEqual(Array(2).fill(mode === "players" ? "ginkgo" : "royal-fan"));
-  expect(piles.querySelectorAll('[data-back-layer="previous"]')).toHaveLength(mode === "players" ? 2 : 0);
+  expect(designs()).toEqual(Array(2).fill(expected));
+  expect(piles.querySelectorAll('[data-back-layer="previous"]')).toHaveLength(expected === "ginkgo" ? 2 : 0);
+  const hand = screen.getByRole("region", { name: "Poppy’s hand" });
+  expect([...hand.querySelectorAll<HTMLElement>(".public-hand-cards [data-card-back]")].map(card => card.dataset.cardBack)).toEqual(Array(11).fill(expected));
+  const foot = within(hand).getByRole("group", { name: "Poppy’s foot, 11 cards" });
+  expect([...foot.querySelectorAll<HTMLElement>("[data-card-back]")].map(card => card.dataset.cardBack)).toEqual(Array(3).fill(expected));
   fireEvent.click(screen.getByRole("button", { name: "Previous board" }));
   expect(designs()).toEqual(["royal-fan", "royal-fan"]);
 });
 
-it("follows the selected partner's back within a shared team board", async () => {
+it.each([false, true])("uses the selected partner's design or your design for a bot partner (bot: %s)", async bot => {
   cardSettings.cardBack = "royal-fan";
   cardSettings.displayMode = "players";
   const snapshot = partnershipFixture();
   snapshot.players[0].cardBack = "royal-fan";
-  snapshot.players.find(player => player.id === "alex")!.cardBack = "fern-sprig";
+  const partner = snapshot.players.find(player => player.id === "alex")!;
+  partner.bot = bot;
+  partner.cardBack = "fern-sprig";
   vi.mocked(getRoom).mockResolvedValue(snapshot);
   openRoom();
   await screen.findByRole("region", { name: "Your board" });
   const hands = screen.getAllByRole("group", { name: "Player hands" });
   fireEvent.click(within(hands[0]).getByRole("button", { name: /^View Alex/ }));
-  expect(screen.getByRole("group", { name: "Draw piles" }).querySelector("[data-card-back]")?.getAttribute("data-card-back")).toBe("fern-sprig");
+  expect(screen.getByRole("group", { name: "Draw piles" }).querySelector("[data-card-back]")?.getAttribute("data-card-back")).toBe(bot ? "royal-fan" : "fern-sprig");
 });
 
 it("browses individual boards with their concealed hands and a real follow checkbox", async () => {

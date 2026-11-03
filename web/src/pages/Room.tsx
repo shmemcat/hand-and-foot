@@ -89,6 +89,7 @@ import { useRedThreeCelebration } from "../hooks/useRedThreeCelebration";
 import { useSound } from "../context/SoundContext";
 import { useAuth } from "../context/AuthContext";
 import { usePreferences } from "../context/PreferencesContext";
+import { playerCardBack } from "../lib/cardBacks";
 import type { Card as Face, Draft, Meld, Player, Snapshot } from "../types";
 const rankOrder = [
   "Joker",
@@ -1062,7 +1063,7 @@ export function Room() {
         }
         count={footerFootSource?.count ?? footerPlayer.footCount}
         owner={viewingOwnHand ? "Your" : `${footerPlayer.name}’s`}
-        ownerBack={footerPlayer.cardBack ?? "single-leaves"}
+        ownerBack={playerCardBack(footerPlayer)}
       />
     ) : null;
   const ownHandTitle =
@@ -1330,7 +1331,7 @@ export function Room() {
                 <span className="draw-deck-cards">
                   <Card
                     small
-                    ownerBack={boardPlayer?.cardBack ?? "single-leaves"}
+                    ownerBack={playerCardBack(boardPlayer)}
                     fadeBack
                   />
                   {motion?.deckOverlay}
@@ -1384,7 +1385,7 @@ export function Room() {
                     >
                       <Card
                         small
-                        ownerBack={boardPlayer?.cardBack ?? "single-leaves"}
+                        ownerBack={playerCardBack(boardPlayer)}
                         fadeBack
                       />
                     </span>
@@ -1707,7 +1708,7 @@ export function Room() {
             }
             foot={footerFoot}
             publicPlayerId={viewingOwnHand ? undefined : footerPlayer?.id}
-            ownerBack={footerPlayer?.cardBack ?? "single-leaves"}
+            ownerBack={playerCardBack(footerPlayer)}
             publicSlots={
               viewingOwnHand || review ? undefined : concealedHand.slots
             }
@@ -2071,7 +2072,6 @@ export function Room() {
                         minimum={ownSide.opened ? null : ownSide.opening}
                         blocked={!canStage || (pickup && !discardIsStaged)}
                         blockedReason={draftRequirement}
-                        showRequirement
                         onPlay={() =>
                           void act(pickup ? "pickup" : "meld", {
                             groups: drafts,
@@ -2137,7 +2137,7 @@ export function Room() {
             ) : (
               <PublicHand
                 playerId={footerPlayer!.id}
-                ownerBack={footerPlayer?.cardBack ?? "single-leaves"}
+                ownerBack={playerCardBack(footerPlayer)}
                 title={footerTitle}
                 count={
                   revealedCards?.length ??

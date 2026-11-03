@@ -5,7 +5,6 @@ export function PlayDraftButton({
   total,
   minimum,
   onPlay,
-  showRequirement = false,
   blocked = false,
   blockedReason = null,
 }: {
@@ -13,16 +12,18 @@ export function PlayDraftButton({
   total: number;
   minimum: number | null;
   onPlay: () => void;
-  showRequirement?: boolean;
   blocked?: boolean;
   blockedReason?: string | null;
 }) {
   const tooltipId = useId();
   const [open, setOpen] = useState(false);
-  const belowMinimum = minimum !== null && total < minimum;
-  const requirement = belowMinimum
-    ? `Meld must be greater than or equal to ${minimum} points`
-    : blockedReason;
+  const belowMinimum = count > 0 && minimum !== null && total < minimum;
+  const requirement =
+    count === 0
+      ? null
+      : belowMinimum
+        ? `Meld must be greater than or equal to ${minimum} points`
+        : blockedReason;
   const disabled = count === 0 || Boolean(requirement) || blocked;
   return (
     <span
@@ -35,15 +36,8 @@ export function PlayDraftButton({
       data-requirement-blocked={Boolean(requirement)}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-      onClick={() => requirement && setOpen(true)}
       onKeyDown={(event) => {
         if (event.key === "Escape") setOpen(false);
-        if (requirement && ["Enter", " "].includes(event.key)) {
-          event.preventDefault();
-          setOpen(true);
-        }
       }}
     >
       <button
@@ -61,7 +55,7 @@ export function PlayDraftButton({
           className="opening-requirement-tooltip"
           role="tooltip"
           id={tooltipId}
-          hidden={!open && !showRequirement}
+          hidden={!open}
         >
           {requirement}
         </span>

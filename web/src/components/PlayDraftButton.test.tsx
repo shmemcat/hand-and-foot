@@ -21,12 +21,15 @@ it.each([50, 90, 120])(
     fireEvent.click(button);
     fireEvent.click(control);
     expect(onPlay).not.toHaveBeenCalled();
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    fireEvent.mouseEnter(control);
     expect(screen.getByRole("tooltip").textContent).toBe(
       `Meld must be greater than or equal to ${minimum} points`,
     );
     fireEvent.keyDown(control, { key: "Escape" });
     expect(screen.queryByRole("tooltip")).toBeNull();
-    fireEvent.focus(control);
+    fireEvent.mouseLeave(control);
+    fireEvent.mouseEnter(control);
     expect(screen.getByRole("tooltip")).toBeTruthy();
     view.rerender(
       <PlayDraftButton
@@ -44,16 +47,34 @@ it.each([50, 90, 120])(
   },
 );
 
-it("shows the requirement on hover and hides it when the pointer leaves", () => {
-  render(
-    <PlayDraftButton count={1} total={30} minimum={50} onPlay={vi.fn()} />,
+it("only shows the requirement while hovering a disabled draft with staged cards", () => {
+  const onPlay = vi.fn();
+  const view = render(
+    <PlayDraftButton count={0} total={0} minimum={50} onPlay={onPlay} />,
   );
   const control = screen.getByRole("group", { name: "Play draft" });
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.mouseEnter(control);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.mouseLeave(control);
+  view.rerender(
+    <PlayDraftButton count={1} total={30} minimum={50} onPlay={onPlay} />,
+  );
+  fireEvent.focus(control);
+  fireEvent.click(control);
+  fireEvent.keyDown(control, { key: "Enter" });
+  fireEvent.keyDown(control, { key: " " });
   expect(screen.queryByRole("tooltip")).toBeNull();
   fireEvent.mouseEnter(control);
   expect(screen.getByRole("tooltip")).toBeTruthy();
   fireEvent.mouseLeave(control);
   expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.mouseEnter(control);
+  view.rerender(
+    <PlayDraftButton count={0} total={0} minimum={50} onPlay={onPlay} />,
+  );
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  expect(onPlay).not.toHaveBeenCalled();
 });
 
 it("allows smaller subsequent melds but never submits an empty draft", () => {
@@ -74,7 +95,7 @@ it("allows smaller subsequent melds but never submits an empty draft", () => {
   expect(onPlay).toHaveBeenCalledOnce();
 });
 
-it("explains a blocked going-out draft on hover and keyboard focus", () => {
+it("explains a blocked going-out draft on hover", () => {
   const onPlay = vi.fn();
   const message =
     "You need a clean book and a dirty book to go out. Keep one card after discarding.";
@@ -89,10 +110,9 @@ it("explains a blocked going-out draft on hover and keyboard focus", () => {
   );
   const control = screen.getByRole("group", { name: "Play draft" });
   expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.mouseEnter(control);
-  expect(screen.getByRole("tooltip").textContent).toBe(message);
-  fireEvent.mouseLeave(control);
   fireEvent.focus(control);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  fireEvent.mouseEnter(control);
   expect(screen.getByRole("tooltip").textContent).toBe(message);
   fireEvent.keyDown(control, { key: "Escape" });
   expect(screen.queryByRole("tooltip")).toBeNull();

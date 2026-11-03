@@ -1,5 +1,6 @@
 // Approved card-back collection.
 import { asset } from "./assets";
+import type { Player } from "../types";
 
 export const DEFAULT_CARD_BACK = "single-leaves";
 export const CARD_BACKS = [
@@ -150,6 +151,10 @@ export function normalizeCardBack(value: unknown): CardBackId {
   return CARD_BACKS.some((back) => back.id === value)
     ? (value as CardBackId)
     : DEFAULT_CARD_BACK;
+}
+export function playerCardBack(player?: Player): CardBackId | undefined {
+  // Bots inherit the viewer's selection rather than owning a design.
+  return player?.bot ? undefined : normalizeCardBack(player?.cardBack);
 }
 export function cardBackAsset(
   value: unknown,
