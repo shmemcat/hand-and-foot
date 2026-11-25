@@ -12,5 +12,6 @@ api/.pytest_cache/
 .local/
 *.tsbuildinfo
 docs/
+/AGENTS.md
 
 release-artifacts/
